@@ -1,0 +1,27 @@
+<x-component-def name="auth">
+    <x-component name="account">
+        <x-insert>
+            <x-component name="email_check" />
+            <div class="py-2 px-2 flex flex-col max-w-xl justify-center">
+                <div class="w-full text-left">
+                    <div>
+                        <h1 class="text-3xl font-bold tracking-wide text-white">
+                            Welcome to
+                            <span class="text-3xl font-semibold text-[#01B269] font-agbalumo ml-2">Little Chef</span>
+                        </h1>
+                        <p class="text-base font-light text-[#bbbbbb] pt-2">Exceptional Food, Exclusive Flavors.</p>
+                    </div>
+                    <div class="relative mt-6">
+                        <img src="https://images.pexels.com/photos/1346382/pexels-photo-1346382.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" alt="Delicious food" class="rounded-lg shadow-lg object-cover h-[50vh] w-[100vw]" />
+                        <div class="absolute top-8 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-black bg-opacity-70 rounded-full flex items-center justify-center">
+                            <img src="https://s3.eu-north-1.amazonaws.com/littlechef.app/logo.svg" class="p-2 pt-1.5 object-contain" />
+                        </div>
+                    </div>
+                    <div class="mt-8 space-y-4">
+                        <button id="openAuthDrawer" class="w-full py-3 px-6 bg-[#01B269] text-[#101014] font-medium text-base rounded-lg transition-all ease-in-out duration-200 font-semibold">Authenticate with email</button>
+                    </div>
+                </div>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

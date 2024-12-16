@@ -1,0 +1,38 @@
+<x-component-def name="email_check">
+    <x-component name="full_view_drawer">
+        <x-insert>auth_drawer</x-insert>
+        <x-insert>closeAuthDrawer</x-insert>
+        <x-insert>
+            <div id="next-form"></div>
+            <div hx-ext="response-targets">
+                <form id="check-email-form" hx-post="/auth/check-email" hx-swap="innerHTML" hx-target="#next-form" hx-on::after-swap="openRegisterDrawer()" hx-select-oob="#email-validation-error" hx-target-error="#check-email-form">
+                    <div class="mt-8">
+                        <div class="relative float-label-input">
+                            <input id="auth-email" name="email" type="email" class="w-full h-14 px-4 pt-2 bg-[#1A1A1A] text-base text-white rounded-lg focus:ring-[#01B269] border border-[#3C3C3C]" placeholder=" " autocomplete="on" />
+                            <label for="email" class="absolute left-4 top-4 text-[#787878] transition-all duration-200 pointer-events-none"> Email </label>
+                            <svg id="clear-icon" class="absolute right-4 top-7 transform -translate-y-1/2 text-[#888888] cursor-pointer w-7 h-7" xmlns="http://www.w3.org/2000/svg" style="visibility: hidden" viewBox="0 0 26 26">
+                                <path
+                                    fill-rule="evenodd"
+                                    clip-rule="evenodd"
+                                    d="M13 0C5.82 0 0 5.82 0 13C0 20.18 5.82 26 13 26C20.18 26 26 20.18 26 13C26 5.82 20.18 0 13 0ZM10.7067 9.29333C10.6151 9.19508 10.5047 9.11628 10.3821 9.06163C10.2594 9.00697 10.127 8.97758 9.9927 8.97521C9.85843 8.97284 9.72505 8.99754 9.60054 9.04784C9.47602 9.09813 9.36291 9.17299 9.26795 9.26795C9.17299 9.36291 9.09813 9.47602 9.04784 9.60054C8.99754 9.72505 8.97284 9.85843 8.97521 9.9927C8.97758 10.127 9.00697 10.2594 9.06163 10.3821C9.11628 10.5047 9.19508 10.6151 9.29333 10.7067L11.5867 13L9.29333 15.2933C9.19508 15.3849 9.11628 15.4953 9.06163 15.6179C9.00697 15.7406 8.97758 15.873 8.97521 16.0073C8.97284 16.1416 8.99754 16.2749 9.04784 16.3995C9.09813 16.524 9.17299 16.6371 9.26795 16.7321C9.36291 16.827 9.47602 16.9019 9.60054 16.9522C9.72505 17.0025 9.85843 17.0272 9.9927 17.0248C10.127 17.0224 10.2594 16.993 10.3821 16.9384C10.5047 16.8837 10.6151 16.8049 10.7067 16.7067L13 14.4133L15.2933 16.7067C15.3849 16.8049 15.4953 16.8837 15.6179 16.9384C15.7406 16.993 15.873 17.0224 16.0073 17.0248C16.1416 17.0272 16.2749 17.0025 16.3995 16.9522C16.524 16.9019 16.6371 16.827 16.7321 16.7321C16.827 16.6371 16.9019 16.524 16.9522 16.3995C17.0025 16.2749 17.0272 16.1416 17.0248 16.0073C17.0224 15.873 16.993 15.7406 16.9384 15.6179C16.8837 15.4953 16.8049 15.3849 16.7067 15.2933L14.4133 13L16.7067 10.7067C16.8049 10.6151 16.8837 10.5047 16.9384 10.3821C16.993 10.2594 17.0224 10.127 17.0248 9.9927C17.0272 9.85843 17.0025 9.72505 16.9522 9.60054C16.9019 9.47602 16.827 9.36291 16.7321 9.26795C16.6371 9.17299 16.524 9.09813 16.3995 9.04784C16.2749 8.99754 16.1416 8.97284 16.0073 8.97521C15.873 8.97758 15.7406 9.00697 15.6179 9.06163C15.4953 9.11628 15.3849 9.19508 15.2933 9.29333L13 11.5867L10.7067 9.29333Z"
+                                    fill="#3C3C3C"
+                                />
+                            </svg>
+                            <div id="email-validation-error"></div>
+                        </div>
+                        <p class="text-sm text-[#c3c3c3] mt-2 text-left">We can check whether you have an account</p>
+                    </div>
+                    <div class="mt-8 space-y-4">
+                        <button type="submit" class="continue-btn w-full py-3 px-6 bg-[#01B269] text-[#101014] font-medium text-base rounded-lg transition-all ease-in-out duration-200 font-semibold">Continue</button>
+                    </div>
+                </form>
+            </div>
+            <script src="public/views/auth/index.js"></script>
+            <link rel="stylesheet" href="public/views/auth/index.css" />
+        </x-insert>
+    </x-component>
+</x-component-def>
+
+<x-component-def name="email_check_error">
+    <div id="email-validation-error" class="mt-1 text-sm text-red-600"><x-val name="email_validation_error_message" /></div>
+</x-component-def>

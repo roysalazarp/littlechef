@@ -1,0 +1,13 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 1000
+AlignConsecutiveAssignments: false
+AlignTrailingComments: true
+IndentCaseLabels: true
+SpaceBeforeAssignmentOperators: true
+SpaceAfterCStyleCast: false
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+BinPackStructs: false

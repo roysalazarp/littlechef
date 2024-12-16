@@ -1,0 +1,12 @@
+<x-component-def name="layout">
+    <div class="w-full text-white flex flex-col items-center h-svh">
+        <div class="relative w-full max-w-xl bg-black text-white flex flex-col items-center overflow-y-scroll flex-1">
+            <div class="transition-bg no-transition-bg"></div>
+            %x-slot%
+        </div>
+        <div class="w-full max-w-xl">
+            <x-component name="bottom_nav" />
+        </div>
+    </div>
+    <script src="/public/index.js"></script>
+</x-component-def>

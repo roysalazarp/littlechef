@@ -16,6 +16,12 @@ jmp_buf db_ctx;
 
 volatile sig_atomic_t keep_running = 1;
 
+#ifdef DEV
+boolean dev_mode = true;
+#else
+boolean dev_mode = false;
+#endif
+
 int main() {
     int i;
 

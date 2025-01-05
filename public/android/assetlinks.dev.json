@@ -1,0 +1,10 @@
+[
+    {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "dev.github.app.glorious_lamp_g7jgvqpgwxg2px_8080.twa",
+            "sha256_cert_fingerprints": ["3E:6F:B3:89:14:90:54:16:8F:18:58:42:78:97:AC:39:0F:EE:C1:F7:42:94:3F:5C:7D:7D:92:62:18:82:56:59"]
+        }
+    }
+]

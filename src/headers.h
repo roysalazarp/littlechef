@@ -301,4 +301,6 @@ extern jmp_buf db_ctx;
 
 extern volatile sig_atomic_t keep_running;
 
+extern boolean dev_mode;
+
 #endif

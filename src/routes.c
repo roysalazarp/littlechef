@@ -122,12 +122,19 @@ void router(RequestCtx request_ctx) {
     String url = find_http_request_value("URL", request);
 
     if (strncmp(url.start_addr, URL("/.well-known/assetlinks.json"), strlen(URL("/.well-known/assetlinks.json"))) == 0 && strncmp(method.start_addr, "GET", method.length) == 0) {
-        char str[] = "/public/.well-known/assetlinks.json";
-        String _url = {0};
-        _url.start_addr = str;
-        _url.length = strlen(str);
+        String path = {0};
+        char *str = NULL;
 
-        public_get(request_ctx, _url);
+        if (dev_mode) {
+            str = "/public/android/assetlinks.dev.json";
+        } else {
+            str = "/public/android/assetlinks.json";
+        }
+
+        path.start_addr = str;
+        path.length = strlen(str);
+
+        public_get(request_ctx, path);
         return;
     }
 

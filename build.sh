@@ -46,6 +46,7 @@ elif [ "$BUILD_ENV" == "dev" ]; then
         -Wno-declaration-after-statement \
         -Wno-unused-variable \
         -Wno-unused-parameter \
+        -DDEV \
         -o "$BUILD_DIR/app" \
         $SRC_FILES \
         -I./src \

@@ -5,7 +5,6 @@
     "files.associations": {
         "types.h": "c",
         "type_traits": "c",
-        "libpq-fe.h": "c",
         "array": "c",
         "compare": "c",
         "functional": "c",
@@ -17,6 +16,20 @@
         "uuid.h": "c",
         "*.tcc": "c",
         "headers.h": "c",
-        "limits.h": "c"
+        "limits.h": "c",
+        "sqlite3.h": "c",
+        "unistd.h": "c",
+        "shared.h": "c",
+        "entry.h": "c",
+        "memory.h": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utils.h": "c",
+        "db.h": "c",
+        "template_engine.h": "c",
+        "signal.h": "c",
+        "stdio.h": "c",
+        "http_utils.h": "c",
+        "errno.h": "c"
     }
 }

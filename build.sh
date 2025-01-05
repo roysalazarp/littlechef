@@ -2,82 +2,43 @@
 
 BUILD_ENV=$1
 
-# Check if the build environment is provided
-if [ -z "$BUILD_ENV" ]; then
-    echo "Error: No build environment specified. Use 'prod' or 'dev'."
-    exit 1
-fi
+APP_FILES=$(find ./src/app -name "*.c")
+SRC_FILES="$APP_FILES ./src/linux.c ./src/db.c"
 
-BUILD_DIR="./build-$BUILD_ENV"
+if [ "$BUILD_ENV" == "dev" ]; then
+    CFLAGS="-std=c89 -g -DDEBUG=1 -Wall -Wextra -Werror -pedantic -Wno-declaration-after-statement -Wno-unused-variable -Wno-unused-parameter -Wno-long-long" 
 
-rm -rf "$BUILD_DIR"
-
-# Create the build directory if it doesn't exist
-mkdir -p "$BUILD_DIR"
-
-SRC_FILES=$(find ./src -name "*.c")
-
-if [ "$BUILD_ENV" == "prod" ]; then
-    echo "Building for production..."
-  
-    gcc \
-        -O3 \
-        -std=c89 \
-        -o "$BUILD_DIR/app" \
+    gcc $CFLAGS \
         $SRC_FILES \
+        -o "littlechef-dev" \
         -I./src \
-        -I/usr/include/postgresql \
-        -lpq \
+        -I../sqlite-amalgamation-3480000 \
+        -L../sqlite-amalgamation-3480000 \
+        -lsqlite3 \
         -largon2 \
         -pthread \
-        -lcrypto \
-        -luuid
+        -lcrypto
+elif [ "$BUILD_ENV" == "prod" ]; then
+    BUILD_DIR_NAME="build"
 
-elif [ "$BUILD_ENV" == "dev" ]; then
-    echo "Building for development..."
+    rm -rf "./$BUILD_DIR_NAME"
+    mkdir -p "./$BUILD_DIR_NAME"
+    
+    CFLAGS="-std=c89 -O3 -DDEBUG=0"
 
-    gcc \
-        -std=c89 \
-        -g \
-        -Wall \
-        -Wextra \
-        -Werror \
-        -pedantic \
-        -Wno-declaration-after-statement \
-        -Wno-unused-variable \
-        -Wno-unused-parameter \
-        -o "$BUILD_DIR/app" \
+    gcc $CFLAGS \
         $SRC_FILES \
-        -I./src \
-        -I/usr/include/postgresql \
-        -lpq \
+        -o "./$BUILD_DIR_NAME/littlechef" \
+        -lsqlite3 \
         -largon2 \
         -pthread \
-        -lcrypto \
-        -luuid
+        -lcrypto
 
-else
-    echo "Invalid or no environment specified. Use 'prod' or 'dev'."
-    exit 1
+    ASSETS_SOURCE_DIR="$(pwd)/assets/"
+    DEST_DIR="$(pwd)/$BUILD_DIR_NAME/"
+
+    cp -r "$ASSETS_SOURCE_DIR" "$DEST_DIR"
+    cp ./littlechef-dev.db "$DEST_DIR"
 fi
-
-set -o allexport && source <(grep '^CMPL__' ".env.$BUILD_ENV") && set +o allexport
-
-for var in $(env | grep '^CMPL__' | cut -d= -f1); do
-    source="${!var}"  # Get the value of the environment variable
-    if [ -d "$source" ]; then
-        # If the source exists, copy it to $BUILD_DIR
-        cp -r "$source" $BUILD_DIR
-    elif [ -f "$source" ]; then
-        # If the source is a file, copy the individual file
-        target_dir="$BUILD_DIR/$(dirname "$source")"
-        mkdir -p "$target_dir"
-        cp "$source" "$target_dir/"
-    else
-        echo "Warning: $source does not exist, skipping..."
-    fi
-done
-
-cp ".env.$BUILD_ENV" "$BUILD_DIR/.env"
 
 echo "Done!"

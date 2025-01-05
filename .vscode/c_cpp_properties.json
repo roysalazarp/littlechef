@@ -2,12 +2,13 @@
     "configurations": [
         {
             "name": "Linux",
-            "includePath": ["${workspaceFolder}/**", "/usr/include/postgresql"],
+            "includePath": ["${workspaceFolder}/**", "/workspaces/sqlite-amalgamation-3480000"],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "gnu++14",
-            "intelliSenseMode": "linux-gcc-x64"
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": ["-DDEBUG=1"]
         }
     ],
     "version": 4

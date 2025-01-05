@@ -1,0 +1,254 @@
+* {
+    user-select: none;
+    -moz-user-select: none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -o-user-select: none;
+    outline: none;
+}
+
+html {
+    view-transition-name: none;
+}
+
+body {
+    font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto;
+    background-color: black;
+    height: 100dvh;
+}
+
+.font-agbalumo {
+    font-family: "Agbalumo", cursive;
+}
+
+input:disabled {
+    opacity: 1; /* required on iOS */
+}
+
+/* Prevent input box from changing color when autocomplete is active */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: #ffffff;
+    transition: background-color 5000s ease-in-out 0s;
+    box-shadow: inset 0 0 100px 100px #1a1a1a;
+}
+
+dialog:-internal-dialog-in-top-layer::backdrop {
+    background: rgba(0, 0, 0, 0.7);
+    /*
+    view-transition-name: backdrop;
+    */
+}
+
+.layout-container {
+    position: fixed;
+    top: env(safe-area-inset-top);
+    right: env(safe-area-inset-right);
+    bottom: env(safe-area-inset-bottom);
+    left: env(safe-area-inset-left);
+}
+
+.bottom-navigation-container {
+    position: fixed;
+    top: env(safe-area-inset-top);
+    right: env(safe-area-inset-right);
+    bottom: env(safe-area-inset-bottom);
+    left: env(safe-area-inset-left);
+}
+
+.app-bg {
+    position: relative;
+    background-color: #091011;
+}
+
+.app-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0px;
+    background-image: url("https://upload.wikimedia.org/wikipedia/commons/9/9a/512x512_Dissolve_Noise_Texture.png");
+    background-size: 500px;
+    background-repeat: repeat;
+    mix-blend-mode: overlay;
+    opacity: 0.15;
+    z-index: -1;
+}
+
+.modal-bg {
+    position: relative;
+    background-color: #141e1f;
+}
+
+.modal-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0px;
+    background-image: url("https://upload.wikimedia.org/wikipedia/commons/9/9a/512x512_Dissolve_Noise_Texture.png");
+    background-size: 500px;
+    background-repeat: repeat;
+    mix-blend-mode: overlay;
+    opacity: 0.05;
+}
+
+.modal {
+    position: relative;
+    inset: auto 0 0 0;
+    min-width: 100vw;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+    touch-action: none;
+    transform: translateY(0);
+    will-change: transform;
+    overflow: visible;
+}
+
+dialog[open] {
+    display: block;
+}
+
+::view-transition-group(modal-content) {
+    height: 100%;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+::view-transition-old(modal-content),
+::view-transition-new(modal-content) {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    position: fixed;
+}
+
+/*
+::view-transition-old(backdrop),
+::view-transition-new(backdrop) {
+    animation: none;
+    mix-blend-mode: normal;
+    position: fixed;
+    inset: 0;
+}
+*/
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes slide-up {
+    from {
+        transform: translateY(100%);
+    }
+    50% {
+        transform: translateY(-3%);
+    }
+    75% {
+        transform: translateY(1%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-down {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(100%);
+    }
+}
+
+::view-transition-old(modal-content) {
+    animation: 0.3s cubic-bezier(0.4, 0, 0.2, 1) both slide-down;
+}
+
+::view-transition-new(modal-content) {
+    animation: 0.5s cubic-bezier(0.4, 0, 0.2, 1) both slide-up;
+}
+
+/*
+::view-transition-old(backdrop) {
+    animation: 0.3s ease-out both fade-out;
+}
+
+::view-transition-new(backdrop) {
+    animation: 0.3s ease-out both fade-in;
+}
+*/
+
+.view {
+    position: fixed;
+    min-width: 100vw;
+    min-height: 100lvw;
+    margin: 0;
+    z-index: 50;
+}
+
+.view:modal {
+    min-width: 100%;
+    min-height: 100%;
+}
+
+::view-transition-old(view-content),
+::view-transition-new(view-content) {
+    height: 100%;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-out {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(100%);
+    }
+}
+
+::view-transition-old(view-content) {
+    animation: slide-out 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::view-transition-new(view-content) {
+    animation: slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.text-input:focus-within label,
+.text-input input:not(:placeholder-shown) + label {
+    top: 5px;
+    font-size: 11px;
+    color: #3effa2;
+}

@@ -1,0 +1,10 @@
+[
+    {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "dev.github.app.congenial_space_spoon_q7jrr5jxq4p34pjg_8080.twa",
+            "sha256_cert_fingerprints": ["91:97:85:B2:B0:B4:9E:C0:35:06:B1:F3:53:8E:5D:3A:BE:32:33:4E:AB:49:16:A4:C4:24:8D:B2:7A:79:CA:45"]
+        }
+    }
+]

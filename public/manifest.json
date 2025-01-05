@@ -1,8 +1,8 @@
 {
     "name": "Little Chef",
     "short_name": "Little Chef",
-    "scope": "https://littlechef.app/",
-    "start_url": "https://littlechef.app/",
+    "scope": "/",
+    "start_url": "/",
     "display": "standalone",
     "background_color": "#161616",
     "theme_color": "#000000",

@@ -12,13 +12,15 @@
 
 body {
     font-family: "Inter", cursive;
+    background-color: black;
+    height: 100dvh;
 }
 
 input:disabled {
     opacity: 1; /* required on iOS */
 }
 
-/* Prevent input from changing color when autocomplete is active */
+/* Prevent input box from changing color when autocomplete is active */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -30,26 +32,13 @@ input:-webkit-autofill:active {
 }
 
 dialog {
-    margin: 0;
+    min-height: 100lvh;
 }
 
-dialog:-internal-dialog-in-top-layer {
-    max-height: unset;
-}
-
-.transition-bg {
-    position: absolute;
-    width: 100%;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background: #00000000;
-    transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
-    z-index: 9999;
-    pointer-events: none;
-}
-
-.no-transition-bg {
-    background: #000000;
+.layout-container {
+    position: fixed;
+    top: env(safe-area-inset-top);
+    right: env(safe-area-inset-right);
+    bottom: env(safe-area-inset-bottom);
+    left: env(safe-area-inset-left);
 }

@@ -1,0 +1,197 @@
+<x-component-def name="ui_test">
+    <!DOCTYPE html>
+    <html lang="en">
+        <head>
+            <x-component name="head_common" />
+            <title>Little Chef - UI Test</title>
+        </head>
+        <body class="app-bg p-2">
+            <div class="flex flex-col gap-4">
+                <div class="flex gap-2">
+                    <x-component name="cart_btn" />
+                    <div class="flex transform -rotate-90">
+                        <x-component name="back_btn" />
+                    </div>
+                    <x-component name="back_btn" />
+                    <x-component name="delete_btn" />
+                </div>
+                <x-component name="view_title">
+                    <x-insert>Profile</x-insert>
+                </x-component>
+                <x-component name="section_title">
+                    <x-insert>Settings</x-insert>
+                </x-component>
+                <x-component name="description_text">
+                    <x-insert>By using this Site, you agree to be bound by, and to comply with, these Terms and Conditions. If you do not agree to these Terms and Conditions, please do not use this site.</x-insert>
+                </x-component>
+                <x-component name="primary_btn">
+                    <x-insert>some_form</x-insert>
+                    <x-insert>Continue</x-insert>
+                </x-component>
+                <x-component name="text_input" />
+                <div class="flex flex-col">
+                    <x-component name="address_item_btn" />
+                    <x-component name="address_item_btn" />
+                    <x-component name="address_item_btn" />
+                </div>
+            </div>
+            <script src="public/views/auth/index.js"></script>
+            <link rel="stylesheet" href="public/views/auth/index.css" />
+        </body>
+    </html>
+</x-component-def>
+
+<x-component-def name="text_input">
+    <div class="relative float-label-input">
+        <input id="auth-email" name="email" type="email" class="w-full h-14 px-4 pt-2 bg-[#141E1F]/80 text-[17px] text-white rounded-lg border border-[#353541] focus:outline-none caret-[#FFFFFF]" placeholder=" " autocomplete="on" />
+        <label for="email" class="absolute left-4 top-4 text-[#787878] transition-all duration-200 pointer-events-none"> Email </label>
+        <svg id="clear-icon" class="absolute right-4 top-7 transform -translate-y-1/2 text-[#888888] cursor-pointer w-7 h-7" xmlns="http://www.w3.org/2000/svg" style="visibility: hidden" viewBox="0 0 26 26">
+            <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M13 0C5.82 0 0 5.82 0 13C0 20.18 5.82 26 13 26C20.18 26 26 20.18 26 13C26 5.82 20.18 0 13 0ZM10.7067 9.29333C10.6151 9.19508 10.5047 9.11628 10.3821 9.06163C10.2594 9.00697 10.127 8.97758 9.9927 8.97521C9.85843 8.97284 9.72505 8.99754 9.60054 9.04784C9.47602 9.09813 9.36291 9.17299 9.26795 9.26795C9.17299 9.36291 9.09813 9.47602 9.04784 9.60054C8.99754 9.72505 8.97284 9.85843 8.97521 9.9927C8.97758 10.127 9.00697 10.2594 9.06163 10.3821C9.11628 10.5047 9.19508 10.6151 9.29333 10.7067L11.5867 13L9.29333 15.2933C9.19508 15.3849 9.11628 15.4953 9.06163 15.6179C9.00697 15.7406 8.97758 15.873 8.97521 16.0073C8.97284 16.1416 8.99754 16.2749 9.04784 16.3995C9.09813 16.524 9.17299 16.6371 9.26795 16.7321C9.36291 16.827 9.47602 16.9019 9.60054 16.9522C9.72505 17.0025 9.85843 17.0272 9.9927 17.0248C10.127 17.0224 10.2594 16.993 10.3821 16.9384C10.5047 16.8837 10.6151 16.8049 10.7067 16.7067L13 14.4133L15.2933 16.7067C15.3849 16.8049 15.4953 16.8837 15.6179 16.9384C15.7406 16.993 15.873 17.0224 16.0073 17.0248C16.1416 17.0272 16.2749 17.0025 16.3995 16.9522C16.524 16.9019 16.6371 16.827 16.7321 16.7321C16.827 16.6371 16.9019 16.524 16.9522 16.3995C17.0025 16.2749 17.0272 16.1416 17.0248 16.0073C17.0224 15.873 16.993 15.7406 16.9384 15.6179C16.8837 15.4953 16.8049 15.3849 16.7067 15.2933L14.4133 13L16.7067 10.7067C16.8049 10.6151 16.8837 10.5047 16.9384 10.3821C16.993 10.2594 17.0224 10.127 17.0248 9.9927C17.0272 9.85843 17.0025 9.72505 16.9522 9.60054C16.9019 9.47602 16.827 9.36291 16.7321 9.26795C16.6371 9.17299 16.524 9.09813 16.3995 9.04784C16.2749 8.99754 16.1416 8.97284 16.0073 8.97521C15.873 8.97758 15.7406 9.00697 15.6179 9.06163C15.4953 9.11628 15.3849 9.19508 15.2933 9.29333L13 11.5867L10.7067 9.29333Z"
+                fill="#505062"
+            />
+        </svg>
+        <div id="email-validation-error"></div>
+    </div>
+</x-component-def>
+
+<x-component-def name="address_item_btn">
+    <button class="border-b border-[#353541] py-4">
+        <div class="flex gap-2 text-left">
+            <x-component name="circle_icon">
+                <x-insert>bg-[#CDCDD5]</x-insert>
+                <x-insert>text-[#141E20]</x-insert>
+                <x-insert>
+                    <x-component name="house_icon" />
+                </x-insert>
+            </x-component>
+            <div class="flex-1">
+                <x-component name="description_text_semibold">
+                    <x-insert>Haavaisojantie 31</x-insert>
+                </x-component>
+                <x-component name="footnote_text_semibold">
+                    <x-insert>Home</x-insert>
+                </x-component>
+            </div>
+            <div class="flex items-center text-white rotate-180">
+                <x-component name="arrow_icon" />
+            </div>
+        </div>
+    </button>
+</x-component-def>
+
+<x-component-def name="primary_btn">
+    <button type="submit" form="%x-slot%" class="w-full h-14 text-[17px] font-semibold rounded-lg bg-[#3EFFA2] text-[#091011]">%x-slot%</button>
+</x-component-def>
+
+<x-component-def name="view_title">
+    <h1 class="text-white font-bold text-[28px]/[34px]">%x-slot%</h1>
+</x-component-def>
+
+<x-component-def name="section_title">
+    <h2 class="text-white font-semibold text-[20px]/[25px]">%x-slot%</h2>
+</x-component-def>
+
+<x-component-def name="description_text">
+    <p class="text-[#CDCDD5] font-normal text-[16px]/[22px]">%x-slot%</p>
+</x-component-def>
+
+<x-component-def name="description_text_semibold">
+    <p class="text-[#CDCDD5] font-semibold text-[16px]/[22px]">%x-slot%</p>
+</x-component-def>
+
+<x-component-def name="footnote_text">
+    <p class="text-[#CDCDD5] font-normal text-[13px]/[22px]">%x-slot%</p>
+</x-component-def>
+
+<x-component-def name="footnote_text_semibold">
+    <p class="text-[#CDCDD5] font-semibold text-[13px]/[22px]">%x-slot%</p>
+</x-component-def>
+
+<x-component-def name="delete_btn">
+    <x-component name="circle_icon_btn">
+        <x-insert>bg-[#101C1C]</x-insert>
+        <x-insert>text-white</x-insert>
+        <x-insert>
+            <x-component name="bin_icon" />
+        </x-insert>
+    </x-component>
+</x-component-def>
+
+<x-component-def name="back_btn">
+    <x-component name="circle_icon_btn">
+        <x-insert>bg-[#101C1C]</x-insert>
+        <x-insert>text-white</x-insert>
+        <x-insert>
+            <x-component name="arrow_icon" />
+        </x-insert>
+    </x-component>
+</x-component-def>
+
+<x-component-def name="cart_btn">
+    <x-component name="circle_icon_btn">
+        <x-insert>bg-[#101C1C]</x-insert>
+        <x-insert>text-white</x-insert>
+        <x-insert>
+            <x-component name="cart_icon" />
+            <x-component name="notification">
+                <x-insert>6</x-insert>
+            </x-component>
+        </x-insert>
+    </x-component>
+</x-component-def>
+
+<x-component-def name="notification">
+    <span class="absolute top-0 right-0 w-4 h-4 text-[#091011] bg-[#3EFFA2] font-agbalumo text-xs leading-[12px] rounded-full">%x-slot%</span>
+</x-component-def>
+
+<x-component-def name="circle_icon_btn">
+    <button>
+        <x-component name="circle_icon">
+            <x-insert>%x-slot%</x-insert>
+            <x-insert>%x-slot%</x-insert>
+            <x-insert>%x-slot%</x-insert>
+        </x-component>
+    </button>
+</x-component-def>
+
+<x-component-def name="circle_icon">
+    <span class="relative w-11 h-11 %x-slot% rounded-full %x-slot% flex items-center justify-center">%x-slot%</span>
+</x-component-def>
+
+<x-component-def name="cart_icon">
+    <svg width="22" height="20" viewBox="0 0 22 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+            d="M1 1H2.386C2.896 1 3.341 1.343 3.473 1.835L3.856 3.272M3.856 3.272C9.42664 3.11589 14.9919 3.73515 20.392 5.112C19.568 7.566 18.589 9.95 17.468 12.25H6.25M3.856 3.272L6.25 12.25M6.25 12.25C5.45435 12.25 4.69129 12.5661 4.12868 13.1287C3.56607 13.6913 3.25 14.4544 3.25 15.25H19M4.75 18.25C4.75 18.4489 4.67098 18.6397 4.53033 18.7803C4.38968 18.921 4.19891 19 4 19C3.80109 19 3.61032 18.921 3.46967 18.7803C3.32902 18.6397 3.25 18.4489 3.25 18.25C3.25 18.0511 3.32902 17.8603 3.46967 17.7197C3.61032 17.579 3.80109 17.5 4 17.5C4.19891 17.5 4.38968 17.579 4.53033 17.7197C4.67098 17.8603 4.75 18.0511 4.75 18.25ZM17.5 18.25C17.5 18.4489 17.421 18.6397 17.2803 18.7803C17.1397 18.921 16.9489 19 16.75 19C16.5511 19 16.3603 18.921 16.2197 18.7803C16.079 18.6397 16 18.4489 16 18.25C16 18.0511 16.079 17.8603 16.2197 17.7197C16.3603 17.579 16.5511 17.5 16.75 17.5C16.9489 17.5 17.1397 17.579 17.2803 17.7197C17.421 17.8603 17.5 18.0511 17.5 18.25Z"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        />
+    </svg>
+</x-component-def>
+
+<x-component-def name="arrow_icon">
+    <svg width="10" height="17" viewBox="0 0 10 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8.5 16L1 8.5L8.5 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+</x-component-def>
+
+<x-component-def name="bin_icon">
+    <svg width="18" height="21" viewBox="0 0 18 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M13.5 2.97795V3.20495C14.799 3.32373 16.0927 3.49454 17.378 3.71695C17.4751 3.73376 17.5678 3.76952 17.6511 3.82218C17.7343 3.87485 17.8063 3.9434 17.8631 4.02391C17.9198 4.10441 17.9601 4.19531 17.9817 4.2914C18.0033 4.38749 18.0058 4.4869 17.989 4.58395C17.9722 4.68099 17.9364 4.77378 17.8838 4.85701C17.8311 4.94023 17.7626 5.01227 17.682 5.06901C17.6015 5.12575 17.5106 5.16607 17.4146 5.18768C17.3185 5.20929 17.2191 5.21176 17.122 5.19495L16.913 5.15995L15.908 18.2299C15.8501 18.9835 15.5098 19.6875 14.9553 20.201C14.4008 20.7146 13.6728 20.9999 12.917 20.9999H5.08401C4.3282 20.9999 3.60026 20.7146 3.04573 20.201C2.4912 19.6875 2.15095 18.9835 2.09301 18.2299L1.08701 5.15995L0.878007 5.19495C0.78096 5.21176 0.681552 5.20929 0.58546 5.18768C0.489368 5.16607 0.398473 5.12575 0.317964 5.06901C0.15537 4.95442 0.0449542 4.77994 0.0110065 4.58395C-0.0229412 4.38795 0.0223602 4.1865 0.136945 4.02391C0.25153 3.86131 0.426012 3.7509 0.622007 3.71695C1.90727 3.49427 3.20099 3.32347 4.50001 3.20495V2.97795C4.50001 1.41395 5.71301 0.077948 7.31601 0.026948C8.43872 -0.00898265 9.56229 -0.00898265 10.685 0.026948C12.288 0.077948 13.5 1.41395 13.5 2.97795ZM7.36401 1.52595C8.45473 1.49106 9.54629 1.49106 10.637 1.52595C11.39 1.54995 12 2.18395 12 2.97795V3.09095C10.0018 2.96959 7.99817 2.96959 6.00001 3.09095V2.97795C6.00001 2.18395 6.60901 1.54995 7.36401 1.52595ZM7.00901 7.47095C7.0052 7.37246 6.98203 7.27568 6.94082 7.18614C6.89961 7.09661 6.84117 7.01606 6.76883 6.94911C6.69649 6.88216 6.61168 6.83011 6.51923 6.79594C6.42678 6.76177 6.3285 6.74614 6.23001 6.74995C6.13152 6.75376 6.03474 6.77693 5.9452 6.81814C5.85567 6.85935 5.77512 6.91779 5.70817 6.99012C5.64122 7.06246 5.58917 7.14728 5.555 7.23973C5.52083 7.33218 5.5052 7.43046 5.50901 7.52895L5.85601 16.5289C5.8637 16.7277 5.95004 16.9153 6.09604 17.0504C6.16833 17.1173 6.25309 17.1693 6.34548 17.2035C6.43787 17.2376 6.53608 17.2533 6.63451 17.2494C6.73293 17.2456 6.82964 17.2225 6.91912 17.1813C7.0086 17.1401 7.08909 17.0817 7.15599 17.0094C7.22289 16.9371 7.27491 16.8524 7.30905 16.76C7.3432 16.6676 7.35881 16.5694 7.35501 16.4709L7.00901 7.47095ZM12.489 7.52895C12.4963 7.42857 12.4834 7.32773 12.4509 7.23246C12.4185 7.13719 12.3672 7.04942 12.3001 6.97439C12.233 6.89936 12.1515 6.8386 12.0604 6.79574C11.9694 6.75287 11.8706 6.72877 11.77 6.72488C11.6694 6.72098 11.5691 6.73737 11.475 6.77307C11.3809 6.80877 11.2949 6.86304 11.2222 6.93266C11.1496 7.00227 11.0916 7.08581 11.0519 7.17829C11.0122 7.27077 10.9915 7.3703 10.991 7.47095L10.644 16.4709C10.6363 16.6699 10.708 16.8637 10.8432 17.0098C10.9784 17.1559 11.1661 17.2423 11.365 17.2499C11.5639 17.2576 11.7577 17.186 11.9038 17.0508C12.0499 16.9156 12.1363 16.7279 12.144 16.5289L12.489 7.52895Z"
+            fill="currentColor"
+        />
+    </svg>
+</x-component-def>
+
+<x-component-def name="house_icon">
+    <svg width="24" height="22" viewBox="0 0 24 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 11.1399L11.1836 2.32413C11.6349 1.89196 12.3651 1.89196 12.8154 2.32413L22 11.1399M4.30769 8.92489V18.8925C4.30769 19.5038 4.82462 20 5.46154 20H9.69231V15.2008C9.69231 14.5894 10.2092 14.0933 10.8462 14.0933H13.1538C13.7908 14.0933 14.3077 14.5894 14.3077 15.2008V20H18.5385C19.1754 20 19.6923 19.5038 19.6923 18.8925V8.92489M8.15385 20H16.6154" stroke="currentColor" stroke-width="2.1563" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+</x-component-def>

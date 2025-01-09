@@ -21,8 +21,13 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     }
 
-    openAuthDrawerBtn.addEventListener("click", openAuthDrawer);
-    closeAuthDrawerBtn.addEventListener("click", closeAuthDrawer);
+    if (openAuthDrawerBtn) {
+        openAuthDrawerBtn.addEventListener("click", openAuthDrawer);
+    }
+
+    if (closeAuthDrawerBtn) {
+        closeAuthDrawerBtn.addEventListener("click", closeAuthDrawer);
+    }
 
     const emailInput = document.querySelector("#auth-email");
     const clearIcon = document.querySelector("#clear-icon");

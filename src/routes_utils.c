@@ -410,8 +410,6 @@ String find_cookie_value(const char *key, String cookies) {
     char *ptr = cookies.start_addr;
     char *cookies_end = cookies.start_addr + cookies.length;
 
-    char *end_sign = "\r\n";
-
     while (ptr < cookies_end) {
         if (strncmp(key, ptr, strlen(key)) == 0) {
             ptr += strlen(key);
@@ -437,7 +435,7 @@ String find_cookie_value(const char *key, String cookies) {
 
             value.start_addr = ptr;
 
-            while (*ptr != '\0' && !isspace(*ptr) && strncmp(ptr, end_sign, strlen(end_sign)) != 0) {
+            while (*ptr != '\0' && !isspace(*ptr) && *ptr != ';' && strncmp(ptr, "\r\n", strlen("\r\n")) != 0) {
                 ptr++;
             }
 

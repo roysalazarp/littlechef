@@ -39,13 +39,18 @@ int main() {
     /** To look up data stored in arena */
     arena_data = (ArenaDataLookup *)arena_alloc(arena, sizeof(ArenaDataLookup));
 
-    Dict envs = load_env_variables(ENV_FILE_PATH);
+    Dict envs = {0};
+    if (dev_mode) {
+        envs = load_env_variables("./.env.dev");
+    } else {
+        envs = load_env_variables("./.env.prod");
 
-    const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
-    load_public_files(public_base_path);
+        const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
+        load_public_files(public_base_path);
 
-    const char *html_base_path = find_value("CMPL__TEMPLATES_FOLDER", envs);
-    load_templates(html_base_path);
+        const char *html_base_path = find_value("CMPL__TEMPLATES_FOLDER", envs);
+        load_templates(html_base_path);
+    }
 
     epoll_fd = epoll_create1(0);
     assert(epoll_fd != -1);
@@ -71,11 +76,18 @@ int main() {
 
     create_connection_pool(envs);
 
-    /** Clear envs for security */
-    memset(envs.start_addr, 0, envs.end_addr - envs.start_addr);
+    if (!dev_mode) {
+        /** Clear envs for security */
+        memset(envs.start_addr, 0, envs.end_addr - envs.start_addr);
+    }
 
     struct sockaddr_in client_addr; /** Why is this needed ?? */
     socklen_t client_addr_len = sizeof(client_addr);
+
+    char *arena_freeze_ptr = NULL;
+    if (dev_mode) {
+        arena_freeze_ptr = (char *)arena->current;
+    }
 
     while (1) {
         nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, BLOCK_EXECUTION);
@@ -97,6 +109,16 @@ int main() {
 
                         int client_fd_flags = fcntl(client_fd, F_GETFL, 0);
                         assert(fcntl(client_fd, F_SETFL, client_fd_flags | O_NONBLOCK) != -1);
+
+                        if (dev_mode) {
+                            arena->current = arena_freeze_ptr;
+
+                            const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
+                            load_public_files(public_base_path);
+
+                            const char *html_base_path = find_value("CMPL__TEMPLATES_FOLDER", envs);
+                            load_templates(html_base_path);
+                        }
 
                         /** Allocate memory for handling client request */
                         Arena *scratch_arena = arena_init(PAGE_SIZE * 30);

@@ -108,8 +108,6 @@
 #define MAX_PATH_LENGTH 300
 #define MAX_FILES 20
 
-#define ENV_FILE_PATH "./.env"
-
 /*
 +-----------------------------------------------------------------------------------+
 |                                     structs                                       |

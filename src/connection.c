@@ -70,14 +70,14 @@ void create_connection_pool(Dict envs) {
 
 /**
  * Searches the connection pool for an available connection (where `client.fd` is 0) and assigns
- * the current request (represented by `scratch_arena`) to it; returns `NULL` if the pool is full.
+ * the current request (represented by `arena`) to it; returns `NULL` if the pool is full.
  *
  * Searches the request queue for an available slot (where `client.fd` is 0) and associates the
- * current request (represented by `scratch_arena`) with it, marking the request as queued;
+ * current request (represented by `arena`) with it, marking the request as queued;
  * returns a pointer to the assigned queue slot.
  */
-DBConnection *get_available_connection(Arena *scratch_arena) {
-    RequestCtx *request_ctx = (RequestCtx *)((uint8_t *)scratch_arena + (sizeof(Arena) + sizeof(Socket)));
+DBConnection *get_available_connection(Arena *arena) {
+    RequestCtx *request_ctx = (RequestCtx *)((uint8_t *)arena + (sizeof(Arena) + sizeof(Socket)));
 
     int i;
 

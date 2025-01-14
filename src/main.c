@@ -3,8 +3,10 @@
 DBConnection connection_pool[CONNECTION_POOL_SIZE];
 QueuedRequest queue[MAX_CLIENT_CONNECTIONS];
 
-Arena *arena;
-ArenaDataLookup *arena_data;
+Arena *global_arena;
+ArenaDataLookup *global_arena_data;
+
+Arena *scratch_arena;
 
 int epoll_fd;
 int nfds;
@@ -34,14 +36,19 @@ int main() {
         assert(0);
     }
 
-    arena = arena_init(PAGE_SIZE * 50);
+    scratch_arena = arena_init(PAGE_SIZE * 10);
+
+    global_arena = arena_init(PAGE_SIZE * 50);
 
     /** To look up data stored in arena */
-    arena_data = (ArenaDataLookup *)arena_alloc(arena, sizeof(ArenaDataLookup));
+    global_arena_data = (ArenaDataLookup *)arena_alloc(global_arena, sizeof(ArenaDataLookup));
 
     Dict envs = {0};
     if (dev_mode) {
         envs = load_env_variables("./.env.dev");
+
+        /** NOTE: REMOVE THE FOLLOWING CODE AFTER DEBUGGING */
+        load_templates("./templates_debug");
     } else {
         envs = load_env_variables("./.env.prod");
 
@@ -86,7 +93,7 @@ int main() {
 
     char *arena_freeze_ptr = NULL;
     if (dev_mode) {
-        arena_freeze_ptr = (char *)arena->current;
+        arena_freeze_ptr = (char *)global_arena->current;
     }
 
     while (1) {
@@ -111,7 +118,7 @@ int main() {
                         assert(fcntl(client_fd, F_SETFL, client_fd_flags | O_NONBLOCK) != -1);
 
                         if (dev_mode) {
-                            arena->current = arena_freeze_ptr;
+                            global_arena->current = arena_freeze_ptr;
 
                             const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
                             load_public_files(public_base_path);
@@ -121,14 +128,14 @@ int main() {
                         }
 
                         /** Allocate memory for handling client request */
-                        Arena *scratch_arena = arena_init(PAGE_SIZE * 30);
+                        Arena *request_arena = arena_init(PAGE_SIZE * 30);
 
-                        Socket *client_socket_info = (Socket *)arena_alloc(scratch_arena, sizeof(Socket));
+                        Socket *client_socket_info = (Socket *)arena_alloc(request_arena, sizeof(Socket));
                         client_socket_info->type = CLIENT_SOCKET;
                         client_socket_info->fd = client_fd;
 
-                        RequestCtx *request_ctx = (RequestCtx *)arena_alloc(scratch_arena, sizeof(RequestCtx));
-                        request_ctx->scratch_arena = scratch_arena;
+                        RequestCtx *request_ctx = (RequestCtx *)arena_alloc(request_arena, sizeof(RequestCtx));
+                        request_ctx->request_arena = request_arena;
                         request_ctx->client_socket = client_fd;
 
                         event.events = EPOLLIN | EPOLLET;
@@ -146,8 +153,8 @@ int main() {
 
                 case CLIENT_SOCKET: { /** Client socket (aka. client request) ready for read */
                     if (events[i].events & EPOLLIN) {
-                        Arena *scratch_arena = (Arena *)((uint8_t *)socket_info - sizeof(Arena));
-                        RequestCtx *request_ctx = (RequestCtx *)((uint8_t *)scratch_arena + (sizeof(Arena) + sizeof(Socket)));
+                        Arena *request_arena = (Arena *)((uint8_t *)socket_info - sizeof(Arena));
+                        RequestCtx *request_ctx = (RequestCtx *)((uint8_t *)request_arena + (sizeof(Arena) + sizeof(Socket)));
 
                         if (setjmp(ctx) == 0) {
                             router(*request_ctx);
@@ -218,7 +225,7 @@ int main() {
         PQfinish(connection_pool[i].conn);
     }
 
-    arena_free(arena);
+    arena_free(global_arena);
 
     return 0;
 }
@@ -243,13 +250,13 @@ Socket *create_server_socket(uint16_t port) {
 
     assert(listen(server_fd, MAX_CLIENT_CONNECTIONS) != -1);
 
-    Socket *server_socket = arena_alloc(arena, sizeof(Socket));
+    Socket *server_socket = arena_alloc(global_arena, sizeof(Socket));
     server_socket->fd = server_fd;
     server_socket->type = SERVER_SOCKET;
 
-    arena_data->socket = server_socket;
+    global_arena_data->socket = server_socket;
 
-    return arena_data->socket;
+    return global_arena_data->socket;
 }
 
 void sigint_handler(int signo) {

@@ -7,7 +7,7 @@ Dict load_env_variables(const char *filepath) {
 
     assert(file_size != 0);
 
-    char *envs = (char *)arena->current;
+    char *envs = (char *)global_arena->current;
     char *p_dict_buffer = envs;
 
     char *line = file_content;
@@ -154,7 +154,7 @@ Dict load_env_variables(const char *filepath) {
         processed_value = false;
     }
 
-    arena->current = p_dict_buffer + 1;
+    global_arena->current = p_dict_buffer + 1;
 
     free(file_content);
     file_content = NULL;
@@ -192,7 +192,7 @@ void read_file(char **buffer, long *file_size, const char *absolute_file_path) {
  * Recursively searches a directory and its subdirectories to locate files with a specified
  * `extension`. If no `extension` is provided, it retrieves all files regardless of their type.
  */
-char *locate_files(char *buffer, const char *base_path, const char *extension, uint8_t level, uint8_t *total_files, size_t *all_paths_length) {
+char *locate_files(char *buffer, const char *base_path, const char *extension, uint8_t level, size_t *all_paths_length) {
     DIR *dir = opendir(base_path);
     assert(dir != NULL);
 
@@ -205,17 +205,15 @@ char *locate_files(char *buffer, const char *base_path, const char *extension, u
             sprintf(path, "%s/%s", base_path, entry->d_name);
 
             if (stat(path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-                buffer = locate_files(buffer, path, extension, level + 1, total_files, all_paths_length);
+                buffer = locate_files(buffer, path, extension, level + 1, all_paths_length);
             } else {
                 entry_name_length = strlen(entry->d_name);
                 if ((extension == NULL) || ((entry_name_length > strlen(extension)) && (strcmp(entry->d_name + entry_name_length - strlen(extension), extension) == 0))) {
-                    assert(*total_files < MAX_FILES);
                     size_t path_len = strlen(path);
                     strcpy(buffer, path);
                     buffer[path_len] = '\0';
                     buffer += (path_len + 1);
                     (*all_paths_length) = (*all_paths_length) + (path_len + 1);
-                    (*total_files)++;
                 }
             }
         }
@@ -245,7 +243,7 @@ char *find_value(const char key[], Dict dict) {
     return NULL;
 }
 
-Dict add_key_value(const char *buffer, int key_value_pairs, ...) {
+Dict add_to_dictionary(const char *buffer, int key_value_pairs, ...) {
     va_list args;
 
     va_start(args, key_value_pairs);
@@ -267,6 +265,18 @@ Dict add_key_value(const char *buffer, int key_value_pairs, ...) {
     dict.end_addr = current;
 
     return dict;
+}
+
+uint8_t get_string_array_length(StringArray array) {
+    size_t array_length = 0;
+
+    char *ptr = array.start_addr;
+    while (ptr < array.end_addr) {
+        ptr += strlen(ptr) + 1;
+        array_length++;
+    }
+
+    return array_length;
 }
 
 uint8_t get_dictionary_size(Dict dict) {
@@ -362,6 +372,28 @@ void dump_dict(Dict dict, char dir_name[]) {
     }
 }
 
+char *get_string_at(StringArray array, uint8_t pos) {
+    uint8_t array_length = get_string_array_length(array);
+
+    if (pos > array_length) {
+        printf("You requested to get a string at pos %d, but string array only contains %d elements", pos, array_length);
+        assert(0);
+    }
+
+    char *ptr = array.start_addr;
+
+    uint8_t i;
+    for (i = 0; i < array_length; i++) {
+        if (i == pos) {
+            return ptr;
+        }
+
+        ptr += strlen(ptr) + 1;
+    }
+
+    assert(0);
+}
+
 KV get_key_value(Dict dict, uint8_t pos) {
     KV kv = {0};
 
@@ -395,8 +427,8 @@ KV get_key_value(Dict dict, uint8_t pos) {
     return kv;
 }
 
-char *copy_string(Arena *scratch_arena, String str) {
-    char *buffer = arena_alloc(scratch_arena, str.length);
+char *copy_string(Arena *arena, String str) {
+    char *buffer = arena_alloc(arena, str.length);
     memcpy(buffer, str.start_addr, str.length);
 
     return buffer;

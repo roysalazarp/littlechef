@@ -1,10 +1,10 @@
 #include "headers.h"
 
 void router(RequestCtx request_ctx) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
 
-    char *request = (char *)scratch_arena->current;
+    char *request = (char *)request_arena->current;
     request_ctx.request = request;
 
     char *tmp_request = request;
@@ -117,7 +117,7 @@ void router(RequestCtx request_ctx) {
     (*tmp_request) = '\0';
     tmp_request++;
 
-    scratch_arena->current = tmp_request;
+    request_arena->current = tmp_request;
 
     String url = find_http_request_value("URL", request);
 
@@ -208,19 +208,19 @@ void router(RequestCtx request_ctx) {
 }
 
 void public_get(RequestCtx request_ctx, String url) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
 
-    char *path = (char *)arena_alloc(scratch_arena, sizeof('.') + url.length);
+    char *path = (char *)arena_alloc(request_arena, sizeof('.') + url.length);
     char *ptr = path;
     *ptr = '.';
     ptr++;
     strncpy(ptr, url.start_addr, url.length);
 
-    char *content_type = file_content_type(scratch_arena, path);
-    char *content = find_value(path, arena_data->public_files_dict);
+    char *content_type = file_content_type(request_arena, path);
+    char *content = find_value(path, global_arena_data->public_files_dict);
 
-    char *response = (char *)scratch_arena->current;
+    char *response = (char *)request_arena->current;
 
     sprintf(response,
             "HTTP/1.1 200 OK\r\n"
@@ -230,12 +230,12 @@ void public_get(RequestCtx request_ctx, String url) {
 
     response[strlen(response)] = '\0';
 
-    scratch_arena->current = response + strlen(response) + 1;
+    request_arena->current = response + strlen(response) + 1;
 
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, NULL, client_socket);
+    request_cleanup(request_arena, NULL, client_socket);
 }
 
 /**
@@ -244,7 +244,7 @@ void public_get(RequestCtx request_ctx, String url) {
  * rendered in their respective template placeholders.
  */
 void view_get(RequestCtx request_ctx, char *view, boolean accepts_query_params) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
 
@@ -253,13 +253,13 @@ void view_get(RequestCtx request_ctx, char *view, boolean accepts_query_params) 
         String query_params = find_http_request_value("QUERY_PARAMS", request);
 
         if (query_params.length > 0) {
-            replaces = parse_and_decode_params(scratch_arena, query_params);
+            replaces = parse_and_decode_params(request_arena, query_params);
         }
     }
 
-    char *template = find_value(view, arena_data->templates);
+    char *template = find_value(view, global_arena_data->templates);
 
-    char *response = (char *)scratch_arena->current;
+    char *response = (char *)request_arena->current;
 
     sprintf(response,
             "HTTP/1.1 200 OK\r\n"
@@ -278,25 +278,25 @@ void view_get(RequestCtx request_ctx, char *view, boolean accepts_query_params) 
         replace_val(response, kv.k, kv.v);
     }
 
-    scratch_arena->current = response + strlen(response) + 1;
+    request_arena->current = response + strlen(response) + 1;
 
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, NULL, client_socket);
+    request_cleanup(request_arena, NULL, client_socket);
 }
 
 /**
  * A dummy page used for testing purposes.
  */
 void test_get(RequestCtx request_ctx) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
     DBConnection *connection = NULL;
     char *response = NULL;
 
-    connection = get_available_connection(scratch_arena);
+    connection = get_available_connection(request_arena);
 
     const char *command_1 = "SELECT * FROM app.countries WHERE id = $1 OR id = $2";
 
@@ -312,9 +312,9 @@ void test_get(RequestCtx request_ctx) {
     PGresult *result_1 = WPQsendQueryParams(connection, command_1, N2_PARAMS, paramTypes_1, paramValues_1, paramLengths_1, paramFormats_1, TEXT);
     PQclear(result_1);
 
-    char *template = find_value("test", arena_data->templates);
+    char *template = find_value("test", global_arena_data->templates);
 
-    response = (char *)scratch_arena->current;
+    response = (char *)request_arena->current;
 
     sprintf(response,
             "HTTP/1.1 200 OK\r\n"
@@ -367,28 +367,28 @@ void test_get(RequestCtx request_ctx) {
 
     render_for(response, "cells", 1, key_value);
 
-    scratch_arena->current = response + strlen(response) + 1;
+    request_arena->current = response + strlen(response) + 1;
 
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, connection, client_socket);
+    request_cleanup(request_arena, connection, client_socket);
 }
 
 void home_get(RequestCtx request_ctx) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
     DBConnection *connection = NULL;
     char *response = NULL;
 
-    connection = get_available_connection(scratch_arena);
+    connection = get_available_connection(request_arena);
 
-    char *template = find_value("home", arena_data->templates);
+    char *template = find_value("home", global_arena_data->templates);
 
     Dict user = is_authenticated(request_ctx, connection);
     if (user.start_addr) {
-        response = (char *)scratch_arena->current;
+        response = (char *)request_arena->current;
 
         sprintf(response,
                 "HTTP/1.1 200 OK\r\n"
@@ -400,12 +400,12 @@ void home_get(RequestCtx request_ctx) {
 
         /** TODO: Add some data to the "home" template that is specific to the user when logged in */
 
-        scratch_arena->current = response + strlen(response) + 1;
+        request_arena->current = response + strlen(response) + 1;
 
         goto send_response;
     }
 
-    response = (char *)scratch_arena->current;
+    response = (char *)request_arena->current;
 
     sprintf(response,
             "HTTP/1.1 200 OK\r\n"
@@ -415,30 +415,30 @@ void home_get(RequestCtx request_ctx) {
 
     response[strlen(response)] = '\0';
 
-    scratch_arena->current = response + strlen(response) + 1;
+    request_arena->current = response + strlen(response) + 1;
 
 send_response:
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, connection, client_socket);
+    request_cleanup(request_arena, connection, client_socket);
 }
 
 void account_get(RequestCtx request_ctx) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
     DBConnection *connection = NULL;
     char *response = NULL;
 
-    connection = get_available_connection(scratch_arena);
+    connection = get_available_connection(request_arena);
 
     Dict user = is_authenticated(request_ctx, connection);
     if (user.start_addr) {
-        char *template = find_value("profile", arena_data->templates);
+        char *template = find_value("profile", global_arena_data->templates);
         char *email = find_value("email", user);
 
-        response = (char *)scratch_arena->current;
+        response = (char *)request_arena->current;
 
         sprintf(response,
                 "HTTP/1.1 200 OK\r\n"
@@ -450,11 +450,11 @@ void account_get(RequestCtx request_ctx) {
 
         render_val(response, "email", email);
 
-        scratch_arena->current = response + strlen(response) + 1;
+        request_arena->current = response + strlen(response) + 1;
     } else {
-        char *template = find_value("auth", arena_data->templates);
+        char *template = find_value("auth", global_arena_data->templates);
 
-        response = (char *)scratch_arena->current;
+        response = (char *)request_arena->current;
 
         sprintf(response,
                 "HTTP/1.1 200 OK\r\n"
@@ -464,32 +464,32 @@ void account_get(RequestCtx request_ctx) {
 
         response[strlen(response)] = '\0';
 
-        scratch_arena->current = response + strlen(response) + 1;
+        request_arena->current = response + strlen(response) + 1;
     }
 
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, connection, client_socket);
+    request_cleanup(request_arena, connection, client_socket);
 }
 
 void auth_check_email_post(RequestCtx request_ctx) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
     DBConnection *connection = NULL;
     char *response = NULL;
 
     String body = find_body(request);
-    Dict params = parse_and_decode_params(scratch_arena, body);
+    Dict params = parse_and_decode_params(request_arena, body);
 
     char *email = find_value("email", params);
-    ValidationError bad_email = validate_email(scratch_arena, email);
+    ValidationError bad_email = validate_email(request_arena, email);
 
     if (bad_email) {
-        char *template = find_value("email_check_error", arena_data->templates);
+        char *template = find_value("email_check_error", global_arena_data->templates);
 
-        response = (char *)scratch_arena->current;
+        response = (char *)request_arena->current;
 
         sprintf(response,
                 "HTTP/1.1 422 Unprocessable Entity\r\n"
@@ -501,12 +501,12 @@ void auth_check_email_post(RequestCtx request_ctx) {
 
         render_val(response, "email_validation_error_message", bad_email);
 
-        scratch_arena->current = response + strlen(response) + 1;
+        request_arena->current = response + strlen(response) + 1;
 
         goto send_response;
     }
 
-    connection = get_available_connection(scratch_arena);
+    connection = get_available_connection(request_arena);
 
     const char *command_1 = "SELECT email FROM app.users WHERE email = $1";
     Oid paramTypes_1[N1_PARAMS] = {25};
@@ -523,12 +523,12 @@ void auth_check_email_post(RequestCtx request_ctx) {
     char *template = NULL;
 
     if (rows) {
-        template = find_value("login", arena_data->templates);
+        template = find_value("login", global_arena_data->templates);
     } else {
-        template = find_value("register", arena_data->templates);
+        template = find_value("register", global_arena_data->templates);
     }
 
-    response = (char *)scratch_arena->current;
+    response = (char *)request_arena->current;
 
     sprintf(response,
             "HTTP/1.1 200 OK\r\n"
@@ -540,39 +540,39 @@ void auth_check_email_post(RequestCtx request_ctx) {
 
     replace_val(response, "email", email);
 
-    scratch_arena->current = response + strlen(response) + 1;
+    request_arena->current = response + strlen(response) + 1;
 
 send_response:
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, connection, client_socket);
+    request_cleanup(request_arena, connection, client_socket);
 }
 
 void register_create_account_post(RequestCtx request_ctx) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
     DBConnection *connection = NULL;
     char *response = NULL;
 
     String body = find_body(request);
-    Dict params = parse_and_decode_params(scratch_arena, body);
+    Dict params = parse_and_decode_params(request_arena, body);
 
     char *email = find_value("email", params);
     char *password = find_value("password", params);
     char *repeat_password = find_value("password-again", params);
     char *accept_terms = find_value("accept-terms", params);
 
-    ValidationError bad_email = validate_email(scratch_arena, email);
-    ValidationError bad_password = validate_password(scratch_arena, password);
-    ValidationError bad_repeat_password = validate_repeat_password(scratch_arena, password, repeat_password);
-    ValidationError bad_accept_terms = validate_accept_terms(scratch_arena, accept_terms);
+    ValidationError bad_email = validate_email(request_arena, email);
+    ValidationError bad_password = validate_password(request_arena, password);
+    ValidationError bad_repeat_password = validate_repeat_password(request_arena, password, repeat_password);
+    ValidationError bad_accept_terms = validate_accept_terms(request_arena, accept_terms);
 
     if (bad_email || bad_password || bad_repeat_password || bad_accept_terms) {
-        char *template = find_value("register_validation_errors", arena_data->templates);
+        char *template = find_value("register_validation_errors", global_arena_data->templates);
 
-        response = (char *)scratch_arena->current;
+        response = (char *)request_arena->current;
 
         sprintf(response,
                 "HTTP/1.1 422 Unprocessable Entity\r\n"
@@ -598,12 +598,12 @@ void register_create_account_post(RequestCtx request_ctx) {
             render_val(response, "accept_terms_validation_error_message", bad_accept_terms);
         }
 
-        scratch_arena->current = response + strlen(response) + 1;
+        request_arena->current = response + strlen(response) + 1;
 
         goto send_response;
     }
 
-    connection = get_available_connection(scratch_arena);
+    connection = get_available_connection(request_arena);
 
     /** Hash user password */
     uint8_t salt[SALT_LENGTH];
@@ -665,7 +665,7 @@ void register_create_account_post(RequestCtx request_ctx) {
     char *session_id = PQgetvalue(result_2, 0, 0);
     char *expires_at = PQgetvalue(result_2, 0, 1);
 
-    response = (char *)scratch_arena->current;
+    response = (char *)request_arena->current;
 
     sprintf(response,
             "HTTP/1.1 200 OK\r\n"
@@ -673,7 +673,7 @@ void register_create_account_post(RequestCtx request_ctx) {
             "HX-Redirect: /\r\n\r\n",
             session_id, expires_at);
 
-    scratch_arena->current = response + strlen(response) + 1;
+    request_arena->current = response + strlen(response) + 1;
 
     PQclear(result_2);
 
@@ -681,11 +681,11 @@ send_response:
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, connection, client_socket);
+    request_cleanup(request_arena, connection, client_socket);
 }
 
 void logout_post(RequestCtx request_ctx) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
     DBConnection *connection = NULL;
@@ -703,7 +703,7 @@ void logout_post(RequestCtx request_ctx) {
             memset(session_id, 0, sizeof(uuid_t));
             uuid_parse(session_id_str, session_id);
 
-            connection = get_available_connection(scratch_arena);
+            connection = get_available_connection(request_arena);
 
             const char *command_1 = "DELETE FROM app.users_sessions WHERE id = $1";
 
@@ -725,26 +725,26 @@ void logout_post(RequestCtx request_ctx) {
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, connection, client_socket);
+    request_cleanup(request_arena, connection, client_socket);
 }
 
 void login_create_session_post(RequestCtx request_ctx) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
     DBConnection *connection = NULL;
     char *response = NULL;
 
     String body = find_body(request);
-    Dict params = parse_and_decode_params(scratch_arena, body);
+    Dict params = parse_and_decode_params(request_arena, body);
 
     char *password = find_value("password", params);
 
-    ValidationError bad_password = validate_password(scratch_arena, password);
+    ValidationError bad_password = validate_password(request_arena, password);
     if (bad_password) {
-        char *template = find_value("login_errors", arena_data->templates);
+        char *template = find_value("login_errors", global_arena_data->templates);
 
-        response = (char *)scratch_arena->current;
+        response = (char *)request_arena->current;
 
         sprintf(response,
                 "HTTP/1.1 422 Unprocessable Entity\r\n"
@@ -756,12 +756,12 @@ void login_create_session_post(RequestCtx request_ctx) {
 
         render_val(response, "password_validation_error_message", bad_password);
 
-        scratch_arena->current = response + strlen(response) + 1;
+        request_arena->current = response + strlen(response) + 1;
 
         goto send_response;
     }
 
-    connection = get_available_connection(scratch_arena);
+    connection = get_available_connection(request_arena);
 
     char *email = find_value("email", params);
 
@@ -780,9 +780,9 @@ void login_create_session_post(RequestCtx request_ctx) {
     if (argon2i_verify(stored_password, password, strlen(password)) != ARGON2_OK) {
         PQclear(result_1);
 
-        char *template = find_value("login_errors", arena_data->templates);
+        char *template = find_value("login_errors", global_arena_data->templates);
 
-        response = (char *)scratch_arena->current;
+        response = (char *)request_arena->current;
 
         sprintf(response,
                 "HTTP/1.1 422 Unprocessable Entity\r\n"
@@ -794,7 +794,7 @@ void login_create_session_post(RequestCtx request_ctx) {
 
         render_val(response, "wrong_password_error_message", "Incorrect password.");
 
-        scratch_arena->current = response + strlen(response) + 1;
+        request_arena->current = response + strlen(response) + 1;
 
         goto send_response;
     }
@@ -821,7 +821,7 @@ void login_create_session_post(RequestCtx request_ctx) {
     char *session_id = PQgetvalue(result_2, 0, 0);
     char *expires_at = PQgetvalue(result_2, 0, 1);
 
-    response = (char *)scratch_arena->current;
+    response = (char *)request_arena->current;
 
     sprintf(response,
             "HTTP/1.1 200 OK\r\n"
@@ -829,7 +829,7 @@ void login_create_session_post(RequestCtx request_ctx) {
             "HX-Redirect: /\r\n\r\n",
             session_id, expires_at);
 
-    scratch_arena->current = response + strlen(response) + 1;
+    request_arena->current = response + strlen(response) + 1;
 
     PQclear(result_2);
 
@@ -837,11 +837,11 @@ send_response:
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 
-    request_cleanup(scratch_arena, connection, client_socket);
+    request_cleanup(request_arena, connection, client_socket);
 }
 
 Dict is_authenticated(RequestCtx request_ctx, DBConnection *connection) {
-    Arena *scratch_arena = request_ctx.scratch_arena;
+    Arena *request_arena = request_ctx.request_arena;
     char *request = request_ctx.request;
 
     Dict user = {0};
@@ -874,14 +874,14 @@ Dict is_authenticated(RequestCtx request_ctx, DBConnection *connection) {
 
             int num_rows = PQntuples(result_1);
             if (num_rows) {
-                char *user_info = (char *)scratch_arena->current;
+                char *user_info = (char *)request_arena->current;
 
                 char *user_id = PQgetvalue(result_1, 0, 0);
                 char *user_email = PQgetvalue(result_1, 0, 1);
 
-                user = add_key_value(user_info, 2, "id", user_id, "email", user_email);
+                user = add_to_dictionary(user_info, 2, "id", user_id, "email", user_email);
 
-                scratch_arena->current = user.end_addr;
+                request_arena->current = user.end_addr;
 
                 PQclear(result_1);
 
@@ -893,9 +893,9 @@ Dict is_authenticated(RequestCtx request_ctx, DBConnection *connection) {
     return user;
 }
 
-void request_cleanup(Arena *scratch_arena, DBConnection *connection, int client_socket) {
+void request_cleanup(Arena *arena, DBConnection *connection, int client_socket) {
     close(client_socket);
-    arena_free(scratch_arena);
+    arena_free(arena);
 
     if (connection != NULL && connection->client.fd != 0) {
         uint8_t was_request_queued = connection->client.queued;
@@ -917,7 +917,7 @@ void request_cleanup(Arena *scratch_arena, DBConnection *connection, int client_
     }
 }
 
-ValidationError validate_email(Arena *scratch_arena, const char *email) {
+ValidationError validate_email(Arena *arena, const char *email) {
     regex_t regex;
 
     assert(regcomp(&regex, EMAIL_REGEX, REG_EXTENDED) == 0);
@@ -925,7 +925,7 @@ ValidationError validate_email(Arena *scratch_arena, const char *email) {
     if (regexec(&regex, email, 0, NULL, 0) == REG_NOMATCH) {
         char error[] = "Invalid email format";
         size_t error_length = strlen(error);
-        ValidationError err = arena_alloc(scratch_arena, error_length + 1);
+        ValidationError err = arena_alloc(arena, error_length + 1);
         memcpy(err, error, error_length);
 
         return err;
@@ -934,11 +934,11 @@ ValidationError validate_email(Arena *scratch_arena, const char *email) {
     return NULL;
 }
 
-ValidationError validate_password(Arena *scratch_arena, const char *password) {
+ValidationError validate_password(Arena *arena, const char *password) {
     if (strlen(password) < 4) {
         char error[] = "Password should be at least 4 characters";
         size_t error_length = strlen(error);
-        ValidationError err = arena_alloc(scratch_arena, error_length + 1);
+        ValidationError err = arena_alloc(arena, error_length + 1);
         memcpy(err, error, error_length);
 
         return err;
@@ -947,11 +947,11 @@ ValidationError validate_password(Arena *scratch_arena, const char *password) {
     return NULL;
 }
 
-ValidationError validate_repeat_password(Arena *scratch_arena, const char *password, const char *repeat_password) {
+ValidationError validate_repeat_password(Arena *arena, const char *password, const char *repeat_password) {
     if (strcmp(password, repeat_password) != 0) {
         char error[] = "Password and repeat password should match";
         size_t error_length = strlen(error);
-        ValidationError err = arena_alloc(scratch_arena, error_length + 1);
+        ValidationError err = arena_alloc(arena, error_length + 1);
         memcpy(err, error, error_length);
 
         return err;
@@ -960,11 +960,11 @@ ValidationError validate_repeat_password(Arena *scratch_arena, const char *passw
     return NULL;
 }
 
-ValidationError validate_accept_terms(Arena *scratch_arena, const char *accept_terms) {
+ValidationError validate_accept_terms(Arena *arena, const char *accept_terms) {
     if (strcmp(accept_terms, "true") != 0) {
         char error[] = "Accept Terms to proceed";
         size_t error_length = strlen(error);
-        ValidationError err = arena_alloc(scratch_arena, error_length + 1);
+        ValidationError err = arena_alloc(arena, error_length + 1);
         memcpy(err, error, error_length);
 
         return err;

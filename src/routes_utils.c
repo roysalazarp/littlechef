@@ -211,27 +211,27 @@ String find_body_value(const char key[], String body) {
  * Checks the file path's extension and returns the corresponding content type.
  * For a list of supported extensions, refer to the function implementation.
  */
-char *file_content_type(Arena *scratch_arena, const char *path) {
+char *file_content_type(Arena *arena, const char *path) {
     const char *path_end = path + strlen(path);
 
     while (path < path_end) {
         if (strncmp(path_end, ".css", strlen(".css")) == 0) {
             char type[] = "text/css";
-            char *content_type = (char *)arena_alloc(scratch_arena, sizeof(type));
+            char *content_type = (char *)arena_alloc(arena, sizeof(type));
             memcpy(content_type, &type, sizeof(type));
             return content_type;
         }
 
         if (strncmp(path_end, ".js", strlen(".js")) == 0) {
             char type[] = "text/javascript";
-            char *content_type = (char *)arena_alloc(scratch_arena, sizeof(type));
+            char *content_type = (char *)arena_alloc(arena, sizeof(type));
             memcpy(content_type, &type, sizeof(type));
             return content_type;
         }
 
         if (strncmp(path_end, ".json", strlen(".json")) == 0) {
             char type[] = "application/json";
-            char *content_type = (char *)arena_alloc(scratch_arena, sizeof(type));
+            char *content_type = (char *)arena_alloc(arena, sizeof(type));
             memcpy(content_type, &type, sizeof(type));
             return content_type;
         }
@@ -344,7 +344,7 @@ size_t url_decode_utf8(char **string, size_t length) {
 /**
  * Parses and decodes URL query or request body parameters into a dictionary.
  */
-Dict parse_and_decode_params(Arena *scratch_arena, String raw_params) {
+Dict parse_and_decode_params(Arena *arena, String raw_params) {
     Dict key_value = {0};
 
     if (raw_params.length == 0) {
@@ -354,7 +354,7 @@ Dict parse_and_decode_params(Arena *scratch_arena, String raw_params) {
     char *ptr = raw_params.start_addr;
     char *raw_params_end = raw_params.start_addr + raw_params.length;
 
-    char *params_dict = (char *)scratch_arena->current;
+    char *params_dict = (char *)arena->current;
     key_value.start_addr = params_dict;
 
     if (*ptr == '?') {
@@ -395,7 +395,7 @@ Dict parse_and_decode_params(Arena *scratch_arena, String raw_params) {
 
     key_value.end_addr = params_dict - 1; /** -1 because we (params_dict++) at the end of query (or body) param value processing */
 
-    scratch_arena->current = params_dict;
+    arena->current = params_dict;
 
     return key_value;
 }

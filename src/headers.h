@@ -87,16 +87,18 @@
 
 #define MAX_COMPONENT_NAME_LENGTH 100
 
-#define COMPONENT_DEFINITION_OPENING_TAG__START "<x-component-def name=\""
+#define COMPONENT_DEFINITION_OPENING_TAG__START "<x-component-def "
 #define COMPONENT_DEFINITION_OPENING_TAG__END "\">"
-#define COMPONENT_IMPORT_OPENING_TAG__START "<x-component name=\""
-#define OPENING_COMPONENT_IMPORT_TAG_SELF_CLOSING_END "\" />"
+#define COMPONENT_IMPORT_OPENING_TAG__START "<x-component "
+#define OPENING_COMPONENT_IMPORT_TAG_SELF_CLOSING_END " />"
 #define COMPONENT_IMPORT_OPENING_TAG__END "\">"
 #define COMPONENT_DEFINITION_CLOSING_TAG "</x-component-def>"
 #define COMPONENT_IMPORT_CLOSING_TAG "</x-component>"
 #define INSERT_OPENING_TAG "<x-insert>"
 #define INSERT_CLOSING_TAG "</x-insert>"
 #define SLOT_MARK "%x-slot%"
+#define SELF_CLOSING_TAG "/>"
+#define CLOSING_BRACKET ">"
 
 #define FOR_OPENING_TAG__START "<x-for name=\""
 #define FOR_OPENING_TAG__END "\">"
@@ -104,6 +106,20 @@
 
 #define VAL_OPENING_TAG__START "<x-val name=\""
 #define VAL_SELF_CLOSING_TAG__END "\" />"
+
+#define NAME_ATTRIBUTE_PATTERN "\\s+name\\s*=\\s*\\\"[^\\\"]*\\\""
+#define ATTRIBUTE_KEY_PATTERN "^[[:space:]]*([[:alnum:]_-]+)[[:space:]]*=" /** C regex compatible */
+#define ATTRIBUTE_VALUE_PATTERN "\\\"[^\\\"]*\\\""
+#define ATTRIBUTE_PATTERN "\\s\\w+(?:[-]\\w+)*\\s*= *\"[^\"]*\""
+#define ATTRIBUTE_PATTERN_2 "[ \t]\\w+(-\\w+)*[ \t]*=[ \t]*\"[^\"]*\""
+#define INJECT_ATTRIBUTE_PATTERN "\\sinject:\\w+(?:[-]\\w+)*\\s*= *\"[^\"]*\""
+#define INHERIT_ATTRIBUTE_PATTERN "\\sinherit:\\w+(?:[-]\\w+)*"
+#define SELF_CLOSING_TAG_PATTERN "/>"
+#define COMPONENT_IMPORT_CLOSING_TAG_PATTERN "<\\/x-component\\s*>"
+#define PLACEHOLDER_PATTERN "%[a-zA-Z0-9_-]+%"
+#define COMPONENT_IMPORT_TAG_PATTERN "<x-component "
+#define SLOT_TAG_PATTERN "<x-slot "
+#define INSERT_TAG_PATTERN "<x-insert "
 
 #define MAX_PATH_LENGTH 300
 #define MAX_FILES 20
@@ -122,12 +138,18 @@ typedef struct {
     char *end_addr;
 } CharsBlock;
 
-typedef CharsBlock Dict; /** { 'k', 'e', 'y', '\0', 'v', 'a', 'l', 'u', 'e', '\0' ... } */
+typedef CharsBlock Dict;        /** { 'k', 'e', 'y', '\0', 'v', 'a', 'l', 'u', 'e', '\0' ... } */
+typedef CharsBlock StringArray; /** { 'm', 'o', 'r', 'n', 'i', 'n', 'g', '\0', 'b', 'u', 'e', 'n', 'o', 's', ' ', 'd', 'i', 'a', 's', '\0' ...} */
 
 typedef struct {
     char *start_addr;
     size_t length;
 } String;
+
+typedef struct {
+    String k;
+    String v;
+} RO_KV; /** Read only key value */
 
 typedef struct {
     size_t size;
@@ -136,7 +158,7 @@ typedef struct {
 } Arena;
 
 typedef struct {
-    Arena *scratch_arena;
+    Arena *request_arena;
     int client_socket;
     char *request;
 } RequestCtx;
@@ -221,11 +243,13 @@ size_t render_val(char *template, char *val_name, char *value);
 size_t render_for(char *template, char *scope, int times, ...);
 size_t replace_val(char *template, char *value_name, char *value);
 size_t html_minify(char *buffer, char *html, size_t html_length);
+String find_tag_name(char *import_statement);
+char *find_component_declaration(char *string);
 
 /** connection.c */
 
 void create_connection_pool(Dict envs);
-DBConnection *get_available_connection(Arena *scratch_arena);
+DBConnection *get_available_connection(Arena *arena);
 PGresult *WPQsendQueryParams(DBConnection *connection, const char *command, int nParams, const Oid *paramTypes, const char *const *paramValues, const int *paramLengths, const int *paramFormats, int resultFormat);
 PGresult *get_result(DBConnection *connection);
 void print_query_result(PGresult *query_result);
@@ -242,40 +266,42 @@ void login_create_session_post(RequestCtx request_ctx);
 void logout_post(RequestCtx request_ctx);
 void auth_check_email_post(RequestCtx request_ctx);
 void account_get(RequestCtx request_ctx);
-void request_cleanup(Arena *scratch_arena, DBConnection *connection, int client_socket);
+void request_cleanup(Arena *arena, DBConnection *connection, int client_socket);
 Dict is_authenticated(RequestCtx request_ctx, DBConnection *connection);
 
-ValidationError validate_email(Arena *scratch_arena, const char *email);
-ValidationError validate_password(Arena *scratch_arena, const char *password);
-ValidationError validate_repeat_password(Arena *scratch_arena, const char *password, const char *repeat_password);
-ValidationError validate_accept_terms(Arena *scratch_arena, const char *accept_terms);
+ValidationError validate_email(Arena *arena, const char *email);
+ValidationError validate_password(Arena *arena, const char *password);
+ValidationError validate_repeat_password(Arena *arena, const char *password, const char *repeat_password);
+ValidationError validate_accept_terms(Arena *arena, const char *accept_terms);
 
 /** routes_utils.c */
 
 String find_http_request_value(const char key[], char *request);
 String find_body(const char *request);
 String find_body_value(const char key[], String body);
-char *file_content_type(Arena *scratch_arena, const char *path);
+char *file_content_type(Arena *arena, const char *path);
 char char_to_hex(unsigned char nibble); /** TODO: Review this function */
 char hex_to_char(unsigned char c);      /** TODO: Review this function */
 size_t url_encode_utf8(char **string, size_t length);
 size_t url_decode_utf8(char **string, size_t length);
-Dict parse_and_decode_params(Arena *scratch_arena, String raw_query_params);
+Dict parse_and_decode_params(Arena *arena, String raw_query_params);
 String find_cookie_value(const char *key, String cookies);
 
 /** utils.c */
 
 Dict load_env_variables(const char *filepath);
 void read_file(char **buffer, long *file_size, const char *absolute_file_path);
-char *locate_files(char *buffer, const char *base_path, const char *extension, uint8_t level, uint8_t *total_html_files, size_t *all_paths_length);
+char *locate_files(char *buffer, const char *base_path, const char *extension, uint8_t level, size_t *all_paths_length);
 char *find_value(const char key[], Dict dict);
 int generate_salt(uint8_t *salt, size_t salt_size);
 uint8_t get_dictionary_size(Dict dict);
+uint8_t get_string_array_length(StringArray array);
+char *get_string_at(StringArray array, uint8_t pos);
 void replace_slashes(char *str);
 void dump_dict(Dict dict, char folder_name[]);
 KV get_key_value(Dict dict, uint8_t pos);
-char *copy_string(Arena *scratch_arena, String str);
-Dict add_key_value(const char *buffer, int key_value_pairs, ...);
+char *copy_string(Arena *arena, String str);
+Dict add_to_dictionary(const char *buffer, int key_value_pairs, ...);
 
 /*
 +-----------------------------------------------------------------------------------+
@@ -286,8 +312,10 @@ Dict add_key_value(const char *buffer, int key_value_pairs, ...);
 extern DBConnection connection_pool[CONNECTION_POOL_SIZE];
 extern QueuedRequest queue[MAX_CLIENT_CONNECTIONS];
 
-extern Arena *arena;
-extern ArenaDataLookup *arena_data;
+extern Arena *global_arena;
+extern ArenaDataLookup *global_arena_data;
+
+extern Arena *scratch_arena;
 
 extern int epoll_fd;
 extern int nfds;

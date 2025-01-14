@@ -3,3 +3,4 @@ dev
 build-prod
 .env.prod
 *.pem
+memory

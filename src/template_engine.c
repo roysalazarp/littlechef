@@ -1,58 +1,56 @@
 #include "headers.h"
 
+StringArray get_files_list(Arena *arena, const char *base_path, const char *extension) {
+    StringArray files_list = {0};
+    files_list.start_addr = (char *)arena->current;
+
+    size_t all_paths_length = 0;
+    locate_files(files_list.start_addr, base_path, extension, 0, &all_paths_length);
+    files_list.end_addr = files_list.start_addr + all_paths_length - 1;
+
+    arena->current = files_list.end_addr + 1;
+
+    return files_list;
+}
+
 /**
  * Loads all public files (such as .js, .css, .json) excluding HTML files, from the specified `base_path`.
  */
-Dict load_public_files(const char *base_path) {
-    char *public_files_paths = (char *)global_arena->current;
-    size_t all_paths_length = 0;
-    locate_files(public_files_paths, base_path, NULL, 0, &all_paths_length);
-    char *public_files_paths_end = public_files_paths + all_paths_length;
-    global_arena->current = public_files_paths_end + 1;
+Dict load_public_files(Arena *arena, const char *base_path) {
+    StringArray files_list = get_files_list(scratch_arena, base_path, NULL);
 
-    char *public_files_dict = (char *)global_arena->current;
-    char *tmp_public_files_dict = public_files_dict;
-    char *tmp_public_files_paths = public_files_paths;
-    char extension[] = ".html";
-    while (tmp_public_files_paths < public_files_paths_end) {
+    Dict public_files = {0};
+    public_files.start_addr = (char *)arena->current;
+
+    uint8_t files_list_length = get_string_array_length(files_list);
+
+    char *ptr = public_files.start_addr;
+    uint8_t i;
+    for (i = 0; i < files_list_length; i++) {
+        char *path = get_string_at(files_list, i);
+
         /** NOT interested in html files */
-        if (strncmp(tmp_public_files_paths + strlen(tmp_public_files_paths) - strlen(extension), extension, strlen(extension)) == 0) {
-            tmp_public_files_paths += strlen(tmp_public_files_paths) + 1;
+        if (strncmp(path + strlen(path) - strlen(".html"), ".html", strlen(".html")) == 0) {
             continue;
         }
 
         char *file_content = NULL;
         long file_size = 0;
-        read_file(&file_content, &file_size, tmp_public_files_paths);
+        read_file(&file_content, &file_size, path);
 
-        /** File path key */
-        strncpy(tmp_public_files_dict, tmp_public_files_paths, strlen(tmp_public_files_paths) + 1);
-        tmp_public_files_dict[strlen(tmp_public_files_paths)] = '\0';
-        tmp_public_files_dict += strlen(tmp_public_files_paths) + 1;
-
-        /** File content value */
-        strncpy(tmp_public_files_dict, file_content, file_size + 1);
-        tmp_public_files_dict[file_size] = '\0';
-        tmp_public_files_dict += file_size + 1;
+        Dict inserted_element = add_to_dictionary(ptr, 1, path, file_content);
+        ptr = inserted_element.end_addr;
 
         free(file_content);
         file_content = NULL;
-
-        tmp_public_files_paths += strlen(tmp_public_files_paths) + 1;
     }
 
-    size_t public_files_dict_length = tmp_public_files_dict - public_files_dict;
+    public_files.end_addr = ptr - 1;
+    arena->current = public_files.end_addr + 1;
 
-    /** `public_files_paths` is no longer needed since file paths are now stored as keys in
-     * `public_files_dict`. Shift `public_files_dict` to occupy its memory space to prevent waste. */
-    char *start = public_files_paths;
-    memcpy(start, public_files_dict, public_files_dict_length);
-    global_arena_data->public_files_dict.start_addr = start;
-    global_arena_data->public_files_dict.end_addr = start + public_files_dict_length;
+    arena_reset(scratch_arena, sizeof(Arena));
 
-    global_arena->current = global_arena_data->public_files_dict.end_addr + 1;
-
-    return global_arena_data->public_files_dict;
+    return public_files;
 }
 
 String find_tag_name(char *import_statement) {
@@ -88,49 +86,41 @@ char *find_component_declaration(char *string) {
 /**
  * Loads all HTML components from the specified `base_path`.
  */
-Dict load_html_components(const char *base_path) {
-    uint8_t i;
-
-    /** Find the paths of all html files */
-    StringArray html_files_paths = {0};
-    html_files_paths.start_addr = (char *)global_arena->current;
-    size_t all_paths_length = 0;
-    locate_files(html_files_paths.start_addr, base_path, ".html", 0, &all_paths_length);
-    html_files_paths.end_addr = html_files_paths.start_addr + all_paths_length;
-    global_arena->current = html_files_paths.end_addr + 1;
+Dict load_html_components(Arena *arena, const char *base_path) {
+    StringArray files_list = get_files_list(scratch_arena, base_path, ".html");
 
     /* A Component is an HTML snippet that may include references to other HTML snippets, i.e., it is composable */
-    char *components_dict = (char *)global_arena->current;
-    char *buffer = components_dict;
+    Dict components = {0};
+    components.start_addr = (char *)arena->current;
 
-    uint8_t html_files_paths_count = get_string_array_length(html_files_paths);
-    for (i = 0; i < html_files_paths_count; i++) {
-        char *filepath = get_string_at(html_files_paths, i);
+    uint8_t files_list_length = get_string_array_length(files_list);
+
+    char *ptr = components.start_addr;
+    uint8_t i;
+    for (i = 0; i < files_list_length; i++) {
+        char *path = get_string_at(files_list, i);
 
         char *file_content = NULL;
         long file_size = 0;
-        read_file(&file_content, &file_size, filepath);
+        read_file(&file_content, &file_size, path);
 
         /** A .html file may contain multiple Components */
         char *tmp_file_content = file_content;
         while ((tmp_file_content = find_component_declaration(tmp_file_content)) != NULL) { /** Process Components inside .html file. */
             /** Found component in file content */
-            /** Add component name to the dictionary as a key */
-            String component_name = find_tag_name(tmp_file_content);
-            strncpy(buffer, component_name.start_addr, component_name.length);
-            buffer[component_name.length] = '\0';
-            buffer += component_name.length + 1;
+            HTMLBlock component = find_html_block(tmp_file_content, strlen(tmp_file_content), "x-component-def");
+            String component_name = find_attribute(component.opening_tag, "name");
 
-            char *component_markup = strchr(tmp_file_content, '>') + 1 /* pass '>' char */;
+            strncpy(ptr, component_name.start_addr, component_name.length);
+            ptr += strlen(ptr) + 1;
 
-            char *closing_tag = strstr(component_markup, COMPONENT_DEFINITION_CLOSING_TAG);
-            assert(closing_tag);
+            char *component_content = component.opening_tag.start_addr + component.opening_tag.length;
+            char *component_content_end = (component.block.start_addr + component.block.length) - strlen(COMPONENT_DEFINITION_CLOSING_TAG);
+            size_t component_content_length = component_content_end - component_content;
 
-            size_t component_markup_length = closing_tag - component_markup;
+            size_t minified_html_length = html_minify(ptr, component_content, component_content_length);
+            ptr += minified_html_length;
 
-            size_t minified_html_length = html_minify(buffer, component_markup, component_markup_length);
-
-            buffer += minified_html_length;
             tmp_file_content++;
         }
 
@@ -138,23 +128,12 @@ Dict load_html_components(const char *base_path) {
         file_content = NULL;
     }
 
-    size_t components_dict_length = buffer - components_dict;
+    components.end_addr = ptr - 1;
+    arena->current = components.end_addr + 1;
 
-    /** `html_files_paths` is no longer needed since file paths are now stored as keys in
-     * `components_dict`. Shift `components_dict` to occupy its memory space to prevent waste. */
-    char *start = html_files_paths.start_addr;
-    memcpy(start, components_dict, components_dict_length);
-    Dict html_raw_components_dict = {0};
-    html_raw_components_dict.start_addr = start;
-    html_raw_components_dict.end_addr = start + components_dict_length;
+    arena_reset(scratch_arena, sizeof(Arena));
 
-    /** Clean up excess from shift */
-    size_t excess = buffer - html_raw_components_dict.end_addr;
-    memset(html_raw_components_dict.end_addr, 0, excess);
-
-    global_arena->current = html_raw_components_dict.end_addr + 1;
-
-    return html_raw_components_dict;
+    return components;
 }
 
 char *string_skip_whitespaces(char *text) {
@@ -185,12 +164,6 @@ String match_pattern(const char *pattern, const char *text, size_t text_length) 
     regfree(&regex);
     return result;
 }
-
-typedef struct {
-    String block;
-    String opening_tag;
-    boolean is_self_closing;
-} HTMLBlock;
 
 String find_attribute(String opening_tag, const char *attr_name) {
     char *p = NULL;
@@ -243,7 +216,7 @@ String find_attribute(String opening_tag, const char *attr_name) {
     assert(0);
 }
 
-String find_component_import_name(String opening_tag) {
+String find_name_attribute_value(String opening_tag) {
     String name_attr = match_pattern(NAME_ATTRIBUTE_PATTERN, opening_tag.start_addr, opening_tag.length);
     assert(name_attr.start_addr);
 
@@ -282,47 +255,56 @@ HTMLBlock find_html_block(char *text, size_t text_length, const char *tag_name) 
 
     uint8_t nested = 0;
     while (*ptr != '\0') {
-        /*
+        if (*ptr == '"') {
+            ptr++;
+            while (*ptr != '"') {
+                ptr++;
+            }
+        }
+
         if (strncmp(ptr, SELF_CLOSING_TAG, strlen(SELF_CLOSING_TAG)) == 0) {
             ptr += strlen(SELF_CLOSING_TAG);
-            html_block.is_self_closing = true;
             html_block.block.length = ptr - html_block.block.start_addr;
             html_block.opening_tag.length = html_block.block.length;
 
             return html_block;
         }
-        */
 
-        if (strncmp(ptr, opening_tag, strlen(opening_tag)) == 0) {
-            ptr += strlen(opening_tag);
+        if (strncmp(ptr, CLOSING_BRACKET, strlen(CLOSING_BRACKET)) == 0) {
             while (*ptr != '\0') {
-                if (strncmp(ptr, SELF_CLOSING_TAG, strlen(SELF_CLOSING_TAG)) == 0) {
-                    break;
+                if (strncmp(ptr, opening_tag, strlen(opening_tag)) == 0) {
+                    ptr += strlen(opening_tag);
+                    while (*ptr != '\0') {
+                        if (strncmp(ptr, SELF_CLOSING_TAG, strlen(SELF_CLOSING_TAG)) == 0) {
+                            break;
+                        }
+
+                        if (strncmp(ptr, CLOSING_BRACKET, strlen(CLOSING_BRACKET)) == 0) {
+                            nested++;
+                            break;
+                        }
+
+                        ptr++;
+                    }
                 }
 
-                if (strncmp(ptr, CLOSING_BRACKET, strlen(CLOSING_BRACKET)) == 0) {
-                    nested++;
-                    break;
+                if (strncmp(ptr, closing_tag, strlen(closing_tag)) == 0) {
+                    ptr += strlen(closing_tag);
+                    if (nested == 0) {
+                        html_block.block.length = ptr - html_block.block.start_addr;
+
+                        String closing_bracket = match_pattern(CLOSING_BRACKET, html_block.block.start_addr, html_block.block.length);
+                        char *passed_bracket = closing_bracket.start_addr + strlen(CLOSING_BRACKET);
+
+                        html_block.opening_tag.length = passed_bracket - html_block.block.start_addr;
+
+                        return html_block;
+                    } else {
+                        nested--;
+                    }
                 }
 
                 ptr++;
-            }
-        }
-
-        if (strncmp(ptr, closing_tag, strlen(closing_tag)) == 0) {
-            ptr += strlen(closing_tag);
-            if (nested == 0) {
-                html_block.is_self_closing = false;
-                html_block.block.length = ptr - html_block.block.start_addr;
-
-                String closing_bracket = match_pattern(CLOSING_BRACKET, html_block.block.start_addr, html_block.block.length);
-                char *passed_bracket = closing_bracket.start_addr + strlen(CLOSING_BRACKET);
-
-                html_block.opening_tag.length = passed_bracket - html_block.block.start_addr;
-
-                return html_block;
-            } else {
-                nested--;
             }
         }
 
@@ -461,211 +443,120 @@ Dict get_tag_attributes(Arena *arena, String opening_tag) {
     assert(0);
 }
 
+void clear_leftovers(char *ptr) {
+    if (*ptr == '\0') {
+        ptr++;
+    }
+
+    while (*ptr) {
+        size_t str_len = strlen(ptr);
+        memset(ptr, 0, str_len);
+        ptr += str_len + 1;
+    }
+}
+
 /**
  * Loads and resolves all HTML components along with their imports from the specified `base_path`.
  */
-Dict load_templates(const char *base_path) {
-    Dict html_raw_components = load_html_components(base_path);
+Dict load_templates(Arena *arena, const char *base_path) {
+    Dict html_raw_components = load_html_components(arena, base_path);
 
-    uint8_t i;
+    dump_dict(html_raw_components, "html_raw_components");
 
     /* A template is essentially a Component that has been compiled with all its imports. */
-    char *templates_dict = (char *)global_arena->current;
-    char *buffer = templates_dict;
+
+    Dict templates = {0};
+    templates.start_addr = (char *)arena->current;
 
     uint8_t components_count = get_dictionary_size(html_raw_components);
 
+    char *ptr_1 = templates.start_addr;
+    uint8_t i;
     for (i = 0; i < components_count; i++) { /** Compile Components. */
         KV raw_component = get_key_value(html_raw_components, i);
 
-        strncpy(buffer, raw_component.k, strlen(raw_component.k) + 1);
-        buffer += strlen(raw_component.k) + 1;
+        strncpy(ptr_1, raw_component.k, strlen(raw_component.k) + 1);
+        ptr_1 += strlen(raw_component.k) + 1;
 
-        strncpy(buffer, raw_component.v, strlen(raw_component.v) + 1);
+        strncpy(ptr_1, raw_component.v, strlen(raw_component.v) + 1);
 
-        char *component_start = buffer;
-
-        char *ptr = buffer;
-        HTMLBlock component_import = find_html_block(ptr, strlen(ptr), "x-component");
-        printf("%.*s\n", (int)component_import.block.length, component_import.block.start_addr);
-
-        Dict attributes = get_tag_attributes(scratch_arena, component_import.opening_tag);
-        dump_dict(attributes, "attributes");
-        char *component_name = find_value("name", attributes);
-
-        Dict slots = get_slots(scratch_arena, component_import);
-        dump_dict(slots, "slots");
-
+    repeat:
         printf("\n");
 
-        /*
-    look_for_import:
-        printf("foo\n");
+        char *ptr_2 = ptr_1;
 
-        ComponentImport component_import = find_component_import(buffer);
-        if (!component_import.import_statement.start_addr) {
-            buffer += strlen(buffer) + 1;
-            continue;
-        }
+        HTMLBlock component_import_block = find_html_block(ptr_2, strlen(ptr_2), "x-component");
 
-        char import_name[MAX_COMPONENT_NAME_LENGTH];
-        memset(import_name, 0, MAX_COMPONENT_NAME_LENGTH);
-        memcpy(import_name, component_import.import_name.start_addr, component_import.import_name.length);
+        /** Was an import statement found in the component markup? */
+        if (component_import_block.block.start_addr) {
+            uint8_t j;
 
-        char *_raw_component_v = find_value(import_name, html_raw_components);
+            /** Does import statement contain any 'inline slots' html attributes? */
+            Dict import__tag_attributes = get_tag_attributes(scratch_arena, component_import_block.opening_tag);
 
-        If the import does not contain slots, simply replace
-        the import statement with the appropriate component markup
-        if (component_import.contains_slots == false) {
-            size_t component_markdown_length = strlen(_raw_component_v);
-            size_t len = strlen(component_import.import_statement.start_addr + component_import.import_statement.length);
+            /** Does import block contain any 'slots'? */
+            Dict import__slots = get_slots(scratch_arena, component_import_block);
 
-            memmove(component_import.import_statement.start_addr + component_markdown_length, component_import.import_statement.start_addr + component_import.import_statement.length, len);
+            /** Let's bring in component the import statement is intending to import */
+            char *name_of_component_to_be_imported = find_value("name", import__tag_attributes);
+            char *component_to_be_imported = find_value(name_of_component_to_be_imported, html_raw_components);
 
-            char *ptr = component_import.import_statement.start_addr + component_markdown_length + len;
-            ptr[0] = '\0';
-            ptr++;
-            while (*ptr) {
-                size_t str_len = strlen(ptr);
-                memset(ptr, 0, str_len);
-                ptr += str_len + 1;
+            char *component_to_be_imported_cpy = (char *)scratch_arena->current;
+
+            memcpy(component_to_be_imported_cpy, component_to_be_imported, strlen(component_to_be_imported));
+
+            /** Compile 'inline slots' if any */
+            uint8_t inline_slot_count = get_dictionary_size(import__tag_attributes) - 1 /** don't count the 'name' attribute */;
+            for (j = 0; j < inline_slot_count; j++) {
+                /** TODO: LEFT OFF HERE! */
             }
 
-            memcpy(component_import.import_statement.start_addr, _raw_component_v, component_markdown_length);
+            /** Compile 'slots' if any */
+            uint8_t slot_count = get_dictionary_size(import__slots);
+            for (j = 0; j < slot_count; j++) {
+                KV kv = get_key_value(import__slots, j);
+                char *replacement_name = kv.k;
+                char *replacement = kv.v;
 
-            buffer = component_start;
-            goto look_for_import;
-        } else {
-            Dict slots = get_slots(component_import.import_statement);
-        }
+                char *ptr_3 = component_to_be_imported_cpy;
+                while (true) {
+                    HTMLBlock slot_reference = find_html_block(ptr_3, strlen(ptr_3), "x-slot");
+                    if (!slot_reference.block.start_addr) {
+                        break;
+                    }
 
-        buffer += strlen(buffer) + 1;
+                    String name_attribute_value = find_name_attribute_value(slot_reference.opening_tag);
+                    if (strncmp(replacement_name, name_attribute_value.start_addr, name_attribute_value.length) == 0 && strlen(replacement_name) == name_attribute_value.length) {
+                        char *after = slot_reference.block.start_addr + slot_reference.block.length;
+                        memmove(slot_reference.block.start_addr + strlen(replacement), after, strlen(after) + 1);
+                        memcpy(slot_reference.block.start_addr, replacement, strlen(replacement));
 
-        printf("%.*s\n", (int)component_import.import_statement.length, component_import.import_statement.start_addr);
-        */
+                        clear_leftovers(component_to_be_imported_cpy + strlen(component_to_be_imported_cpy));
 
-        /** Does import contain slots or inline slots */
-        /*
-        Dict slots = get_slots();
-        */
-
-        /**
-         * NEXT: Put in a dictionary all the attributes found in the import tag. The key is the string to substitute.
-         * For example:
-         * <x-component name="circle_container" tw-bg-color="bg-[#CDCDD5]" tw-text-color="text-[#141E20]" inject:id="my_id">
-         * { %tw-bg-color%, bg-[#CDCDD5], %tw-text-color%, text-[#141E20], inherit:id, id="my_id" }
-         */
-    }
-
-    Dict output = {0};
-    return output;
-}
-
-void resolve_slots(char *component_markdown, char *import_statement, char **templates) {
-    char *ptr;
-
-    char *tmp_templates = *templates;
-    while (*tmp_templates) {
-        if (strncmp(tmp_templates, COMPONENT_IMPORT_CLOSING_TAG, strlen(COMPONENT_IMPORT_CLOSING_TAG)) == 0) {
-            char *component_import_closing_tag = strstr(import_statement, COMPONENT_IMPORT_CLOSING_TAG);
-            char *passed_component_import_closing_tag = component_import_closing_tag + strlen(COMPONENT_IMPORT_CLOSING_TAG);
-
-            size_t component_markdown_length = strlen(component_markdown);
-            memmove((*templates) + component_markdown_length, passed_component_import_closing_tag, strlen(passed_component_import_closing_tag));
-            ptr = (*templates) + component_markdown_length + strlen(passed_component_import_closing_tag);
-            ptr[0] = '\0';
-            ptr++;
-            while (*ptr) {
-                size_t str_len = strlen(ptr);
-                memset(ptr, 0, str_len);
-                ptr += str_len + 1;
-            }
-
-            memcpy((*templates), component_markdown, component_markdown_length);
-
-            char *start = *templates;
-            char *end = (*templates) + component_markdown_length;
-            while ((start + strlen(SLOT_MARK)) < end) {
-                if (strncmp(start, SLOT_MARK, strlen(SLOT_MARK)) == 0) {
-                    char *passed_slot_tag = start + strlen(SLOT_MARK);
-                    memmove(start, passed_slot_tag, strlen(passed_slot_tag));
-                    ptr = start + strlen(passed_slot_tag);
-                    ptr[0] = '\0';
-                    ptr++;
-                    while (*ptr) {
-                        size_t str_len = strlen(ptr);
-                        memset(ptr, 0, str_len);
-                        ptr += str_len + 1;
+                        break;
                     }
                 }
-
-                start++;
             }
 
-            return;
+            char *after = component_import_block.block.start_addr + component_import_block.block.length;
+            memmove(component_import_block.block.start_addr + strlen(component_to_be_imported_cpy), after, strlen(after) + 1);
+            memcpy(component_import_block.block.start_addr, component_to_be_imported_cpy, strlen(component_to_be_imported_cpy));
+            component_import_block.block.length = strlen(component_import_block.block.start_addr);
+
+            clear_leftovers(component_import_block.block.start_addr + component_import_block.block.length);
+
+            arena_reset(scratch_arena, sizeof(Arena));
+
+            goto repeat;
         }
 
-        if (strncmp(tmp_templates, INSERT_OPENING_TAG, strlen(INSERT_OPENING_TAG)) == 0) {
-            break;
-        }
-
-        tmp_templates++;
+        ptr_1 += strlen(ptr_1) + 1;
     }
 
-    char *slot_tag_inside_component_markdown = strstr(component_markdown, SLOT_MARK);
+    templates.end_addr = ptr_1 - 1;
+    arena->current = ptr_1;
 
-    char *template_opening_tag = strstr(import_statement, INSERT_OPENING_TAG);
-    char *passed_template_opening_tag = template_opening_tag + strlen(INSERT_OPENING_TAG);
-
-    size_t portion = slot_tag_inside_component_markdown - component_markdown;
-
-    memmove((*templates) + portion, passed_template_opening_tag, strlen(passed_template_opening_tag));
-    ptr = (*templates) + portion + strlen(passed_template_opening_tag);
-    ptr[0] = '\0';
-    ptr++;
-    while (*ptr) {
-        size_t str_len = strlen(ptr);
-        memset(ptr, 0, str_len);
-        ptr += str_len + 1;
-    }
-
-    memcpy((*templates), component_markdown, portion);
-
-    (*templates) += portion;
-    component_markdown += portion;
-    component_markdown += strlen(SLOT_MARK);
-
-    char *template_closing_tag = (*templates);
-    uint8_t skip = 0;
-    while (*template_closing_tag) {
-        if (strncmp(template_closing_tag, INSERT_OPENING_TAG, strlen(INSERT_OPENING_TAG)) == 0) {
-            skip++;
-        }
-
-        if (strncmp(template_closing_tag, INSERT_CLOSING_TAG, strlen(INSERT_CLOSING_TAG)) == 0) {
-            if (skip == 0) {
-                break;
-            }
-
-            skip--;
-        }
-
-        template_closing_tag++;
-    }
-
-    char *passed_template_closing_tag = template_closing_tag + strlen(INSERT_CLOSING_TAG);
-    memmove(template_closing_tag, passed_template_closing_tag, strlen(passed_template_closing_tag));
-    ptr = template_closing_tag + strlen(passed_template_closing_tag);
-    ptr[0] = '\0';
-    ptr++;
-    while (*ptr) {
-        size_t str_len = strlen(ptr);
-        memset(ptr, 0, str_len);
-        ptr += str_len + 1;
-    }
-
-    (*templates) = template_closing_tag;
-    resolve_slots(component_markdown, template_closing_tag, templates);
+    return templates;
 }
 
 /**

@@ -433,3 +433,8 @@ char *copy_string(Arena *arena, String str) {
 
     return buffer;
 }
+
+char *add_string(char *buffer, String str) {
+    strncpy(buffer, str.start_addr, str.length + 1);
+    return buffer + strlen(buffer) + 1;
+}

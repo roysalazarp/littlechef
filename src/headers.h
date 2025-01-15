@@ -214,6 +214,11 @@ typedef struct {
     char *v;
 } KV;
 
+typedef struct {
+    String block;
+    String opening_tag;
+} HTMLBlock;
+
 /*
 +-----------------------------------------------------------------------------------+
 |                               function declaration                                |
@@ -234,10 +239,9 @@ void arena_reset(Arena *arena, size_t arena_header_size);
 
 /** template_engine.c */
 
-Dict load_public_files(const char *base_path);
-Dict load_html_components(const char *base_path);
-Dict load_templates(const char *base_path);
-void resolve_slots(char *component_markdown, char *import_statement, char **templates);
+Dict load_public_files(Arena *arena, const char *base_path);
+Dict load_html_components(Arena *arena, const char *base_path);
+Dict load_templates(Arena *arena, const char *base_path);
 BlockLocation find_block(char *template, char *block_name);
 size_t render_val(char *template, char *val_name, char *value);
 size_t render_for(char *template, char *scope, int times, ...);
@@ -245,6 +249,9 @@ size_t replace_val(char *template, char *value_name, char *value);
 size_t html_minify(char *buffer, char *html, size_t html_length);
 String find_tag_name(char *import_statement);
 char *find_component_declaration(char *string);
+StringArray get_files_list(Arena *arena, const char *base_path, const char *extension);
+HTMLBlock find_html_block(char *text, size_t text_length, const char *tag_name);
+String find_attribute(String opening_tag, const char *attr_name);
 
 /** connection.c */
 

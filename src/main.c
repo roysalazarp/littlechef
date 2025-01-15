@@ -48,15 +48,26 @@ int main() {
         envs = load_env_variables("./.env.dev");
 
         /** NOTE: REMOVE THE FOLLOWING CODE AFTER DEBUGGING */
-        load_templates("./templates_debug");
+        const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
+        Dict public_files = load_public_files(global_arena, public_base_path);
+        global_arena_data->public_files_dict = public_files;
+
+        dump_dict(public_files, "public_files");
+
+        Dict templates = load_templates(global_arena, "./templates_debug");
+        global_arena_data->templates = templates;
+
+        dump_dict(templates, "templates");
     } else {
         envs = load_env_variables("./.env.prod");
 
         const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
-        load_public_files(public_base_path);
+        Dict public_files = load_public_files(global_arena, public_base_path);
+        global_arena_data->public_files_dict = public_files;
 
         const char *html_base_path = find_value("CMPL__TEMPLATES_FOLDER", envs);
-        load_templates(html_base_path);
+        Dict templates = load_templates(global_arena, html_base_path);
+        global_arena_data->templates = templates;
     }
 
     epoll_fd = epoll_create1(0);
@@ -121,10 +132,12 @@ int main() {
                             global_arena->current = arena_freeze_ptr;
 
                             const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
-                            load_public_files(public_base_path);
+                            Dict public_files = load_public_files(global_arena, public_base_path);
+                            global_arena_data->public_files_dict = public_files;
 
                             const char *html_base_path = find_value("CMPL__TEMPLATES_FOLDER", envs);
-                            load_templates(html_base_path);
+                            Dict templates = load_templates(global_arena, html_base_path);
+                            global_arena_data->templates = templates;
                         }
 
                         /** Allocate memory for handling client request */

@@ -1,8 +1,6 @@
 <x-component-def name="email_check">
-    <x-component name="full_view_drawer">
-        <x-insert>auth_drawer</x-insert>
-        <x-insert>closeAuthDrawer</x-insert>
-        <x-insert>
+    <x-component name="full_view_drawer" dialog-id="auth_drawer" button-id="closeAuthDrawer">
+        <x-insert name="content">
             <div id="next-form"></div>
             <div hx-ext="response-targets">
                 <form id="check-email-form" hx-post="/auth/check-email" hx-swap="innerHTML" hx-target="#next-form" hx-on::after-swap="openRegisterDrawer()" hx-select-oob="#email-validation-error" hx-target-error="#check-email-form">

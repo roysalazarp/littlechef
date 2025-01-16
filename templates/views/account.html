@@ -8,7 +8,9 @@
         </head>
         <body>
             <x-component name="layout">
-                <x-insert>%x-slot%</x-insert>
+                <x-insert name="default">
+                    <x-slot name="default" />
+                </x-insert>
             </x-component>
         </body>
     </html>

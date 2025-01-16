@@ -1,6 +1,8 @@
 <x-component-def name="food_card">
     <div class="relative flex flex-col rounded-lg overflow-hidden shadow-lg">
-        <div class="flex">%x-slot%</div>
+        <div class="flex">
+            <x-slot name="default" />
+        </div>
         <div class="p-4 bg-[#151515]">
             <div class="flex justify-between items-start">
                 <div>

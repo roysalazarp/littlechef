@@ -87,40 +87,6 @@
 
 #define MAX_COMPONENT_NAME_LENGTH 100
 
-#define COMPONENT_DEFINITION_OPENING_TAG__START "<x-component-def "
-#define COMPONENT_DEFINITION_OPENING_TAG__END "\">"
-#define COMPONENT_IMPORT_OPENING_TAG__START "<x-component "
-#define OPENING_COMPONENT_IMPORT_TAG_SELF_CLOSING_END " />"
-#define COMPONENT_IMPORT_OPENING_TAG__END "\">"
-#define COMPONENT_DEFINITION_CLOSING_TAG "</x-component-def>"
-#define COMPONENT_IMPORT_CLOSING_TAG "</x-component>"
-#define INSERT_OPENING_TAG "<x-insert>"
-#define INSERT_CLOSING_TAG "</x-insert>"
-#define SLOT_MARK "%x-slot%"
-#define SELF_CLOSING_TAG "/>"
-#define CLOSING_BRACKET ">"
-
-#define FOR_OPENING_TAG__START "<x-for name=\""
-#define FOR_OPENING_TAG__END "\">"
-#define FOR_CLOSING_TAG "</x-for>"
-
-#define VAL_OPENING_TAG__START "<x-val name=\""
-#define VAL_SELF_CLOSING_TAG__END "\" />"
-
-#define NAME_ATTRIBUTE_PATTERN "\\s+name\\s*=\\s*\\\"[^\\\"]*\\\""
-#define ATTRIBUTE_KEY_PATTERN "^[[:space:]]*([[:alnum:]_-]+)[[:space:]]*=" /** C regex compatible */
-#define ATTRIBUTE_VALUE_PATTERN "\\\"[^\\\"]*\\\""
-#define ATTRIBUTE_PATTERN "\\s\\w+(?:[-]\\w+)*\\s*= *\"[^\"]*\""
-#define ATTRIBUTE_PATTERN_2 "[ \t]\\w+(-\\w+)*[ \t]*=[ \t]*\"[^\"]*\""
-#define INJECT_ATTRIBUTE_PATTERN "\\sinject:\\w+(?:[-]\\w+)*\\s*= *\"[^\"]*\""
-#define INHERIT_ATTRIBUTE_PATTERN "\\sinherit:\\w+(?:[-]\\w+)*"
-#define SELF_CLOSING_TAG_PATTERN "/>"
-#define COMPONENT_IMPORT_CLOSING_TAG_PATTERN "<\\/x-component\\s*>"
-#define PLACEHOLDER_PATTERN "%[a-zA-Z0-9_-]+%"
-#define COMPONENT_IMPORT_TAG_PATTERN "<x-component "
-#define SLOT_TAG_PATTERN "<x-slot "
-#define INSERT_TAG_PATTERN "<x-insert "
-
 #define MAX_PATH_LENGTH 300
 #define MAX_FILES 20
 
@@ -145,11 +111,6 @@ typedef struct {
     char *start_addr;
     size_t length;
 } String;
-
-typedef struct {
-    String k;
-    String v;
-} RO_KV; /** Read only key value */
 
 typedef struct {
     size_t size;
@@ -202,33 +163,16 @@ typedef struct {
 
 typedef char uuid_str_t[37];
 
-typedef CharsBlock TagLocation;
-
-typedef struct {
-    TagLocation opening_tag;
-    TagLocation closing_tag;
-} BlockLocation;
-
 typedef struct {
     char *k;
     char *v;
 } KV;
-
-typedef struct {
-    String block;
-    String opening_tag;
-} HTMLBlock;
 
 /*
 +-----------------------------------------------------------------------------------+
 |                               function declaration                                |
 +-----------------------------------------------------------------------------------+
 */
-
-/** main.c */
-
-Socket *create_server_socket(uint16_t port);
-void sigint_handler(int signo);
 
 /** arena.c */
 
@@ -240,18 +184,10 @@ void arena_reset(Arena *arena, size_t arena_header_size);
 /** template_engine.c */
 
 Dict load_public_files(Arena *arena, const char *base_path);
-Dict load_html_components(Arena *arena, const char *base_path);
 Dict load_templates(Arena *arena, const char *base_path);
-BlockLocation find_block(char *template, char *block_name);
 size_t render_val(char *template, char *val_name, char *value);
 size_t render_for(char *template, char *scope, int times, ...);
 size_t replace_val(char *template, char *value_name, char *value);
-size_t html_minify(char *buffer, char *html, size_t html_length);
-String find_tag_name(char *import_statement);
-char *find_component_declaration(char *string);
-StringArray get_files_list(Arena *arena, const char *base_path, const char *extension);
-HTMLBlock find_html_block(char *text, size_t text_length, const char *tag_name);
-String find_attribute(String opening_tag, const char *attr_name);
 
 /** connection.c */
 

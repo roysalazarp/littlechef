@@ -1,17 +1,64 @@
 #include "headers.h"
 
-StringArray get_files_list(Arena *arena, const char *base_path, const char *extension) {
-    StringArray files_list = {0};
-    files_list.start_addr = (char *)arena->current;
+#define COMPONENT_DEFINITION_OPENING_TAG__START "<x-component-def "
+#define COMPONENT_DEFINITION_OPENING_TAG__END "\">"
+#define COMPONENT_IMPORT_OPENING_TAG__START "<x-component "
+#define OPENING_COMPONENT_IMPORT_TAG_SELF_CLOSING_END " />"
+#define COMPONENT_IMPORT_OPENING_TAG__END "\">"
+#define COMPONENT_DEFINITION_CLOSING_TAG "</x-component-def>"
+#define COMPONENT_IMPORT_CLOSING_TAG "</x-component>"
+#define INSERT_OPENING_TAG "<x-insert>"
+#define INSERT_CLOSING_TAG "</x-insert>"
+#define SLOT_MARK "%x-slot%"
+#define SELF_CLOSING_TAG "/>"
+#define CLOSING_BRACKET ">"
 
-    size_t all_paths_length = 0;
-    locate_files(files_list.start_addr, base_path, extension, 0, &all_paths_length);
-    files_list.end_addr = files_list.start_addr + all_paths_length - 1;
+#define FOR_OPENING_TAG__START "<x-for name=\""
+#define FOR_OPENING_TAG__END "\">"
+#define FOR_CLOSING_TAG "</x-for>"
 
-    arena->current = files_list.end_addr + 1;
+#define VAL_OPENING_TAG__START "<x-val name=\""
+#define VAL_SELF_CLOSING_TAG__END "\" />"
 
-    return files_list;
-}
+#define NAME_ATTRIBUTE_PATTERN "\\s+name\\s*=\\s*\\\"[^\\\"]*\\\""
+#define ATTRIBUTE_KEY_PATTERN "^[[:space:]]*([[:alnum:]_-]+)[[:space:]]*=" /** C regex compatible */
+#define ATTRIBUTE_VALUE_PATTERN "\\\"[^\\\"]*\\\""
+#define ATTRIBUTE_PATTERN "\\s\\w+(?:[-]\\w+)*\\s*= *\"[^\"]*\""
+#define ATTRIBUTE_PATTERN_2 "[ \t]\\w+(-\\w+)*[ \t]*=[ \t]*\"[^\"]*\""
+#define INJECT_ATTRIBUTE_PATTERN "\\sinject:\\w+(?:[-]\\w+)*\\s*= *\"[^\"]*\""
+#define INHERIT_ATTRIBUTE_PATTERN "\\sinherit:\\w+(?:[-]\\w+)*"
+#define SELF_CLOSING_TAG_PATTERN "/>"
+#define COMPONENT_IMPORT_CLOSING_TAG_PATTERN "<\\/x-component\\s*>"
+#define PLACEHOLDER_PATTERN "%[a-zA-Z0-9_-]+%"
+#define COMPONENT_IMPORT_TAG_PATTERN "<x-component "
+#define SLOT_TAG_PATTERN "<x-slot "
+#define INSERT_TAG_PATTERN "<x-insert "
+
+typedef CharsBlock TagLocation;
+
+typedef struct {
+    TagLocation opening_tag;
+    TagLocation closing_tag;
+} BlockLocation;
+
+typedef struct {
+    String block;
+    String opening_tag;
+} HTMLBlock;
+
+char *string_skip_whitespaces(char *text);
+StringArray get_files_list(Arena *arena, const char *base_path, const char *extension);
+char *find_component_declaration(char *string);
+Dict load_html_components(Arena *arena, const char *base_path);
+String match_pattern(const char *pattern, const char *text, size_t text_length);
+String find_attribute(String opening_tag, const char *attr_name);
+String find_name_attribute_value(String opening_tag);
+HTMLBlock find_html_block(char *text, size_t text_length, const char *tag_name);
+Dict get_slots(Arena *arena, HTMLBlock component_import);
+Dict get_tag_attributes(Arena *arena, String opening_tag);
+size_t html_minify(char *buffer, char *html, size_t html_length);
+BlockLocation find_block(char *template, char *block_name);
+void clear_leftovers(char *ptr);
 
 /**
  * Loads all public files (such as .js, .css, .json) excluding HTML files, from the specified `base_path`.
@@ -51,36 +98,6 @@ Dict load_public_files(Arena *arena, const char *base_path) {
     arena_reset(scratch_arena, sizeof(Arena));
 
     return public_files;
-}
-
-String find_tag_name(char *import_statement) {
-    char *ptr = NULL;
-    String component_name = {0};
-
-    ptr = strstr(import_statement, "name=\"");
-    assert(ptr);
-
-    component_name.start_addr = ptr + strlen("name=\"");
-
-    ptr = component_name.start_addr;
-
-    uint8_t length = 0;
-    while (!isspace(*ptr) && *ptr != '\0') {
-        if (*ptr == '\"') {
-            component_name.length = length;
-            return component_name;
-        }
-
-        length++;
-        ptr++;
-    }
-
-    assert(0);
-}
-
-char *find_component_declaration(char *string) {
-    char *ptr = strstr(string, COMPONENT_DEFINITION_OPENING_TAG__START);
-    return ptr;
 }
 
 /**
@@ -136,332 +153,11 @@ Dict load_html_components(Arena *arena, const char *base_path) {
     return components;
 }
 
-char *string_skip_whitespaces(char *text) {
-    while (isspace(*text)) {
-        text++;
-    }
-
-    return text;
-}
-
-String match_pattern(const char *pattern, const char *text, size_t text_length) {
-    regex_t regex;
-    regmatch_t match[1];
-    String result = {0};
-
-    if (regcomp(&regex, pattern, REG_EXTENDED) != 0) {
-        printf("Could not compile regex: %s\n", pattern);
-        return result;
-    }
-
-    if (regexec(&regex, text, 1, match, 0) == 0) {
-        if (match[0].rm_eo <= (regoff_t)text_length) {
-            result.start_addr = (char *)(text + match[0].rm_so);
-            result.length = match[0].rm_eo - match[0].rm_so;
-        }
-    }
-
-    regfree(&regex);
-    return result;
-}
-
-String find_attribute(String opening_tag, const char *attr_name) {
-    char *p = NULL;
-
-    char *end = opening_tag.start_addr + opening_tag.length;
-    while (true) {
-        String attribute = match_pattern(ATTRIBUTE_PATTERN_2, opening_tag.start_addr, opening_tag.length);
-        if (!attribute.start_addr) {
-            String value = {0};
-            return value;
-        }
-
-        String key_match = match_pattern(ATTRIBUTE_KEY_PATTERN, attribute.start_addr, attribute.length);
-        char *key_start = string_skip_whitespaces(key_match.start_addr);
-
-        p = key_start;
-        while (!isspace(*p) && *p != '=') {
-            p++;
-        }
-
-        char *key_end = p;
-
-        size_t key_length = key_end - key_start;
-
-        String key = {0};
-        if (strncmp(key_start, attr_name, strlen(attr_name)) == 0 && key_length == strlen(attr_name)) {
-            String value_match = match_pattern(ATTRIBUTE_VALUE_PATTERN, attribute.start_addr, attribute.length);
-            char *value_start = value_match.start_addr + 1 /** " */;
-
-            p = value_start;
-            while (*p != '"') {
-                p++;
-            }
-
-            char *value_end = p;
-
-            size_t value_length = value_end - value_start;
-
-            String value = {0};
-            value.start_addr = value_start;
-            value.length = value_length;
-
-            return value;
-        }
-
-        opening_tag.start_addr = attribute.start_addr + attribute.length;
-        opening_tag.length = end - opening_tag.start_addr;
-    }
-
-    assert(0);
-}
-
-String find_name_attribute_value(String opening_tag) {
-    String name_attr = match_pattern(NAME_ATTRIBUTE_PATTERN, opening_tag.start_addr, opening_tag.length);
-    assert(name_attr.start_addr);
-
-    String name = match_pattern(ATTRIBUTE_VALUE_PATTERN, name_attr.start_addr, name_attr.length);
-    assert(name.start_addr);
-
-    /** exclude " at the beginning and end */
-    name.start_addr += 1;
-    name.length -= 2;
-
-    return name;
-}
-
-HTMLBlock find_html_block(char *text, size_t text_length, const char *tag_name) {
-    char opening_tag[50];
-    memset(opening_tag, 0, sizeof(opening_tag));
-    sprintf(opening_tag, "<%s ", tag_name);
-
-    char closing_tag[50];
-    memset(closing_tag, 0, sizeof(closing_tag));
-    sprintf(closing_tag, "</%s>", tag_name);
-
-    HTMLBlock html_block = {0};
-
-    html_block.block = match_pattern(opening_tag, text, text_length);
-    html_block.opening_tag.start_addr = html_block.block.start_addr;
-
-    if (!html_block.block.start_addr) {
-        return html_block;
-    }
-
-    char *ptr = html_block.block.start_addr;
-    ptr++;
-
-    uint8_t inner = 0;
-
-    uint8_t nested = 0;
-    while (*ptr != '\0') {
-        if (*ptr == '"') {
-            ptr++;
-            while (*ptr != '"') {
-                ptr++;
-            }
-        }
-
-        if (strncmp(ptr, SELF_CLOSING_TAG, strlen(SELF_CLOSING_TAG)) == 0) {
-            ptr += strlen(SELF_CLOSING_TAG);
-            html_block.block.length = ptr - html_block.block.start_addr;
-            html_block.opening_tag.length = html_block.block.length;
-
-            return html_block;
-        }
-
-        if (strncmp(ptr, CLOSING_BRACKET, strlen(CLOSING_BRACKET)) == 0) {
-            while (*ptr != '\0') {
-                if (strncmp(ptr, opening_tag, strlen(opening_tag)) == 0) {
-                    ptr += strlen(opening_tag);
-                    while (*ptr != '\0') {
-                        if (strncmp(ptr, SELF_CLOSING_TAG, strlen(SELF_CLOSING_TAG)) == 0) {
-                            break;
-                        }
-
-                        if (strncmp(ptr, CLOSING_BRACKET, strlen(CLOSING_BRACKET)) == 0) {
-                            nested++;
-                            break;
-                        }
-
-                        ptr++;
-                    }
-                }
-
-                if (strncmp(ptr, closing_tag, strlen(closing_tag)) == 0) {
-                    ptr += strlen(closing_tag);
-                    if (nested == 0) {
-                        html_block.block.length = ptr - html_block.block.start_addr;
-
-                        String closing_bracket = match_pattern(CLOSING_BRACKET, html_block.block.start_addr, html_block.block.length);
-                        char *passed_bracket = closing_bracket.start_addr + strlen(CLOSING_BRACKET);
-
-                        html_block.opening_tag.length = passed_bracket - html_block.block.start_addr;
-
-                        return html_block;
-                    } else {
-                        nested--;
-                    }
-                }
-
-                ptr++;
-            }
-        }
-
-        ptr++;
-    }
-
-    assert(0);
-}
-
-typedef enum {
-    _COMPONENT_DEFINITION_OPENING_TAG,
-    _COMPONENT_DEFINITION_CLOSING_TAG,
-
-    _COMPONENT_IMPORT_SELF_CLOSING_TAG,
-
-    _COMPONENT_IMPORT_OPENING_TAG,
-    _COMPONENT_IMPORT_CLOSING_TAG,
-
-    _SLOT_SELF_CLOSING_TAG,
-
-    _INSERT_OPENING_TAG,
-    _INSERT_CLOSING_TAG,
-
-    _ATTRIBUTE,
-    _INJECT_ATTRIBUTE,
-    _INHERIT_ATTRIBUTE,
-
-    _PLACEHOLDER,
-
-    _ANY,
-
-    _END
-} TokenKind;
-
-typedef struct {
-    TokenKind kind;
-    String text;
-} Token;
-
-Dict get_slots(Arena *arena, HTMLBlock component_import) {
-    Dict dict = {0};
-
-    char *p = NULL;
-
-    char *slots_dict = (char *)arena->current;
-    dict.start_addr = slots_dict;
-    char *tmp_slots_dict = slots_dict;
-
-    char *end = component_import.block.start_addr + component_import.block.length;
-    while (true) {
-        HTMLBlock insert = find_html_block(component_import.block.start_addr, component_import.block.length, "x-insert");
-        if (!insert.block.start_addr) {
-            dict.end_addr = tmp_slots_dict - 1;
-            arena->current = tmp_slots_dict;
-
-            return dict;
-        }
-
-        String key = find_attribute(insert.opening_tag, "name");
-        memcpy(tmp_slots_dict, key.start_addr, key.length);
-        tmp_slots_dict += strlen(tmp_slots_dict) + 1;
-
-        String value = {0};
-        value.start_addr = insert.opening_tag.start_addr + insert.opening_tag.length;
-        char *value_end = (insert.block.start_addr + insert.block.length) - strlen("</x-insert>");
-        value.length = value_end - value.start_addr;
-        memcpy(tmp_slots_dict, value.start_addr, value.length);
-        tmp_slots_dict += strlen(tmp_slots_dict) + 1;
-
-        component_import.block.start_addr = insert.block.start_addr + insert.block.length;
-        component_import.block.length = end - component_import.block.start_addr;
-    }
-}
-
-Dict get_tag_attributes(Arena *arena, String opening_tag) {
-    Dict dict = {0};
-
-    char *p = NULL;
-
-    char *attr_dict = (char *)arena->current;
-    dict.start_addr = attr_dict;
-    char *tmp_attr_dict = attr_dict;
-
-    char *end = opening_tag.start_addr + opening_tag.length;
-    while (true) {
-        String attribute = match_pattern(ATTRIBUTE_PATTERN_2, opening_tag.start_addr, opening_tag.length);
-        if (!attribute.start_addr) {
-            dict.end_addr = tmp_attr_dict - 1;
-            arena->current = tmp_attr_dict;
-
-            return dict;
-        }
-
-        String key_match = match_pattern(ATTRIBUTE_KEY_PATTERN, attribute.start_addr, attribute.length);
-        char *key_start = string_skip_whitespaces(key_match.start_addr);
-
-        p = key_start;
-        while (!isspace(*p) && *p != '=') {
-            p++;
-        }
-
-        char *key_end = p;
-
-        size_t key_length = key_end - key_start;
-
-        String key = {0};
-        if (strncmp(key_start, "name", strlen("name")) == 0 && key_length == strlen("name")) {
-            memcpy(tmp_attr_dict, key_start, key_length);
-            tmp_attr_dict += strlen(tmp_attr_dict) + 1;
-        } else {
-            tmp_attr_dict[0] = '%';
-            memcpy(&tmp_attr_dict[1], key_start, key_length);
-            tmp_attr_dict[strlen(tmp_attr_dict)] = '%';
-            tmp_attr_dict += strlen(tmp_attr_dict) + 1;
-        }
-
-        String value_match = match_pattern(ATTRIBUTE_VALUE_PATTERN, attribute.start_addr, attribute.length);
-        char *value_start = value_match.start_addr + 1 /** " */;
-
-        p = value_start;
-        while (*p != '"') {
-            p++;
-        }
-
-        char *value_end = p;
-
-        size_t value_length = value_end - value_start;
-
-        memcpy(tmp_attr_dict, value_start, value_length);
-        tmp_attr_dict += strlen(tmp_attr_dict) + 1;
-
-        opening_tag.start_addr = attribute.start_addr + attribute.length;
-        opening_tag.length = end - opening_tag.start_addr;
-    }
-
-    assert(0);
-}
-
-void clear_leftovers(char *ptr) {
-    if (*ptr == '\0') {
-        ptr++;
-    }
-
-    while (*ptr) {
-        size_t str_len = strlen(ptr);
-        memset(ptr, 0, str_len);
-        ptr += str_len + 1;
-    }
-}
-
 /**
  * Loads and resolves all HTML components along with their imports from the specified `base_path`.
  */
 Dict load_templates(Arena *arena, const char *base_path) {
     Dict html_raw_components = load_html_components(arena, base_path);
-
-    dump_dict(html_raw_components, "html_raw_components");
 
     /* A template is essentially a Component that has been compiled with all its imports. */
 
@@ -480,9 +176,7 @@ Dict load_templates(Arena *arena, const char *base_path) {
 
         strncpy(ptr_1, raw_component.v, strlen(raw_component.v) + 1);
 
-    repeat:
-        printf("\n");
-
+    repeat:;
         char *ptr_2 = ptr_1;
 
         HTMLBlock component_import_block = find_html_block(ptr_2, strlen(ptr_2), "x-component");
@@ -506,9 +200,30 @@ Dict load_templates(Arena *arena, const char *base_path) {
             memcpy(component_to_be_imported_cpy, component_to_be_imported, strlen(component_to_be_imported));
 
             /** Compile 'inline slots' if any */
-            uint8_t inline_slot_count = get_dictionary_size(import__tag_attributes) - 1 /** don't count the 'name' attribute */;
+            uint8_t inline_slot_count = get_dictionary_size(import__tag_attributes);
             for (j = 0; j < inline_slot_count; j++) {
-                /** TODO: LEFT OFF HERE! */
+                KV kv = get_key_value(import__tag_attributes, j);
+                char *replacement_name = kv.k;
+                char *replacement = kv.v;
+
+                if (strncmp(replacement_name, "name", strlen("name")) == 0 && strlen(replacement_name) == strlen("name")) {
+                    /** Tag name attribute is NOT a 'inline slots' so no need to do anything */
+                    continue;
+                }
+
+                char *ptr_3 = component_to_be_imported_cpy;
+                while (true) {
+                    String Location = match_pattern(replacement_name, ptr_3, strlen(ptr_3));
+                    if (!Location.start_addr) {
+                        break;
+                    }
+
+                    char *after = Location.start_addr + Location.length;
+                    memmove(Location.start_addr + strlen(replacement), after, strlen(after) + 1);
+                    memcpy(Location.start_addr, replacement, strlen(replacement));
+
+                    clear_leftovers(component_to_be_imported_cpy + strlen(component_to_be_imported_cpy));
+                }
             }
 
             /** Compile 'slots' if any */
@@ -537,6 +252,8 @@ Dict load_templates(Arena *arena, const char *base_path) {
                     }
                 }
             }
+
+            scratch_arena->current = component_to_be_imported_cpy + strlen(component_to_be_imported_cpy) + 1;
 
             char *after = component_import_block.block.start_addr + component_import_block.block.length;
             memmove(component_import_block.block.start_addr + strlen(component_to_be_imported_cpy), after, strlen(after) + 1);
@@ -910,4 +627,311 @@ size_t html_minify(char *buffer, char *html, size_t html_length) {
     size_t length = buffer - start;
 
     return length;
+}
+
+HTMLBlock find_html_block(char *text, size_t text_length, const char *tag_name) {
+    char opening_tag[50];
+    memset(opening_tag, 0, sizeof(opening_tag));
+    sprintf(opening_tag, "<%s ", tag_name);
+
+    char closing_tag[50];
+    memset(closing_tag, 0, sizeof(closing_tag));
+    sprintf(closing_tag, "</%s>", tag_name);
+
+    HTMLBlock html_block = {0};
+
+    html_block.block = match_pattern(opening_tag, text, text_length);
+    html_block.opening_tag.start_addr = html_block.block.start_addr;
+
+    if (!html_block.block.start_addr) {
+        return html_block;
+    }
+
+    char *ptr = html_block.block.start_addr;
+    ptr++;
+
+    uint8_t inner = 0;
+
+    uint8_t nested = 0;
+    while (*ptr != '\0') {
+        if (*ptr == '"') {
+            ptr++;
+            while (*ptr != '"') {
+                ptr++;
+            }
+        }
+
+        if (strncmp(ptr, SELF_CLOSING_TAG, strlen(SELF_CLOSING_TAG)) == 0) {
+            ptr += strlen(SELF_CLOSING_TAG);
+            html_block.block.length = ptr - html_block.block.start_addr;
+            html_block.opening_tag.length = html_block.block.length;
+
+            return html_block;
+        }
+
+        if (strncmp(ptr, CLOSING_BRACKET, strlen(CLOSING_BRACKET)) == 0) {
+            while (*ptr != '\0') {
+                if (strncmp(ptr, opening_tag, strlen(opening_tag)) == 0) {
+                    ptr += strlen(opening_tag);
+                    while (*ptr != '\0') {
+                        if (strncmp(ptr, SELF_CLOSING_TAG, strlen(SELF_CLOSING_TAG)) == 0) {
+                            break;
+                        }
+
+                        if (strncmp(ptr, CLOSING_BRACKET, strlen(CLOSING_BRACKET)) == 0) {
+                            nested++;
+                            break;
+                        }
+
+                        ptr++;
+                    }
+                }
+
+                if (strncmp(ptr, closing_tag, strlen(closing_tag)) == 0) {
+                    ptr += strlen(closing_tag);
+                    if (nested == 0) {
+                        html_block.block.length = ptr - html_block.block.start_addr;
+
+                        String closing_bracket = match_pattern(CLOSING_BRACKET, html_block.block.start_addr, html_block.block.length);
+                        char *passed_bracket = closing_bracket.start_addr + strlen(CLOSING_BRACKET);
+
+                        html_block.opening_tag.length = passed_bracket - html_block.block.start_addr;
+
+                        return html_block;
+                    } else {
+                        nested--;
+                    }
+                }
+
+                ptr++;
+            }
+        }
+
+        ptr++;
+    }
+
+    assert(0);
+}
+
+Dict get_slots(Arena *arena, HTMLBlock component_import) {
+    Dict dict = {0};
+
+    char *p = NULL;
+
+    char *slots_dict = (char *)arena->current;
+    dict.start_addr = slots_dict;
+    char *tmp_slots_dict = slots_dict;
+
+    char *end = component_import.block.start_addr + component_import.block.length;
+    while (true) {
+        HTMLBlock insert = find_html_block(component_import.block.start_addr, component_import.block.length, "x-insert");
+        if (!insert.block.start_addr) {
+            dict.end_addr = tmp_slots_dict - 1;
+            arena->current = tmp_slots_dict;
+
+            return dict;
+        }
+
+        String key = find_attribute(insert.opening_tag, "name");
+        memcpy(tmp_slots_dict, key.start_addr, key.length);
+        tmp_slots_dict += strlen(tmp_slots_dict) + 1;
+
+        String value = {0};
+        value.start_addr = insert.opening_tag.start_addr + insert.opening_tag.length;
+        char *value_end = (insert.block.start_addr + insert.block.length) - strlen("</x-insert>");
+        value.length = value_end - value.start_addr;
+        memcpy(tmp_slots_dict, value.start_addr, value.length);
+        tmp_slots_dict += strlen(tmp_slots_dict) + 1;
+
+        component_import.block.start_addr = insert.block.start_addr + insert.block.length;
+        component_import.block.length = end - component_import.block.start_addr;
+    }
+}
+
+String match_pattern(const char *pattern, const char *text, size_t text_length) {
+    regex_t regex;
+    regmatch_t match[1];
+    String result = {0};
+
+    if (regcomp(&regex, pattern, REG_EXTENDED) != 0) {
+        printf("Could not compile regex: %s\n", pattern);
+        return result;
+    }
+
+    if (regexec(&regex, text, 1, match, 0) == 0) {
+        if (match[0].rm_eo <= (regoff_t)text_length) {
+            result.start_addr = (char *)(text + match[0].rm_so);
+            result.length = match[0].rm_eo - match[0].rm_so;
+        }
+    }
+
+    regfree(&regex);
+    return result;
+}
+
+Dict get_tag_attributes(Arena *arena, String opening_tag) {
+    Dict dict = {0};
+
+    char *p = NULL;
+
+    char *attr_dict = (char *)arena->current;
+    dict.start_addr = attr_dict;
+    char *tmp_attr_dict = attr_dict;
+
+    char *end = opening_tag.start_addr + opening_tag.length;
+    while (true) {
+        String attribute = match_pattern(ATTRIBUTE_PATTERN_2, opening_tag.start_addr, opening_tag.length);
+        if (!attribute.start_addr) {
+            dict.end_addr = tmp_attr_dict - 1;
+            arena->current = tmp_attr_dict;
+
+            return dict;
+        }
+
+        String key_match = match_pattern(ATTRIBUTE_KEY_PATTERN, attribute.start_addr, attribute.length);
+        char *key_start = string_skip_whitespaces(key_match.start_addr);
+
+        p = key_start;
+        while (!isspace(*p) && *p != '=') {
+            p++;
+        }
+
+        char *key_end = p;
+
+        size_t key_length = key_end - key_start;
+
+        String key = {0};
+        if (strncmp(key_start, "name", strlen("name")) == 0 && key_length == strlen("name")) {
+            memcpy(tmp_attr_dict, key_start, key_length);
+            tmp_attr_dict += strlen(tmp_attr_dict) + 1;
+        } else {
+            tmp_attr_dict[0] = '%';
+            memcpy(&tmp_attr_dict[1], key_start, key_length);
+            tmp_attr_dict[strlen(tmp_attr_dict)] = '%';
+            tmp_attr_dict += strlen(tmp_attr_dict) + 1;
+        }
+
+        String value_match = match_pattern(ATTRIBUTE_VALUE_PATTERN, attribute.start_addr, attribute.length);
+        char *value_start = value_match.start_addr + 1 /** " */;
+
+        p = value_start;
+        while (*p != '"') {
+            p++;
+        }
+
+        char *value_end = p;
+
+        size_t value_length = value_end - value_start;
+
+        memcpy(tmp_attr_dict, value_start, value_length);
+        tmp_attr_dict += strlen(tmp_attr_dict) + 1;
+
+        opening_tag.start_addr = attribute.start_addr + attribute.length;
+        opening_tag.length = end - opening_tag.start_addr;
+    }
+
+    assert(0);
+}
+
+String find_attribute(String opening_tag, const char *attr_name) {
+    char *p = NULL;
+
+    char *end = opening_tag.start_addr + opening_tag.length;
+    while (true) {
+        String attribute = match_pattern(ATTRIBUTE_PATTERN_2, opening_tag.start_addr, opening_tag.length);
+        if (!attribute.start_addr) {
+            String value = {0};
+            return value;
+        }
+
+        String key_match = match_pattern(ATTRIBUTE_KEY_PATTERN, attribute.start_addr, attribute.length);
+        char *key_start = string_skip_whitespaces(key_match.start_addr);
+
+        p = key_start;
+        while (!isspace(*p) && *p != '=') {
+            p++;
+        }
+
+        char *key_end = p;
+
+        size_t key_length = key_end - key_start;
+
+        String key = {0};
+        if (strncmp(key_start, attr_name, strlen(attr_name)) == 0 && key_length == strlen(attr_name)) {
+            String value_match = match_pattern(ATTRIBUTE_VALUE_PATTERN, attribute.start_addr, attribute.length);
+            char *value_start = value_match.start_addr + 1 /** " */;
+
+            p = value_start;
+            while (*p != '"') {
+                p++;
+            }
+
+            char *value_end = p;
+
+            size_t value_length = value_end - value_start;
+
+            String value = {0};
+            value.start_addr = value_start;
+            value.length = value_length;
+
+            return value;
+        }
+
+        opening_tag.start_addr = attribute.start_addr + attribute.length;
+        opening_tag.length = end - opening_tag.start_addr;
+    }
+
+    assert(0);
+}
+
+String find_name_attribute_value(String opening_tag) {
+    String name_attr = match_pattern(NAME_ATTRIBUTE_PATTERN, opening_tag.start_addr, opening_tag.length);
+    assert(name_attr.start_addr);
+
+    String name = match_pattern(ATTRIBUTE_VALUE_PATTERN, name_attr.start_addr, name_attr.length);
+    assert(name.start_addr);
+
+    /** exclude " at the beginning and end */
+    name.start_addr += 1;
+    name.length -= 2;
+
+    return name;
+}
+
+StringArray get_files_list(Arena *arena, const char *base_path, const char *extension) {
+    StringArray files_list = {0};
+    files_list.start_addr = (char *)arena->current;
+
+    size_t all_paths_length = 0;
+    locate_files(files_list.start_addr, base_path, extension, 0, &all_paths_length);
+    files_list.end_addr = files_list.start_addr + all_paths_length - 1;
+
+    arena->current = files_list.end_addr + 1;
+
+    return files_list;
+}
+
+char *string_skip_whitespaces(char *text) {
+    while (isspace(*text)) {
+        text++;
+    }
+
+    return text;
+}
+
+char *find_component_declaration(char *string) {
+    char *ptr = strstr(string, COMPONENT_DEFINITION_OPENING_TAG__START);
+    return ptr;
+}
+
+void clear_leftovers(char *ptr) {
+    if (*ptr == '\0') {
+        ptr++;
+    }
+
+    while (*ptr) {
+        size_t str_len = strlen(ptr);
+        memset(ptr, 0, str_len);
+        ptr += str_len + 1;
+    }
 }

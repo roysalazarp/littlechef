@@ -1,5 +1,8 @@
 #include "headers.h"
 
+Socket *create_server_socket(uint16_t port);
+void sigint_handler(int signo);
+
 DBConnection connection_pool[CONNECTION_POOL_SIZE];
 QueuedRequest queue[MAX_CLIENT_CONNECTIONS];
 
@@ -38,7 +41,7 @@ int main() {
 
     scratch_arena = arena_init(PAGE_SIZE * 10);
 
-    global_arena = arena_init(PAGE_SIZE * 50);
+    global_arena = arena_init(PAGE_SIZE * 100);
 
     /** To look up data stored in arena */
     global_arena_data = (ArenaDataLookup *)arena_alloc(global_arena, sizeof(ArenaDataLookup));
@@ -46,18 +49,6 @@ int main() {
     Dict envs = {0};
     if (dev_mode) {
         envs = load_env_variables("./.env.dev");
-
-        /** NOTE: REMOVE THE FOLLOWING CODE AFTER DEBUGGING */
-        const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
-        Dict public_files = load_public_files(global_arena, public_base_path);
-        global_arena_data->public_files_dict = public_files;
-
-        dump_dict(public_files, "public_files");
-
-        Dict templates = load_templates(global_arena, "./templates_debug");
-        global_arena_data->templates = templates;
-
-        dump_dict(templates, "templates");
     } else {
         envs = load_env_variables("./.env.prod");
 

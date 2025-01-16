@@ -1,8 +1,6 @@
 <x-component-def name="login">
-    <x-component name="full_view_drawer">
-        <x-insert>login_drawer</x-insert>
-        <x-insert>closeLoginDrawer</x-insert>
-        <x-insert>
+    <x-component name="full_view_drawer" dialog-id="login_drawer" button-id="closeLoginDrawer">
+        <x-insert name="content">
             <div hx-ext="response-targets">
                 <form id="login-form" hx-post="/login/create-session" hx-swap="none" hx-select-oob="#password-validation-error,#wrong-password-error" hx-target-error="#login-form" class="mt-8">
                     <div class="relative float-label-input mb-6 pointer-events-none">

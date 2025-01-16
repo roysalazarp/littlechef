@@ -1,8 +1,6 @@
 <x-component-def name="register">
-    <x-component name="full_view_drawer">
-        <x-insert>register_drawer</x-insert>
-        <x-insert>closeRegisterDrawer</x-insert>
-        <x-insert>
+    <x-component name="full_view_drawer" dialog-id="register_drawer" button-id="closeRegisterDrawer">
+        <x-insert name="content">
             <div hx-ext="response-targets">
                 <form id="register-form" hx-post="/register/create-account" hx-swap="none" hx-select-oob="#email-validation-error,#password-validation-error,#repeat-password-validation-error,#accept-terms-validation-error" hx-target-error="#register-form" class="mt-8">
                     <div class="relative float-label-input mb-6 pointer-events-none">

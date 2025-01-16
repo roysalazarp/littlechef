@@ -1,6 +1,6 @@
 <x-component-def name="profile">
     <x-component name="account">
-        <x-insert>
+        <x-insert name="default">
             <div class="flex flex-col flex-1 max-w-xl justify-center">
                 <h1 class="text-3xl font-bold">Hello <x-val name="email" /></h1>
                 <div hx-post="/logout" hx-swap="none" class="max-w-xl w-full mt-4 flex">

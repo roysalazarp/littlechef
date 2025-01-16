@@ -1,0 +1,65 @@
+<x-component-def name="large_title">
+    <h1 class="%tw-text-classes% text-[34px]/[41px] tracking-[.4px]">
+        <x-slot name="default" />
+    </h1>
+</x-component-def>
+
+<x-component-def name="title_1">
+    <h1 class="%tw-text-classes% text-[28px]/[34px] tracking-[.38px]">
+        <x-slot name="default" />
+    </h1>
+</x-component-def>
+
+<x-component-def name="title_2">
+    <h2 class="%tw-text-classes% text-[22px]/[28px] tracking-[-.26px]">
+        <x-slot name="default" />
+    </h2>
+</x-component-def>
+
+<x-component-def name="title_3">
+    <h3 class="%tw-text-classes% text-[20px]/[25px] tracking-[-.45px]">
+        <x-slot name="default" />
+    </h3>
+</x-component-def>
+
+<x-component-def name="headline">
+    <h4 class="%tw-text-classes% text-[17px]/[22px] tracking-[-.43px]">
+        <x-slot name="default" />
+    </h4>
+</x-component-def>
+
+<x-component-def name="body">
+    <p class="%tw-text-classes% text-[17px]/[22px] tracking-[-.43px]">
+        <x-slot name="default" />
+    </p>
+</x-component-def>
+
+<x-component-def name="callout">
+    <p class="%tw-text-classes% text-[16px]/[21px] tracking-[-.31px]">
+        <x-slot name="default" />
+    </p>
+</x-component-def>
+
+<x-component-def name="subheadline">
+    <h5 class="%tw-text-classes% text-[15px]/[20px] tracking-[-.23px]">
+        <x-slot name="default" />
+    </h5>
+</x-component-def>
+
+<x-component-def name="footnote">
+    <p class="%tw-text-classes% text-[13px]/[18px] tracking-[-.08px]">
+        <x-slot name="default" />
+    </p>
+</x-component-def>
+
+<x-component-def name="caption_1">
+    <p class="%tw-text-classes% text-[12px]/[16px] tracking-[0px]">
+        <x-slot name="default" />
+    </p>
+</x-component-def>
+
+<x-component-def name="caption_2">
+    <p class="%tw-text-classes% text-[11px]/[13px] tracking-[0.06px]">
+        <x-slot name="default" />
+    </p>
+</x-component-def>

@@ -4,8 +4,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     navLinks.forEach((link) => {
         if (link.getAttribute("href") === currentPath) {
-            link.classList.add("text-[#01B269]");
-            link.classList.remove("text-gray-400");
+            link.classList.add("text-[#3EFFA2]");
+            link.classList.remove("text-[#9D9DAE]");
         }
     });
 });

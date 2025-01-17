@@ -120,6 +120,11 @@ int main() {
                         assert(fcntl(client_fd, F_SETFL, client_fd_flags | O_NONBLOCK) != -1);
 
                         if (dev_mode) {
+                            /** Clear all global arena memory from 'arena_freeze_ptr'
+                             * up to the current position in the arena. */
+                            char *end = global_arena->current;
+                            memset(arena_freeze_ptr, 0, end - arena_freeze_ptr);
+
                             global_arena->current = arena_freeze_ptr;
 
                             const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);

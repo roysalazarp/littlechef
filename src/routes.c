@@ -145,10 +145,15 @@ void router(RequestCtx request_ctx) {
 
     if (strncmp(url.start_addr, URL("/"), strlen(URL("/"))) == 0) {
         if (strncmp(method.start_addr, "GET", method.length) == 0) {
-            /*
+            view_get(request_ctx, "home", false);
+            return;
+        }
+    }
+
+    /*
+    if (strncmp(url.start_addr, URL("/"), strlen(URL("/"))) == 0) {
+        if (strncmp(method.start_addr, "GET", method.length) == 0) {
             home_get(request_ctx);
-            */
-            view_get(request_ctx, "ui_test", false);
             return;
         }
     }
@@ -201,6 +206,7 @@ void router(RequestCtx request_ctx) {
             return;
         }
     }
+    */
 
     view_get(request_ctx, "not_found", false);
 

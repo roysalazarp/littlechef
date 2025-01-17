@@ -85,6 +85,49 @@ Dict load_public_files(Arena *arena, const char *base_path) {
         long file_size = 0;
         read_file(&file_content, &file_size, path);
 
+        /** Minify js files */
+        if (strncmp(path + strlen(path) - strlen(".js"), ".js", strlen(".js")) == 0) {
+            char *dest = file_content;
+            char *src = file_content;
+            boolean inside_string = false;
+            boolean last_was_space = false;
+
+            while (*src != '\0') {
+                /* Check for string literals (inside " or ') */
+                if (*src == '\"' || *src == '\'') {
+                    if (inside_string) {
+                        if (*(src - 1) != '\\') {
+                            inside_string = false; /* Exit string literal */
+                        }
+                    } else {
+                        inside_string = true; /* Enter string literal */
+                    }
+                }
+
+                if (inside_string) {
+                    /* Copy everything inside a string as-is */
+                    *dest++ = *src;
+                } else {
+                    /* Outside of string literals, manage spaces */
+                    if (isspace(*src)) {
+                        if (!last_was_space) {
+                            *dest++ = ' '; /* Replace sequence of spaces with one space */
+                            last_was_space = true;
+                        }
+                    } else {
+                        /* Non-space character resets the space tracking */
+                        *dest++ = *src;
+                        last_was_space = false;
+                    }
+                }
+
+                src++;
+            }
+
+            /* Null-terminate the result */
+            *dest = '\0';
+        }
+
         Dict inserted_element = add_to_dictionary(ptr, 1, path, file_content);
         ptr = inserted_element.end_addr;
 

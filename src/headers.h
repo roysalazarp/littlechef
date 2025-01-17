@@ -211,6 +211,7 @@ void auth_check_email_post(RequestCtx request_ctx);
 void account_get(RequestCtx request_ctx);
 void request_cleanup(Arena *arena, DBConnection *connection, int client_socket);
 Dict is_authenticated(RequestCtx request_ctx, DBConnection *connection);
+void home_get_new(RequestCtx request_ctx);
 
 ValidationError validate_email(Arena *arena, const char *email);
 ValidationError validate_password(Arena *arena, const char *password);

@@ -145,7 +145,7 @@ void router(RequestCtx request_ctx) {
 
     if (strncmp(url.start_addr, URL("/"), strlen(URL("/"))) == 0) {
         if (strncmp(method.start_addr, "GET", method.length) == 0) {
-            view_get(request_ctx, "home", false);
+            home_get_new(request_ctx);
             return;
         }
     }
@@ -375,6 +375,63 @@ void test_get(RequestCtx request_ctx) {
 
     request_arena->current = response + strlen(response) + 1;
 
+    if (send(client_socket, response, strlen(response), 0) == -1) {
+    }
+
+    request_cleanup(request_arena, connection, client_socket);
+}
+
+void home_get_new(RequestCtx request_ctx) {
+    Arena *request_arena = request_ctx.request_arena;
+    int client_socket = request_ctx.client_socket;
+    char *request = request_ctx.request;
+    DBConnection *connection = NULL;
+    char *response = NULL;
+
+    connection = get_available_connection(request_arena);
+
+    char *app_shell_template = find_value("app", global_arena_data->templates);
+
+    Dict user = is_authenticated(request_ctx, connection);
+    if (user.start_addr) {
+        response = (char *)request_arena->current;
+
+        sprintf(response,
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/html\r\n\r\n"
+                "%s",
+                app_shell_template);
+
+        response[strlen(response)] = '\0';
+
+        char *home_template = find_value("home", global_arena_data->templates);
+
+        render_val(response, "content", home_template);
+
+        /** TODO: Add some data to the "home" template that is specific to the user when logged in */
+
+        request_arena->current = response + strlen(response) + 1;
+
+        goto send_response;
+    }
+
+    response = (char *)request_arena->current;
+
+    sprintf(response,
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/html\r\n\r\n"
+            "%s",
+            app_shell_template);
+
+    response[strlen(response)] = '\0';
+
+    char *home_template = find_value("home", global_arena_data->templates);
+
+    render_val(response, "content", home_template);
+
+    request_arena->current = response + strlen(response) + 1;
+
+send_response:
     if (send(client_socket, response, strlen(response), 0) == -1) {
     }
 

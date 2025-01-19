@@ -4,6 +4,7 @@
     -khtml-user-select: none;
     -webkit-user-select: none;
     -o-user-select: none;
+    outline: none;
 }
 
 body {
@@ -62,4 +63,125 @@ input:-webkit-autofill:active {
     mix-blend-mode: overlay;
     opacity: 0.15;
     z-index: -1;
+}
+
+.modal-bg {
+    position: relative;
+    background-color: #182425;
+}
+
+.modal-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0px;
+    background-image: url("https://upload.wikimedia.org/wikipedia/commons/9/9a/512x512_Dissolve_Noise_Texture.png");
+    background-size: contain;
+    background-repeat: repeat;
+    mix-blend-mode: overlay;
+    opacity: 0.05;
+    z-index: -1;
+}
+
+dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.7);
+    view-transition-name: backdrop;
+}
+
+dialog {
+    inset: auto 0 0 0;
+    min-width: 100vw;
+    border: none;
+    margin: 0;
+    padding: 0;
+    view-transition-name: modal;
+    touch-action: none;
+    transform: translateY(0);
+    will-change: transform;
+    overflow: visible;
+}
+
+dialog[open] {
+    display: block;
+}
+
+::view-transition-group(modal) {
+    height: 100%;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+::view-transition-old(modal),
+::view-transition-new(modal) {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    position: fixed;
+}
+
+::view-transition-old(backdrop),
+::view-transition-new(backdrop) {
+    animation: none;
+    mix-blend-mode: normal;
+    position: fixed;
+    inset: 0;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes slide-up {
+    from {
+        transform: translateY(100%);
+    }
+    50% {
+        transform: translateY(-3%);
+    }
+    75% {
+        transform: translateY(1%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-down {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(100%);
+    }
+}
+
+::view-transition-old(modal) {
+    animation: 0.3s cubic-bezier(0.4, 0, 0.2, 1) both slide-down;
+}
+
+::view-transition-new(modal) {
+    animation: 0.5s cubic-bezier(0.4, 0, 0.2, 1) both slide-up;
+}
+
+::view-transition-old(backdrop) {
+    animation: 0.3s ease-out both fade-out;
+}
+
+::view-transition-new(backdrop) {
+    animation: 0.3s ease-out both fade-in;
 }

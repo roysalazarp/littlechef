@@ -89,6 +89,9 @@
 <x-component-def name="home">
     <x-component name="app">
         <x-insert name="content">
+            <x-component name="bottom_modal">
+                <x-insert name="modal_title"> Location </x-insert>
+            </x-component>
             <div class="flex flex-col w-full">
                 <div class="sticky top-0 flex flex-col w-full px-2 py-3">
                     <x-component name="top_bar" />
@@ -151,13 +154,13 @@
 
 <x-component-def name="top_bar">
     <div class="flex gap-2 justify-between">
-        <div class="flex flex-1 gap-2 text-left">
+        <div class="flex flex-1 gap-2 text-left cursor-pointer">
             <x-component name="circle_container" tw-bg-color-2="bg-[#101C1C]" tw-text-color-2="text-[#41ADFC]">
                 <x-insert name="default">
                     <x-component name="house_icon" />
                 </x-insert>
             </x-component>
-            <div class="flex flex-col justify-between py-[2px] flex-1">
+            <div id="openModal" class="flex flex-col justify-between py-[2px] flex-1">
                 <x-component name="callout" tw-text-classes="font-semibold text-[#41ADFC]">
                     <x-insert name="text">Haavaisojantie 31</x-insert>
                 </x-component>
@@ -171,6 +174,44 @@
     </div>
 </x-component-def>
 
+<x-component-def name="drag_indicator">
+    <div class="w-8 h-1 bg-[#1F3A3D] rounded m-2 mx-auto"></div>
+</x-component-def>
+
+<x-component-def name="bottom_modal">
+    <dialog id="modal" class="modal-bg rounded-t-lg relative px-2">
+        <x-component name="drag_indicator" />
+        <div class="flex justify-between mb-[30px]">
+            <div class="flex flex-col justify-center">
+                <x-component name="title_3" tw-text-classes="font-semibold text-white">
+                    <x-insert name="text">
+                        <x-slot name="modal_title" />
+                    </x-insert>
+                </x-component>
+            </div>
+            <div id="closeModal" class="flex transform -rotate-90">
+                <x-component name="back_btn" />
+            </div>
+        </div>
+        <div class="flex flex-1 gap-2 text-left cursor-pointer">
+            <x-component name="circle_container" tw-bg-color-2="bg-[#3EFFA2]" tw-text-color-2="text-[#182425]">
+                <x-insert name="default">
+                    <x-component name="house_icon" />
+                </x-insert>
+            </x-component>
+            <div class="flex flex-col justify-between py-[2px] flex-1">
+                <x-component name="callout" tw-text-classes="font-semibold text-[#3EFFA2]">
+                    <x-insert name="text">Haavaisojantie 31</x-insert>
+                </x-component>
+                <x-component name="footnote" tw-text-classes="font-semibold text-[#3EFFA2]">
+                    <x-insert name="text">Home</x-insert>
+                </x-component>
+            </div>
+        </div>
+        <div class="h-[50px]"></div>
+    </dialog>
+</x-component-def>
+
 <x-component-def name="primary_btn">
     <button type="submit" form="%form-id%" class="w-full h-14 rounded-lg bg-[#3EFFA2]">
         <x-component name="body" tw-text-classes="text-[#091011] font-semibold">
@@ -179,6 +220,14 @@
             </x-insert>
         </x-component>
     </button>
+</x-component-def>
+
+<x-component-def name="back_btn">
+    <x-component name="circle_btn" tw-bg-color="bg-[#1F3A3D]" tw-text-color="text-white">
+        <x-insert name="icon">
+            <x-component name="arrow_icon" />
+        </x-insert>
+    </x-component>
 </x-component-def>
 
 <x-component-def name="bottom_navigation">

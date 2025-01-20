@@ -1,34 +1,136 @@
 #include "headers.h"
 
-Dict load_env_variables(const char *filepath) {
+Dict load_env_variables(Arena *arena, const char *filepath) {
     char *file_content = NULL;
     long file_size = 0;
     read_file(&file_content, &file_size, filepath);
 
     assert(file_size != 0);
 
-    char *envs = (char *)global_arena->current;
-    char *p_dict_buffer = envs;
+    char *envs = NULL;
+    char *p_dict_buffer = NULL;
+    ARENA_IN_USE(arena, envs, p_dict_buffer) {
+        char *line = file_content;
+        char *end_of_file = file_content + file_size;
 
-    char *line = file_content;
-    char *end_of_file = file_content + file_size;
+        while (line < end_of_file) { /** Basic .env file parsing. */
+            char *key = NULL;
+            boolean processed_key = false;
 
-    while (line < end_of_file) { /** Basic .env file parsing. */
-        char *key = NULL;
-        boolean processed_key = false;
+            char *value = NULL;
+            boolean processed_value = false;
 
-        char *value = NULL;
-        boolean processed_value = false;
+            char *c = line;
 
-        char *c = line;
+            /** Skip empty lines */
+            if (*c == '\n') {
+                goto end_of_line;
+            }
 
-        /** Skip empty lines */
-        if (*c == '\n') {
-            goto end_of_line;
-        }
+            /** Skip comment line */
+            if (*c == '#') {
+                while (*c != '\n') {
+                    if (c == end_of_file) {
+                        goto end_of_line;
+                    }
 
-        /** Skip comment line */
-        if (*c == '#') {
+                    c++;
+                }
+
+                goto end_of_line;
+            }
+
+            /** Skip whitespace characters at the beginning of the line */
+            while (isspace(*c)) {
+                if (c == end_of_file) {
+                    goto end_of_line;
+                }
+
+                c++;
+            }
+
+            /** Start processing key */
+            while (!(isspace(*c)) && *c != '=') {
+                if (c == end_of_file) {
+                    /**
+                     * If we've reached the end_of_file of the file while processing
+                     * the key, such variable does not have an associated value.
+                     */
+                    assert(0);
+                }
+
+                /** Copy key into memory buffer */
+                *p_dict_buffer = *c;
+                if (!key) {
+                    key = p_dict_buffer;
+                }
+                p_dict_buffer++;
+
+                c++;
+            }
+
+            *p_dict_buffer = '\0';
+            p_dict_buffer++;
+
+            processed_key = true;
+
+            /** Skip whitespace characters after key */
+            while (isspace(*c)) {
+                if (c == end_of_file) {
+                    goto end_of_line;
+                }
+
+                c++;
+            }
+
+            /**
+             * The first non-whitespace character we should find after
+             * the key is the '=' after which comes the value.
+             */
+            if (*c != '=') {
+                printf("Env variable '%s' does not have a corresponding value.\n", key);
+                assert(0);
+            } else {
+                /** Skip '=' character */
+                c++;
+            }
+
+            /** Skip whitespace characters after '=' */
+            while (isspace(*c)) {
+                if (c == end_of_file) {
+                    goto end_of_line;
+                }
+
+                c++;
+            }
+
+            /** From here we start processing value */
+            while (!(isspace(*c))) {
+                if (c == end_of_file) {
+                    if (value) {
+                        printf("WARNING: EOF reached while processing value '%s' for key '%s'. Ensure value '%s' is as intended.\n", value, key, value);
+                        processed_value = true;
+                    }
+
+                    goto end_of_line;
+                }
+
+                /** Copy value into memory buffer */
+                *p_dict_buffer = *c;
+                if (!value) {
+                    value = p_dict_buffer;
+                }
+                p_dict_buffer++;
+
+                c++;
+            }
+
+            *p_dict_buffer = '\0';
+            p_dict_buffer++;
+
+            processed_value = true;
+
+            /** Skip all character after the value and proceed to next line */
             while (*c != '\n') {
                 if (c == end_of_file) {
                     goto end_of_line;
@@ -37,124 +139,21 @@ Dict load_env_variables(const char *filepath) {
                 c++;
             }
 
-            goto end_of_line;
-        }
+        end_of_line:
+            line = c + 1;
 
-        /** Skip whitespace characters at the beginning of the line */
-        while (isspace(*c)) {
-            if (c == end_of_file) {
-                goto end_of_line;
-            }
-
-            c++;
-        }
-
-        /** Start processing key */
-        while (!(isspace(*c)) && *c != '=') {
-            if (c == end_of_file) {
+            if ((processed_key == false) != (processed_value == false)) {
                 /**
-                 * If we've reached the end_of_file of the file while processing
-                 * the key, such variable does not have an associated value.
+                 * Key and value must be processed together.
+                 * One should not be processed without the other.
                  */
                 assert(0);
             }
 
-            /** Copy key into memory buffer */
-            *p_dict_buffer = *c;
-            if (!key) {
-                key = p_dict_buffer;
-            }
-            p_dict_buffer++;
-
-            c++;
+            processed_key = false;
+            processed_value = false;
         }
-
-        *p_dict_buffer = '\0';
-        p_dict_buffer++;
-
-        processed_key = true;
-
-        /** Skip whitespace characters after key */
-        while (isspace(*c)) {
-            if (c == end_of_file) {
-                goto end_of_line;
-            }
-
-            c++;
-        }
-
-        /**
-         * The first non-whitespace character we should find after
-         * the key is the '=' after which comes the value.
-         */
-        if (*c != '=') {
-            printf("Env variable '%s' does not have a corresponding value.\n", key);
-            assert(0);
-        } else {
-            /** Skip '=' character */
-            c++;
-        }
-
-        /** Skip whitespace characters after '=' */
-        while (isspace(*c)) {
-            if (c == end_of_file) {
-                goto end_of_line;
-            }
-
-            c++;
-        }
-
-        /** From here we start processing value */
-        while (!(isspace(*c))) {
-            if (c == end_of_file) {
-                if (value) {
-                    printf("WARNING: EOF reached while processing value '%s' for key '%s'. Ensure value '%s' is as intended.\n", value, key, value);
-                    processed_value = true;
-                }
-
-                goto end_of_line;
-            }
-
-            /** Copy value into memory buffer */
-            *p_dict_buffer = *c;
-            if (!value) {
-                value = p_dict_buffer;
-            }
-            p_dict_buffer++;
-
-            c++;
-        }
-
-        *p_dict_buffer = '\0';
-        p_dict_buffer++;
-
-        processed_value = true;
-
-        /** Skip all character after the value and proceed to next line */
-        while (*c != '\n') {
-            if (c == end_of_file) {
-                goto end_of_line;
-            }
-
-            c++;
-        }
-
-    end_of_line:
-        line = c + 1;
-
-        if ((processed_key == false) != (processed_value == false)) {
-            /**
-             * Key and value must be processed together.
-             * One should not be processed without the other.
-             */
-            assert(0);
-        }
-
-        processed_key = false;
-        processed_value = false;
     }
-
-    global_arena->current = p_dict_buffer + 1;
 
     free(file_content);
     file_content = NULL;

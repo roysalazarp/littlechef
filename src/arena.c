@@ -20,14 +20,30 @@ Arena *arena_init(size_t size) {
  * Allocates memory from the arena and advances the current pointer by the requested size.
  */
 void *arena_alloc(Arena *arena, size_t size) {
+    assert(!arena->in_use && "Cannot allocate memory while the arena is in use!");
+
     if ((uint8_t *)arena->current + size > (uint8_t *)arena->start + arena->size) {
-        assert(0);
+        assert(0 && "Arena out of memory!");
     }
 
     void *ptr = arena->current;
     arena->current = (uint8_t *)arena->current + size;
 
     return ptr;
+}
+
+void arena_in_use(Arena *arena, void **ptr, void **tmp) {
+    assert(!arena->in_use && "Arena is already in use!");
+    arena->in_use = true;
+    if (ptr != NULL) {
+        *ptr = arena->current;
+    }
+    *tmp = arena->current;
+}
+
+void arena_out_of_use(Arena *arena, void *tmp) {
+    arena->in_use = false;
+    arena->current = (uint8_t *)tmp;
 }
 
 /**

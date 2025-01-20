@@ -351,51 +351,51 @@ Dict parse_and_decode_params(Arena *arena, String raw_params) {
         return key_value;
     }
 
-    char *ptr = raw_params.start_addr;
+    char *p = raw_params.start_addr;
     char *raw_params_end = raw_params.start_addr + raw_params.length;
 
-    char *params_dict = (char *)arena->current;
-    key_value.start_addr = params_dict;
-
-    if (*ptr == '?') {
-        /** skip '?' at the beginning of query params string */
-        ptr++;
-    }
-
-    while (ptr < raw_params_end) {
-        char *key = ptr;
-        char *key_end = key;
-        while (*key_end != '=') {
-            key_end++;
+    char *params = NULL;
+    char *ptr = NULL;
+    ARENA_IN_USE(arena, params, ptr) {
+        if (*p == '?') {
+            /** skip '?' at the beginning of query params string */
+            p++;
         }
 
-        size_t key_length = key_end - key;
-        memcpy(params_dict, key, key_length);
-        params_dict += key_length;
-        *params_dict = '\0';
-        params_dict++;
+        while (p < raw_params_end) {
+            char *key = p;
+            char *key_end = key;
+            while (*key_end != '=') {
+                key_end++;
+            }
 
-        /** TODO: Check if it is possible that query param does not have a value? 🤔 */
+            size_t key_length = key_end - key;
+            memcpy(ptr, key, key_length);
+            ptr += key_length;
+            *ptr = '\0';
+            ptr++;
 
-        char *val = key_end + 1; /** +1 to skip '=' */
-        char *val_end = val;
-        while (*val_end != '&' && !isspace(*val_end) && *val_end != '\0') {
-            val_end++;
+            /** TODO: Check if it is possible that query param does not have a value? 🤔 */
+
+            char *val = key_end + 1; /** +1 to skip '=' */
+            char *val_end = val;
+            while (*val_end != '&' && !isspace(*val_end) && *val_end != '\0') {
+                val_end++;
+            }
+
+            size_t val_length = val_end - val;
+            memcpy(ptr, val, val_length);
+            size_t new_val_length = url_decode_utf8(&ptr, val_length);
+            ptr += new_val_length;
+            *ptr = '\0';
+            ptr++;
+
+            p = val_end + 1; /** +1 to skip possible '&' which marks the end of query (or body) param key-value and beginning of new one */
         }
-
-        size_t val_length = val_end - val;
-        memcpy(params_dict, val, val_length);
-        size_t new_val_length = url_decode_utf8(&params_dict, val_length);
-        params_dict += new_val_length;
-        *params_dict = '\0';
-        params_dict++;
-
-        ptr = val_end + 1; /** +1 to skip possible '&' which marks the end of query (or body) param key-value and beginning of new one */
     }
 
-    key_value.end_addr = params_dict - 1; /** -1 because we (params_dict++) at the end of query (or body) param value processing */
-
-    arena->current = params_dict;
+    key_value.start_addr = params;
+    key_value.end_addr = ptr - 1;
 
     return key_value;
 }

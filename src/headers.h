@@ -116,6 +116,7 @@ typedef struct {
     size_t size;
     void *start;
     void *current;
+    boolean in_use;
 } Arena;
 
 typedef struct {
@@ -180,6 +181,13 @@ Arena *arena_init(size_t size);
 void *arena_alloc(Arena *arena, size_t size);
 void arena_free(Arena *arena);
 void arena_reset(Arena *arena, size_t arena_header_size);
+void arena_in_use(Arena *arena, void **ptr, void **tmp);
+void arena_out_of_use(Arena *arena, void *tmp);
+
+/* clang-format off */
+#define ARENA_IN_USE(arena, ptr, tmp) \
+    for (arena_in_use(arena, (void **)&(ptr), (void **)&(tmp)); arena->in_use; arena_out_of_use(arena, tmp))
+/* clang-format on */
 
 /** template_engine.c */
 
@@ -232,7 +240,7 @@ String find_cookie_value(const char *key, String cookies);
 
 /** utils.c */
 
-Dict load_env_variables(const char *filepath);
+Dict load_env_variables(Arena *arena, const char *filepath);
 void read_file(char **buffer, long *file_size, const char *absolute_file_path);
 char *locate_files(char *buffer, const char *base_path, const char *extension, uint8_t level, size_t *all_paths_length);
 char *find_value(const char key[], Dict dict);

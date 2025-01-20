@@ -43,14 +43,28 @@ int main() {
 
     global_arena = arena_init(PAGE_SIZE * 100);
 
+    /*
+    char *my_ptr, *my_ptr_tmp;
+    ARENA_IN_USE(global_arena, my_ptr, my_ptr_tmp) {
+        memcpy(my_ptr_tmp, "some string", strlen("some string"));
+        my_ptr_tmp = (char *)my_ptr_tmp + strlen("some string") + 1;
+
+        arena_alloc(scratch_arena, 100);
+    }
+    */
+
     /** To look up data stored in arena */
     global_arena_data = (ArenaDataLookup *)arena_alloc(global_arena, sizeof(ArenaDataLookup));
 
     Dict envs = {0};
     if (dev_mode) {
-        envs = load_env_variables("./.env.dev");
+        envs = load_env_variables(global_arena, "./.env.dev");
+
+        const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
+        Dict public_files = load_public_files(global_arena, public_base_path);
+        global_arena_data->public_files_dict = public_files;
     } else {
-        envs = load_env_variables("./.env.prod");
+        envs = load_env_variables(global_arena, "./.env.prod");
 
         const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
         Dict public_files = load_public_files(global_arena, public_base_path);

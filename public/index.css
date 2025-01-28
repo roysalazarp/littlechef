@@ -58,42 +58,43 @@ input:-webkit-autofill:active {
     position: absolute;
     inset: 0px;
     background-image: url("https://upload.wikimedia.org/wikipedia/commons/9/9a/512x512_Dissolve_Noise_Texture.png");
-    background-size: contain;
+    background-size: 500px;
     background-repeat: repeat;
     mix-blend-mode: overlay;
     opacity: 0.15;
     z-index: -1;
 }
 
-.modal-bg {
+.bottom-modal-bg {
     position: relative;
-    background-color: #182425;
+    background-color: #141e1f;
 }
 
-.modal-bg::before {
+.bottom-modal-bg::before {
     content: "";
     position: absolute;
     inset: 0px;
     background-image: url("https://upload.wikimedia.org/wikipedia/commons/9/9a/512x512_Dissolve_Noise_Texture.png");
-    background-size: contain;
+    background-size: 500px;
     background-repeat: repeat;
     mix-blend-mode: overlay;
     opacity: 0.05;
-    z-index: -1;
 }
 
-dialog::backdrop {
+#bottomModal::backdrop {
     background-color: rgba(0, 0, 0, 0.7);
     view-transition-name: backdrop;
 }
 
-dialog {
+#bottomModal {
+    position: relative;
     inset: auto 0 0 0;
     min-width: 100vw;
-    border: none;
-    margin: 0;
-    padding: 0;
-    view-transition-name: modal;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+    view-transition-name: bottom-modal;
     touch-action: none;
     transform: translateY(0);
     will-change: transform;
@@ -104,7 +105,7 @@ dialog[open] {
     display: block;
 }
 
-::view-transition-group(modal) {
+::view-transition-group(bottom-modal) {
     height: 100%;
     position: fixed;
     bottom: 0;
@@ -112,8 +113,8 @@ dialog[open] {
     right: 0;
 }
 
-::view-transition-old(modal),
-::view-transition-new(modal) {
+::view-transition-old(bottom-modal),
+::view-transition-new(bottom-modal) {
     bottom: 0;
     left: 0;
     right: 0;
@@ -170,11 +171,11 @@ dialog[open] {
     }
 }
 
-::view-transition-old(modal) {
+::view-transition-old(bottom-modal) {
     animation: 0.3s cubic-bezier(0.4, 0, 0.2, 1) both slide-down;
 }
 
-::view-transition-new(modal) {
+::view-transition-new(bottom-modal) {
     animation: 0.5s cubic-bezier(0.4, 0, 0.2, 1) both slide-up;
 }
 
@@ -184,4 +185,67 @@ dialog[open] {
 
 ::view-transition-new(backdrop) {
     animation: 0.3s ease-out both fade-in;
+}
+
+.side-view {
+    position: fixed;
+    min-width: 100vw;
+    min-height: 100lvw;
+    margin: 0;
+    view-transition-name: sheet-content;
+    z-index: 50;
+}
+
+.side-view::backdrop {
+    background-color: rgba(0, 0, 0, 0.7);
+    view-transition-name: backdrop;
+}
+
+.side-view:modal {
+    min-width: 100%;
+    min-height: 100%;
+}
+
+::view-transition-old(sheet-content),
+::view-transition-new(sheet-content) {
+    height: 100%;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-out {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(100%);
+    }
+}
+
+::view-transition-old(sheet-content) {
+    animation: slide-out 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::view-transition-new(sheet-content) {
+    animation: slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.text-input:focus-within label,
+.text-input input:not(:placeholder-shown) + label {
+    top: 5px;
+    font-size: 11px;
+    color: #3effa2;
 }

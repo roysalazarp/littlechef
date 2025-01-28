@@ -157,14 +157,14 @@ void router(RequestCtx request_ctx) {
         }
     }
 
-    /*
-    if (strncmp(url.start_addr, URL("/auth/check-email"), strlen(URL("/auth/check-email"))) == 0) {
+    if (strncmp(url.start_addr, URL("/auth-check-email"), strlen(URL("/auth-check-email"))) == 0) {
         if (strncmp(method.start_addr, "POST", method.length) == 0) {
             auth_check_email_post(request_ctx);
             return;
         }
     }
 
+    /*
     if (strncmp(url.start_addr, URL("/register/create-account"), strlen(URL("/register/create-account"))) == 0) {
         if (strncmp(method.start_addr, "POST", method.length) == 0) {
             register_create_account_post(request_ctx);
@@ -522,9 +522,9 @@ void auth_check_email_post(RequestCtx request_ctx) {
     char *template = NULL;
 
     if (rows) {
-        template = find_value("login", global_arena_data->templates);
+        template = find_value("login_view", global_arena_data->templates);
     } else {
-        template = find_value("register", global_arena_data->templates);
+        template = find_value("register_view", global_arena_data->templates);
     }
 
     response = (char *)request_arena->current;

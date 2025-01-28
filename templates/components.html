@@ -41,10 +41,101 @@
     </div>
 </x-component-def>
 
+<x-component-def name="register_view">
+    <x-component name="side_view" id="register-view">
+        <div>
+            <x-insert name="title"> Register </x-insert>
+        </div>
+        <div>
+            <x-insert name="content">
+                <div class="px-2">
+                    <div hx-ext="response-targets">
+                        <form id="register-form" hx-post="/register/create-account" hx-swap="none" hx-select-oob="#email-validation-error,#password-validation-error,#repeat-password-validation-error,#accept-terms-validation-error" hx-target-error="#register-form" class="mt-8">
+                            <div>
+                                <x-component name="text_input" id="register-email" type="email" input-attributes="value='%email%'">
+                                    <x-insert name="label"> Email </x-insert>
+                                </x-component>
+                            </div>
+                            <div>
+                                <x-component name="text_input" id="register-password" type="password">
+                                    <x-insert name="label"> Password </x-insert>
+                                </x-component>
+                            </div>
+                            <div>
+                                <x-component name="text_input" id="register-repeat-password" type="password">
+                                    <x-insert name="label"> Repeat password </x-insert>
+                                </x-component>
+                            </div>
+                            <div>
+                                <x-component name="primary_btn">
+                                    <x-insert name="button_text"> Register </x-insert>
+                                </x-component>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </x-insert>
+        </div>
+    </x-component>
+</x-component-def>
+
+<x-component-def name="login_view">
+    <x-component name="side_view" id="login-view">
+        <div>
+            <x-insert name="title"> Login </x-insert>
+        </div>
+        <div>
+            <x-insert name="content">
+                <div class="px-2">
+                    <x-component name="text_input" id="email" type="email">
+                        <x-insert name="label"> Email </x-insert>
+                    </x-component>
+                    <x-component name="text_input" id="password" type="password">
+                        <x-insert name="label"> Password </x-insert>
+                    </x-component>
+                    <div>
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Login </x-insert>
+                        </x-component>
+                    </div>
+                </div>
+            </x-insert>
+        </div>
+    </x-component>
+</x-component-def>
+
+<x-component-def name="sign_in_view">
+    <x-component name="side_view" id="sign-in-view">
+        <div>
+            <x-insert name="title"> Sign In </x-insert>
+        </div>
+        <div>
+            <x-insert name="content">
+                <div id="next-form"></div>
+                <div hx-ext="response-targets">
+                    <form id="sign-in-form" hx-post="/auth-check-email" hx-swap="innerHTML" hx-target="#next-form" hx-select-oob="#email-validation-error" hx-target-error="#sign-in-form">
+                        <div class="px-2">
+                            <x-component name="text_input" id="email" type="email">
+                                <x-insert name="label"> Email </x-insert>
+                            </x-component>
+                            <div>
+                                <x-component name="primary_btn">
+                                    <x-insert name="button_text"> Continue </x-insert>
+                                </x-component>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </x-insert>
+        </div>
+    </x-component>
+</x-component-def>
+
 <x-component-def name="welcome">
     <x-component name="app">
         <x-insert name="content">
             <div class="flex flex-col w-full justify-center">
+                <x-component name="sign_in_view" />
                 <div class="flex rounded-b-[30px] overflow-hidden">
                     <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover min-w-full" />
                 </div>
@@ -67,9 +158,11 @@
                     <div class="flex justify-center">
                         <x-component name="welcome_logo_icon" />
                     </div>
-                    <x-component name="primary_btn">
-                        <x-insert name="button_text"> Continue </x-insert>
-                    </x-component>
+                    <div data-side-view-id="sign-in-view">
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Continue </x-insert>
+                        </x-component>
+                    </div>
                 </div>
             </div>
         </x-insert>
@@ -152,15 +245,28 @@
     </x-component>
 </x-component-def>
 
+<x-component-def name="text_input">
+    <div class="text-input relative mb-[25px]" data-input-group="%id%">
+        <input id="%id%" name="%id%" type="%type%" %input-attributes% class="w-full h-14 px-4 pt-2 bg-[#141E1F]/80 text-[17px] text-white rounded-lg border border-[#353541] focus:outline-none caret-[#FFFFFF]" placeholder=" " autocomplete="on" />
+        <label for="%id%" class="absolute left-4 top-4 text-[#787878] transition-all duration-200 pointer-events-none"> <x-slot name="label" /> </label>
+        <div class="absolute right-4 top-7 transform -translate-y-1/2 text-[#888888] cursor-pointer">
+            <div class="clear-button" style="visibility: hidden">
+                <x-component name="close_icon" />
+            </div>
+        </div>
+        <x-slot name="validation_error" />
+    </div>
+</x-component-def>
+
 <x-component-def name="top_bar">
     <div class="flex gap-2 justify-between">
-        <div class="flex flex-1 gap-2 text-left cursor-pointer">
+        <div id="openBottomModal" class="flex flex-1 gap-2 text-left cursor-pointer">
             <x-component name="circle_container" tw-bg-color-2="bg-[#101C1C]" tw-text-color-2="text-[#41ADFC]">
                 <x-insert name="default">
                     <x-component name="house_icon" />
                 </x-insert>
             </x-component>
-            <div id="openModal" class="flex flex-col justify-between py-[2px] flex-1">
+            <div class="flex flex-col justify-between py-[2px] flex-1">
                 <x-component name="callout" tw-text-classes="font-semibold text-[#41ADFC]">
                     <x-insert name="text">Haavaisojantie 31</x-insert>
                 </x-component>
@@ -178,8 +284,34 @@
     <div class="w-8 h-1 bg-[#1F3A3D] rounded m-2 mx-auto"></div>
 </x-component-def>
 
+<x-component-def name="side_view">
+    <dialog id="%id%" class="side-view app-bg">
+        <div style="visibility: hidden" class="side-view-sticky-header fixed z-10 top-0 left-0 right-0 backdrop-blur-sm transform -translate-y-full transition-transform duration-300">
+            <div class="bottom-modal-bg flex flex-row items-center pt-2 pb-2 px-2">
+                <div class="close-side-view">
+                    <x-component name="back_btn" />
+                </div>
+                <x-component name="title_3" tw-text-classes="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-semibold text-white transition-opacity duration-300">
+                    <x-insert name="text"> Sign In </x-insert>
+                </x-component>
+            </div>
+        </div>
+        <div class="side-view-header">
+            <div class="close-side-view flex flex-row items-center pt-2 pb-2 px-2">
+                <x-component name="back_btn" />
+            </div>
+            <x-component name="title_1" tw-text-classes="px-2 font-bold text-white mt-[25px] mb-[35px]">
+                <x-insert name="text">
+                    <x-slot name="title" />
+                </x-insert>
+            </x-component>
+        </div>
+        <x-slot name="content" />
+    </dialog>
+</x-component-def>
+
 <x-component-def name="bottom_modal">
-    <dialog id="modal" class="modal-bg rounded-t-lg relative px-2">
+    <dialog id="bottomModal" class="bottom-modal-bg">
         <x-component name="drag_indicator" />
         <div class="flex justify-between mb-[30px]">
             <div class="flex flex-col justify-center">
@@ -189,7 +321,7 @@
                     </x-insert>
                 </x-component>
             </div>
-            <div id="closeModal" class="flex transform -rotate-90">
+            <div id="closeBottomModal" class="flex transform -rotate-90">
                 <x-component name="back_btn" />
             </div>
         </div>
@@ -213,7 +345,7 @@
 </x-component-def>
 
 <x-component-def name="primary_btn">
-    <button type="submit" form="%form-id%" class="w-full h-14 rounded-lg bg-[#3EFFA2]">
+    <button type="submit" class="w-full h-14 rounded-lg bg-[#3EFFA2]">
         <x-component name="body" tw-text-classes="text-[#091011] font-semibold">
             <x-insert name="text">
                 <x-slot name="button_text" />
@@ -518,5 +650,16 @@
                 <stop offset="1" stop-color="#009657" />
             </linearGradient>
         </defs>
+    </svg>
+</x-component-def>
+
+<x-component-def name="close_icon">
+    <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26">
+        <path
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M13 0C5.82 0 0 5.82 0 13C0 20.18 5.82 26 13 26C20.18 26 26 20.18 26 13C26 5.82 20.18 0 13 0ZM10.7067 9.29333C10.6151 9.19508 10.5047 9.11628 10.3821 9.06163C10.2594 9.00697 10.127 8.97758 9.9927 8.97521C9.85843 8.97284 9.72505 8.99754 9.60054 9.04784C9.47602 9.09813 9.36291 9.17299 9.26795 9.26795C9.17299 9.36291 9.09813 9.47602 9.04784 9.60054C8.99754 9.72505 8.97284 9.85843 8.97521 9.9927C8.97758 10.127 9.00697 10.2594 9.06163 10.3821C9.11628 10.5047 9.19508 10.6151 9.29333 10.7067L11.5867 13L9.29333 15.2933C9.19508 15.3849 9.11628 15.4953 9.06163 15.6179C9.00697 15.7406 8.97758 15.873 8.97521 16.0073C8.97284 16.1416 8.99754 16.2749 9.04784 16.3995C9.09813 16.524 9.17299 16.6371 9.26795 16.7321C9.36291 16.827 9.47602 16.9019 9.60054 16.9522C9.72505 17.0025 9.85843 17.0272 9.9927 17.0248C10.127 17.0224 10.2594 16.993 10.3821 16.9384C10.5047 16.8837 10.6151 16.8049 10.7067 16.7067L13 14.4133L15.2933 16.7067C15.3849 16.8049 15.4953 16.8837 15.6179 16.9384C15.7406 16.993 15.873 17.0224 16.0073 17.0248C16.1416 17.0272 16.2749 17.0025 16.3995 16.9522C16.524 16.9019 16.6371 16.827 16.7321 16.7321C16.827 16.6371 16.9019 16.524 16.9522 16.3995C17.0025 16.2749 17.0272 16.1416 17.0248 16.0073C17.0224 15.873 16.993 15.7406 16.9384 15.6179C16.8837 15.4953 16.8049 15.3849 16.7067 15.2933L14.4133 13L16.7067 10.7067C16.8049 10.6151 16.8837 10.5047 16.9384 10.3821C16.993 10.2594 17.0224 10.127 17.0248 9.9927C17.0272 9.85843 17.0025 9.72505 16.9522 9.60054C16.9019 9.47602 16.827 9.36291 16.7321 9.26795C16.6371 9.17299 16.524 9.09813 16.3995 9.04784C16.2749 8.99754 16.1416 8.97284 16.0073 8.97521C15.873 8.97758 15.7406 9.00697 15.6179 9.06163C15.4953 9.11628 15.3849 9.19508 15.2933 9.29333L13 11.5867L10.7067 9.29333Z"
+            fill="#505062"
+        />
     </svg>
 </x-component-def>

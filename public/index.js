@@ -99,6 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function openSideView(view) {
         await startViewTransition(() => {
+            view.classList.add("sheet");
             view.showModal();
         });
     }
@@ -106,6 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function closeSideView(view) {
         await startViewTransition(() => {
             view.close();
+            view.classList.remove("sheet");
         });
     }
 
@@ -148,7 +150,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const dialogs = document.querySelectorAll("dialog");
 
-    dialogs.forEach((dialog) => {
+    dialogs.forEach(async (dialog) => {
+        await dialogSetup(dialog);
+    });
+
+    async function dialogSetup(dialog) {
         const closeSideViewButtons = dialog.querySelectorAll(".close-side-view");
 
         const viewHeader = dialog.querySelector(".side-view-header");
@@ -175,7 +181,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 stickyHeader.classList.add("-translate-y-full");
             }
         });
-    });
+    }
+
+    window.dialogSetup = dialogSetup;
 
     document.querySelectorAll("[data-side-view-id]").forEach((openSideViewButton) => {
         const id = openSideViewButton.getAttribute("data-side-view-id");
@@ -209,4 +217,22 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
     });
+
+    async function openDialog(id) {
+        const dialogs = document.querySelectorAll("dialog");
+        const dialog = Array.from(dialogs).find((dialog) => dialog.id === id);
+        const stickyHeader = dialog.querySelector(".side-view-sticky-header");
+        if (stickyHeader.style.visibility === "hidden") {
+            await openSideView(dialog);
+            stickyHeader.style.visibility = "visible";
+        } else {
+            stickyHeader.style.visibility = "hidden";
+            await openSideView(dialog);
+            stickyHeader.style.visibility = "visible";
+        }
+
+        return dialog;
+    }
+
+    window.openDialog = openDialog;
 });

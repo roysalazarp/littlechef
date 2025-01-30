@@ -390,7 +390,17 @@ size_t render_val(char *template, char *val_name, char *value) {
                 char *value_name = ptr + strlen(VAL_OPENING_TAG__START);
                 char *tmp = value_name;
 
-                while (*tmp != '"') {
+                boolean single_quote = false;
+                while (*tmp != '\0') {
+                    if (*tmp != '"') {
+                        break;
+                    }
+
+                    if (*tmp != '\'') {
+                        single_quote = true;
+                        break;
+                    }
+
                     value_name_length++;
                     tmp++;
                 }
@@ -401,7 +411,11 @@ size_t render_val(char *template, char *val_name, char *value) {
 
                 char buff[255];
                 memset(buff, 0, 255);
-                sprintf(buff, "%s\"", val_name);
+                if (single_quote) {
+                    sprintf(buff, "%s\'", val_name);
+                } else {
+                    sprintf(buff, "%s\"", val_name);
+                }
 
                 if (strncmp(buff, value_name, strlen(buff)) == 0) {
                     size_t val_length = strlen(value);

@@ -8,12 +8,11 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <libpq-fe.h>
 #include <linux/limits.h>
 #include <netinet/in.h>
 #include <regex.h>
-#include <setjmp.h>
 #include <signal.h>
+#include <sqlite3.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -26,7 +25,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <uuid/uuid.h>
 
 /*
 +-----------------------------------------------------------------------------------+
@@ -122,34 +120,11 @@ typedef struct {
 typedef struct {
     Arena *request_arena;
     int client_socket;
+    sqlite3 *db;
     char *request;
 } RequestCtx;
 
-typedef struct {
-    int fd;
-    RequestCtx *request_ctx;
-    jmp_buf jmp_buf;
-    uint8_t queued;
-} Client;
-
-typedef enum { SERVER_SOCKET, CLIENT_SOCKET, DB_SOCKET } FDType;
-
-typedef struct {
-    FDType type; /** This need to be the first element in the struct */
-    uint8_t index;
-    PGconn *conn;
-    Client client;
-} DBConnection;
-
-typedef struct {
-    PGresult *result;
-    DBConnection *connection;
-} DBQueryCtx;
-
-typedef struct {
-    uint8_t index;
-    Client client;
-} QueuedRequest;
+typedef enum { SERVER_SOCKET, CLIENT_SOCKET } FDType;
 
 typedef struct {
     FDType type; /** This need to be the first element in the struct */
@@ -161,8 +136,6 @@ typedef struct {
     Dict public_files_dict;
     Dict templates;
 } ArenaDataLookup;
-
-typedef char uuid_str_t[37];
 
 typedef struct {
     char *k;
@@ -181,9 +154,9 @@ Arena *arena_init(size_t size);
 void *arena_alloc(Arena *arena, size_t size);
 void arena_free(Arena *arena);
 void arena_reset(Arena *arena, size_t arena_header_size);
+void arena_reset2(Arena *arena, uint8_t *ptr);
 void arena_in_use(Arena *arena, void **ptr, void **tmp);
 void arena_out_of_use(Arena *arena, void *tmp);
-
 /* clang-format off */
 #define ARENA_IN_USE(arena, ptr, tmp) \
     for (arena_in_use(arena, (void **)&(ptr), (void **)&(tmp)); arena->in_use; arena_out_of_use(arena, tmp))
@@ -197,14 +170,6 @@ size_t render_val(char *template, char *val_name, char *value);
 size_t render_for(char *template, char *scope, int times, ...);
 size_t replace_val(char *template, char *value_name, char *value);
 
-/** connection.c */
-
-void create_connection_pool(Dict envs);
-DBConnection *get_available_connection(Arena *arena);
-PGresult *WPQsendQueryParams(DBConnection *connection, const char *command, int nParams, const Oid *paramTypes, const char *const *paramValues, const int *paramLengths, const int *paramFormats, int resultFormat);
-PGresult *get_result(DBConnection *connection);
-void print_query_result(PGresult *query_result);
-
 /** routes.c */
 
 void router(RequestCtx request_ctx);
@@ -217,8 +182,7 @@ void login_create_session_post(RequestCtx request_ctx);
 void logout_post(RequestCtx request_ctx);
 void auth_check_email_post(RequestCtx request_ctx);
 void account_get(RequestCtx request_ctx);
-void request_cleanup(Arena *arena, DBConnection *connection, int client_socket);
-Dict is_authenticated(RequestCtx request_ctx, DBConnection *connection);
+Dict is_authenticated(RequestCtx request_ctx);
 
 ValidationError validate_email(Arena *arena, const char *email);
 ValidationError validate_password(Arena *arena, const char *password);
@@ -260,9 +224,6 @@ Dict add_to_dictionary(const char *buffer, int key_value_pairs, ...);
 +-----------------------------------------------------------------------------------+
 */
 
-extern DBConnection connection_pool[CONNECTION_POOL_SIZE];
-extern QueuedRequest queue[MAX_CLIENT_CONNECTIONS];
-
 extern Arena *global_arena;
 extern ArenaDataLookup *global_arena_data;
 
@@ -272,9 +233,6 @@ extern int epoll_fd;
 extern int nfds;
 extern struct epoll_event events[MAX_EVENTS];
 extern struct epoll_event event;
-
-extern jmp_buf ctx;
-extern jmp_buf db_ctx;
 
 extern volatile sig_atomic_t keep_running;
 

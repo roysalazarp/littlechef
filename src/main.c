@@ -3,9 +3,6 @@
 Socket *create_server_socket(uint16_t port);
 void sigint_handler(int signo);
 
-DBConnection connection_pool[CONNECTION_POOL_SIZE];
-QueuedRequest queue[MAX_CLIENT_CONNECTIONS];
-
 Arena *global_arena;
 ArenaDataLookup *global_arena_data;
 
@@ -15,9 +12,6 @@ int epoll_fd;
 int nfds;
 struct epoll_event events[MAX_EVENTS];
 struct epoll_event event;
-
-jmp_buf ctx;
-jmp_buf db_ctx;
 
 volatile sig_atomic_t keep_running = 1;
 
@@ -43,26 +37,12 @@ int main() {
 
     global_arena = arena_init(PAGE_SIZE * 100);
 
-    /*
-    char *my_ptr, *my_ptr_tmp;
-    ARENA_IN_USE(global_arena, my_ptr, my_ptr_tmp) {
-        memcpy(my_ptr_tmp, "some string", strlen("some string"));
-        my_ptr_tmp = (char *)my_ptr_tmp + strlen("some string") + 1;
-
-        arena_alloc(scratch_arena, 100);
-    }
-    */
-
     /** To look up data stored in arena */
     global_arena_data = (ArenaDataLookup *)arena_alloc(global_arena, sizeof(ArenaDataLookup));
 
     Dict envs = {0};
     if (dev_mode) {
         envs = load_env_variables(global_arena, "./.env.dev");
-
-        const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
-        Dict public_files = load_public_files(global_arena, public_base_path);
-        global_arena_data->public_files_dict = public_files;
     } else {
         envs = load_env_variables(global_arena, "./.env.prod");
 
@@ -97,13 +77,6 @@ int main() {
 
     printf("Server listening on port: %d...\n", (int)port);
 
-    create_connection_pool(envs);
-
-    if (!dev_mode) {
-        /** Clear envs for security */
-        memset(envs.start_addr, 0, envs.end_addr - envs.start_addr);
-    }
-
     struct sockaddr_in client_addr; /** Why is this needed ?? */
     socklen_t client_addr_len = sizeof(client_addr);
 
@@ -134,12 +107,8 @@ int main() {
                         assert(fcntl(client_fd, F_SETFL, client_fd_flags | O_NONBLOCK) != -1);
 
                         if (dev_mode) {
-                            /** Clear all global arena memory from 'arena_freeze_ptr'
-                             * up to the current position in the arena. */
-                            char *end = global_arena->current;
-                            memset(arena_freeze_ptr, 0, end - arena_freeze_ptr);
-
-                            global_arena->current = arena_freeze_ptr;
+                            /** Reload html and static files into memory */
+                            arena_reset2(global_arena, (uint8_t *)arena_freeze_ptr);
 
                             const char *public_base_path = find_value("CMPL__PUBLIC_FOLDER", envs);
                             Dict public_files = load_public_files(global_arena, public_base_path);
@@ -161,6 +130,9 @@ int main() {
                         request_ctx->request_arena = request_arena;
                         request_ctx->client_socket = client_fd;
 
+                        const char *db_name = find_value("DB", envs);
+                        assert(sqlite3_open(db_name, &request_ctx->db) == 0);
+
                         event.events = EPOLLIN | EPOLLET;
                         event.data.ptr = client_socket_info;
                         assert(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &event) != -1);
@@ -174,61 +146,22 @@ int main() {
                     break;
                 }
 
-                case CLIENT_SOCKET: { /** Client socket (aka. client request) ready for read */
-                    if (events[i].events & EPOLLIN) {
+                case CLIENT_SOCKET: {
+                    if (events[i].events & EPOLLIN) { /** Data available for read in client socket buffer */
                         Arena *request_arena = (Arena *)((uint8_t *)socket_info - sizeof(Arena));
                         RequestCtx *request_ctx = (RequestCtx *)((uint8_t *)request_arena + (sizeof(Arena) + sizeof(Socket)));
 
-                        if (setjmp(ctx) == 0) {
-                            router(*request_ctx);
-                        }
+                        router(*request_ctx);
+
+                        close(request_ctx->client_socket);
+                        sqlite3_close(request_ctx->db);
+                        arena_free(request_arena);
 
                         break;
                     }
 
                     printf("Client socket only should receive EPOLLIN events\n");
                     assert(0);
-
-                    break;
-                }
-
-                case DB_SOCKET: {
-                    if (events[i].events & EPOLLIN) { /** DB socket (aka. connection) ready for read */
-                        DBConnection *connection = (DBConnection *)socket_info;
-
-                        /** The connection should belong to a client fd (aka. client request) */
-                        assert(connection->client.fd != 0);
-
-                        /** Postgres query response is ready for read, jump back to code and
-                         * pass index to restore request state through connection pool */
-                        longjmp(connection->client.jmp_buf, 1);
-                    } else if (events[i].events & EPOLLOUT) { /** DB socket (aka connection) is ready for write */
-                        DBConnection *connection = (DBConnection *)socket_info;
-
-                        QueuedRequest *request = NULL;
-
-                        int j;
-                        for (j = 0; j < MAX_CLIENT_CONNECTIONS; j++) {
-                            if (queue[j].client.fd != 0) {
-                                /** First client request in the queue waiting for connection */
-                                request = &(queue[j]);
-
-                                break;
-                            }
-                        }
-
-                        if (request) {
-                            connection->client = request->client;
-                            memcpy(&(connection->client), &(request->client), sizeof(Client));
-                            memset(&(request->client), 0, sizeof(Client));
-
-                            if (setjmp(db_ctx) == 0) {
-                                /* Request handler queued the request because no connection was
-                                 * available in the pool, here we jump back to code after queuing request */
-                                longjmp(connection->client.jmp_buf, 1);
-                            }
-                        }
-                    }
 
                     break;
                 }
@@ -244,10 +177,7 @@ int main() {
 
     close(server_fd);
 
-    for (i = 0; i < CONNECTION_POOL_SIZE; i++) {
-        PQfinish(connection_pool[i].conn);
-    }
-
+    arena_free(scratch_arena);
     arena_free(global_arena);
 
     return 0;

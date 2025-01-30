@@ -1,5 +1,4 @@
-
-INSERT INTO app.countries (id, iso, name, nicename, iso3, numcode) VALUES
+INSERT OR IGNORE INTO countries (id, iso, name, nicename, iso3, numcode) VALUES
     (1, 'AF', 'AFGHANISTAN', 'Afghanistan', 'AFG', 4),
     (2, 'AL', 'ALBANIA', 'Albania', 'ALB', 8),
     (3, 'DZ', 'ALGERIA', 'Algeria', 'DZA', 12),
@@ -238,35 +237,33 @@ INSERT INTO app.countries (id, iso, name, nicename, iso3, numcode) VALUES
     (236, 'EH', 'WESTERN SAHARA', 'Western Sahara', 'ESH', 732),
     (237, 'YE', 'YEMEN', 'Yemen', 'YEM', 887),
     (238, 'ZM', 'ZAMBIA', 'Zambia', 'ZMB', 894),
-    (239, 'ZW', 'ZIMBABWE', 'Zimbabwe', 'ZWE', 716)
-ON CONFLICT (iso) DO NOTHING;
+    (239, 'ZW', 'ZIMBABWE', 'Zimbabwe', 'ZWE', 716);
 
-INSERT INTO app.users (email, password) VALUES
+INSERT OR IGNORE INTO users (email, password) VALUES
     ('test@example.com', 'password'),
     ('john.doe@example.com', 'password'),
     ('jane.smith@example.com', 'password'),
-    ('alice.johnson@example.com', 'password')
-ON CONFLICT (email) DO NOTHING;
+    ('alice.johnson@example.com', 'password');
 
-INSERT INTO app.users_info (user_id, first_name, last_name, country_id, phone_code, phone_number) VALUES
+INSERT OR IGNORE INTO users_info (user_id, first_name, last_name, country_id, phone_code, phone_number) VALUES
     (
-        (SELECT id FROM app.users WHERE email = 'test@example.com'),
+        (SELECT id FROM users WHERE email = 'test@example.com'),
         'Test',
         'McTest',
-        199, -- Spain in app.countries
+        199,  -- Spain in countries
         '+34',
         '64565887'
     ),
     (
-        (SELECT id FROM app.users WHERE email = 'john.doe@example.com'),
+        (SELECT id FROM users WHERE email = 'john.doe@example.com'),
         'John',
         'Doe',
-        72, -- Finland in app.countries
+        72,  -- Finland in countries
         '+358',
         '442356767'
     ),
     (
-        (SELECT id FROM app.users WHERE email = 'jane.smith@example.com'),
+        (SELECT id FROM users WHERE email = 'jane.smith@example.com'),
         'Jane',
         'Smith',
         225, -- United Kingdom in app.countries
@@ -274,30 +271,28 @@ INSERT INTO app.users_info (user_id, first_name, last_name, country_id, phone_co
         '2071234567'
     ),
     (
-        (SELECT id FROM app.users WHERE email = 'alice.johnson@example.com'),
+        (SELECT id FROM users WHERE email = 'alice.johnson@example.com'),
         'Alice',
         'Johnson',
         73, -- France in app.countries
         '+33',
         '109758351'
-    )
-ON CONFLICT (user_id) DO NOTHING;
+    );
 
-INSERT INTO app.users_sessions (user_id, expires_at) VALUES
+INSERT OR IGNORE INTO users_sessions (user_id, expires_at) VALUES
     (
-        (SELECT id FROM app.users WHERE email = 'test@example.com'),
-         NOW() + INTERVAL '1 hour'
+        (SELECT id FROM users WHERE email = 'test@example.com'),
+        datetime('now', '+1 hour')
     ),
     (
-        (SELECT id FROM app.users WHERE email = 'john.doe@example.com'),
-         NOW() + INTERVAL '1 hour'
+        (SELECT id FROM users WHERE email = 'john.doe@example.com'),
+        datetime('now', '+1 hour')
     ),
     (
-        (SELECT id FROM app.users WHERE email = 'jane.smith@example.com'),
-         NOW() + INTERVAL '1 hour'
+        (SELECT id FROM users WHERE email = 'jane.smith@example.com'),
+        datetime('now', '+1 hour')
     ),
     (
-        (SELECT id FROM app.users WHERE email = 'alice.johnson@example.com'),
-         NOW() + INTERVAL '1 hour'
-    )
-ON CONFLICT (user_id) DO NOTHING;
+        (SELECT id FROM users WHERE email = 'alice.johnson@example.com'),
+        datetime('now', '+1 hour')
+    );

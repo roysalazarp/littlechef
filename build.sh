@@ -26,12 +26,12 @@ if [ "$BUILD_ENV" == "prod" ]; then
         -o "$BUILD_DIR/app" \
         $SRC_FILES \
         -I./src \
-        -I/usr/include/postgresql \
-        -lpq \
+        -I../sqlite-amalgamation-3480000 \
+        -L../sqlite-amalgamation-3480000 \
+        -lsqlite3 \
         -largon2 \
         -pthread \
-        -lcrypto \
-        -luuid
+        -lcrypto
 
         set -o allexport && source <(grep '^CMPL__' ".env.$BUILD_ENV") && set +o allexport
 
@@ -65,16 +65,17 @@ elif [ "$BUILD_ENV" == "dev" ]; then
         -Wno-declaration-after-statement \
         -Wno-unused-variable \
         -Wno-unused-parameter \
+        -Wno-long-long \
         -DDEV \
-        -o "dev" \
+        -o "littlechef-dev" \
         $SRC_FILES \
         -I./src \
-        -I/usr/include/postgresql \
-        -lpq \
+        -I../sqlite-amalgamation-3480000 \
+        -L../sqlite-amalgamation-3480000 \
+        -lsqlite3 \
         -largon2 \
         -pthread \
-        -lcrypto \
-        -luuid
+        -lcrypto
 
 else
     echo "Invalid or no environment specified. Use 'prod' or 'dev'."

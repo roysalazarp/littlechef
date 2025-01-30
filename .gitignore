@@ -1,6 +1,6 @@
 .DS_Store
-dev
 build-prod
 .env.prod
 *.pem
 memory
+littlechef-dev*

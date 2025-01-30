@@ -187,18 +187,21 @@ dialog[open] {
     animation: 0.3s ease-out both fade-in;
 }
 
+.sheet {
+    view-transition-name: sheet-content;
+}
+
+.sheet::backdrop {
+    background-color: rgba(0, 0, 0, 0.7);
+    view-transition-name: backdrop;
+}
+
 .side-view {
     position: fixed;
     min-width: 100vw;
     min-height: 100lvw;
     margin: 0;
-    view-transition-name: sheet-content;
     z-index: 50;
-}
-
-.side-view::backdrop {
-    background-color: rgba(0, 0, 0, 0.7);
-    view-transition-name: backdrop;
 }
 
 .side-view:modal {

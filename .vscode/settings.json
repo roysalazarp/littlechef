@@ -5,7 +5,6 @@
     "files.associations": {
         "types.h": "c",
         "type_traits": "c",
-        "libpq-fe.h": "c",
         "array": "c",
         "compare": "c",
         "functional": "c",
@@ -17,6 +16,7 @@
         "uuid.h": "c",
         "*.tcc": "c",
         "headers.h": "c",
-        "limits.h": "c"
+        "limits.h": "c",
+        "sqlite3.h": "c"
     }
 }

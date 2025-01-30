@@ -4,121 +4,59 @@ void router(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
 
-    char *request = (char *)request_arena->current;
-    request_ctx.request = request;
-
-    char *tmp_request = request;
-
     ssize_t read_stream = 0;
-    ssize_t buffer_size = KB(2);
+    ssize_t max_buffer_size = KB(10);
 
-    int8_t does_http_request_contain_body = -1; /* -1 means we haven't checked yet */
-    String method;
+    char *request = NULL;
+    char *ptr = NULL;
+    ARENA_IN_USE(request_arena, request, ptr) {
+        while (1) {
+            ssize_t data_size = recv(client_socket, ptr, max_buffer_size - read_stream, 0);
+            ptr += read_stream;
 
-    int8_t is_multipart_form_data = -1; /* -1 means we haven't checked yet */
-    String content_type;
+            if (data_size == -1) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) { /** No more data available for read in socket buffer */
+                    /** TODO: Detecting the end of an HTTP message properly */
+                    /**
+                     * The following code incorrectly assumes that once all available data has been read from the socket buffer,
+                     * the entire HTTP message has been received. This is a flawed implementation because the client may send
+                     * a very large request that does not fit entirely in the buffer at once.
+                     *
+                     * In such cases, we need to return to the event loop and wait for a notification when more data is available
+                     * for reading **and ensure the complete message is received.**
+                     */
+                    if (read_stream > 0) {
+                        break;
+                    }
 
-    while (1) {
-        char *advanced_request_ptr = tmp_request + read_stream;
-
-        ssize_t incomming_stream_size = recv(client_socket, advanced_request_ptr, buffer_size - read_stream, 0);
-        if (incomming_stream_size == -1) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                if (read_stream > 0) {
-                    break;
+                    assert(0);
                 }
 
-                longjmp(ctx, 1);
-            }
-        }
-
-        if (incomming_stream_size <= 0) {
-            printf("fd %d - Empty request\n", client_socket);
-            return;
-        }
-
-        /**
-         * NOTE: While it is possible to decode the entire HTTP request here at once,
-         * we avoid doing so to prevent potential issues with requests containing
-         * non-textual data, such as images or binary files. Processing such data
-         * inappropriately could lead to corruption or unexpected behavior.
-         */
-
-        read_stream += incomming_stream_size;
-
-        if (does_http_request_contain_body == -1) {
-            method = find_http_request_value("METHOD", advanced_request_ptr);
-
-            if (strncmp("GET", method.start_addr, method.length) == 0 || strncmp("HEAD", method.start_addr, method.length) == 0) {
-                does_http_request_contain_body = 0;
-            } else {
-                does_http_request_contain_body = 1;
-            }
-        }
-
-        if (!does_http_request_contain_body) {
-            uint8_t request_ended = 0;
-
-            char *current_start = advanced_request_ptr;
-            char *current_end = advanced_request_ptr + incomming_stream_size;
-
-            while (current_start < current_end) {
-                char header_end[] = "\r\n\r\n";
-                if (strncmp(current_start, header_end, strlen(header_end)) == 0) {
-                    request_ended = 1;
-                    break;
-                }
-
-                current_start++;
+                printf("recv error\n");
+                assert(0);
             }
 
-            if (request_ended) {
-                break;
-            }
+            assert(data_size > 0);
+
+            /**
+             * NOTE: While it is possible to decode the entire HTTP request here at once,
+             * we avoid doing so to prevent potential issues with requests containing
+             * non-textual data, such as images or binary files. Processing such data
+             * inappropriately could lead to corruption or unexpected behavior.
+             */
+
+            read_stream += data_size;
+
+            assert(read_stream < max_buffer_size);
         }
 
-        if (is_multipart_form_data == -1) {
-            content_type = find_http_request_value("Content-Type", advanced_request_ptr);
-
-            if (strncmp("multipart/form-data", content_type.start_addr, content_type.length) == 0) {
-                is_multipart_form_data = 1;
-            } else {
-                is_multipart_form_data = 0;
-            }
-        }
-
-        if (is_multipart_form_data) {
-            uint8_t request_ended = 0;
-
-            char *current_start = advanced_request_ptr;
-            char *current_end = advanced_request_ptr + incomming_stream_size;
-
-            while (current_start < current_end) {
-                char multipart_form_data_end[] = "--\r\n";
-                if (strncmp(current_start, multipart_form_data_end, strlen(multipart_form_data_end)) == 0) {
-                    request_ended = 1;
-                    break;
-                }
-
-                current_start++;
-            }
-
-            if (request_ended) {
-                break;
-            }
-        }
-
-        if (read_stream >= buffer_size) {
-            buffer_size += KB(2);
-        }
+        (*ptr) = '\0';
+        ptr++;
     }
 
-    tmp_request += read_stream;
-    (*tmp_request) = '\0';
-    tmp_request++;
+    request_ctx.request = request;
 
-    request_arena->current = tmp_request;
-
+    String method = find_http_request_value("METHOD", request);
     String url = find_http_request_value("URL", request);
 
     if (strncmp(url.start_addr, URL("/.well-known/assetlinks.json"), strlen(URL("/.well-known/assetlinks.json"))) == 0 && strncmp(method.start_addr, "GET", method.length) == 0) {
@@ -223,18 +161,18 @@ void public_get(RequestCtx request_ctx, String url) {
 
     sprintf(response,
             "HTTP/1.1 200 OK\r\n"
+            "Content-Length: %lu\r\n"
             "Content-Type: %s\r\n\r\n"
             "%s",
-            content_type, content);
+            strlen(content), content_type, content);
 
     response[strlen(response)] = '\0';
 
     request_arena->current = response + strlen(response) + 1;
 
     if (send(client_socket, response, strlen(response), 0) == -1) {
+        /* TODO */
     }
-
-    request_cleanup(request_arena, NULL, client_socket);
 }
 
 /**
@@ -258,36 +196,37 @@ void view_get(RequestCtx request_ctx, char *view, boolean accepts_query_params) 
 
     char *template = find_value(view, global_arena_data->templates);
 
-    char *response = (char *)request_arena->current;
+    char *response = NULL;
+    char *ptr = NULL;
+    ARENA_IN_USE(request_arena, response, ptr) {
+        sprintf(response,
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: %lu\r\n"
+                "Content-Type: text/html\r\n\r\n"
+                "%s",
+                strlen(template), template);
 
-    sprintf(response,
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "%s",
-            template);
+        uint8_t size = get_dictionary_size(replaces);
 
-    response[strlen(response)] = '\0';
+        uint8_t i;
+        for (i = 0; i < size; i++) {
+            KV kv = get_key_value(replaces, i);
 
-    uint8_t size = get_dictionary_size(replaces);
+            replace_val(response, kv.k, kv.v);
+        }
 
-    uint8_t i;
-    for (i = 0; i < size; i++) {
-        KV kv = get_key_value(replaces, i);
-
-        replace_val(response, kv.k, kv.v);
+        ptr = response + strlen(response) + 1;
     }
-
-    request_arena->current = response + strlen(response) + 1;
 
     if (send(client_socket, response, strlen(response), 0) == -1) {
+        /* TODO */
     }
-
-    request_cleanup(request_arena, NULL, client_socket);
 }
 
 /**
  * A dummy page used for testing purposes.
  */
+/*
 void test_get(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
@@ -373,181 +312,167 @@ void test_get(RequestCtx request_ctx) {
 
     request_cleanup(request_arena, connection, client_socket);
 }
+*/
 
 void home_get(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
-    char *request = request_ctx.request;
-    DBConnection *connection = NULL;
-    char *response = NULL;
-
-    connection = get_available_connection(request_arena);
 
     char *template = find_value("home", global_arena_data->templates);
 
-    Dict user = is_authenticated(request_ctx, connection);
+    char *response = NULL;
+    char *ptr = NULL;
+
+    Dict user = is_authenticated(request_ctx);
     if (user.start_addr) {
-        response = (char *)request_arena->current;
+        ARENA_IN_USE(request_arena, response, ptr) {
+            /** TODO: Add some data to the "home" template that is specific to the user when logged in */
 
-        sprintf(response,
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/html\r\n\r\n"
-                "%s",
-                template);
+            sprintf(response,
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Length: %lu\r\n"
+                    "Content-Type: text/html\r\n\r\n"
+                    "%s",
+                    strlen(template), template);
 
-        response[strlen(response)] = '\0';
+            ptr = response + strlen(response) + 1;
+        }
+    } else {
+        ARENA_IN_USE(request_arena, response, ptr) {
+            sprintf(response,
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Length: %lu\r\n"
+                    "Content-Type: text/html\r\n\r\n"
+                    "%s",
+                    strlen(template), template);
 
-        /** TODO: Add some data to the "home" template that is specific to the user when logged in */
-
-        request_arena->current = response + strlen(response) + 1;
-
-        goto send_response;
+            ptr = response + strlen(response) + 1;
+        }
     }
 
-    response = (char *)request_arena->current;
-
-    sprintf(response,
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "%s",
-            template);
-
-    response[strlen(response)] = '\0';
-
-    request_arena->current = response + strlen(response) + 1;
-
-send_response:
     if (send(client_socket, response, strlen(response), 0) == -1) {
+        /* TODO */
     }
-
-    request_cleanup(request_arena, connection, client_socket);
 }
 
 void account_get(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
-    char *request = request_ctx.request;
-    DBConnection *connection = NULL;
+
     char *response = NULL;
+    char *ptr = NULL;
 
-    connection = get_available_connection(request_arena);
-
-    Dict user = is_authenticated(request_ctx, connection);
+    Dict user = is_authenticated(request_ctx);
     if (user.start_addr) {
         char *template = find_value("profile", global_arena_data->templates);
         char *email = find_value("email", user);
 
-        response = (char *)request_arena->current;
+        char *template_cpy = NULL;
+        char *tmp = NULL;
+        ARENA_IN_USE(scratch_arena, template_cpy, tmp) {
+            memcpy(template_cpy, template, strlen(template));
+            render_val(template_cpy, "email", email);
 
-        sprintf(response,
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/html\r\n\r\n"
-                "%s",
-                template);
+            tmp = template_cpy + strlen(template_cpy) + 1;
+        }
 
-        response[strlen(response)] = '\0';
+        ARENA_IN_USE(request_arena, response, ptr) {
+            sprintf(response,
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Length: %lu\r\n"
+                    "Content-Type: text/html\r\n\r\n"
+                    "%s",
+                    strlen(template_cpy), template_cpy);
 
-        render_val(response, "email", email);
+            ptr = response + strlen(response) + 1;
+        }
 
-        request_arena->current = response + strlen(response) + 1;
+        arena_reset(scratch_arena, sizeof(Arena));
     } else {
         char *template = find_value("welcome", global_arena_data->templates);
 
-        response = (char *)request_arena->current;
+        ARENA_IN_USE(request_arena, response, ptr) {
+            sprintf(response,
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Length: %lu\r\n"
+                    "Content-Type: text/html\r\n\r\n"
+                    "%s",
+                    strlen(template), template);
 
-        sprintf(response,
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/html\r\n\r\n"
-                "%s",
-                template);
-
-        response[strlen(response)] = '\0';
-
-        request_arena->current = response + strlen(response) + 1;
+            ptr = response + strlen(response) + 1;
+        }
     }
 
     if (send(client_socket, response, strlen(response), 0) == -1) {
+        /* TODO */
     }
-
-    request_cleanup(request_arena, connection, client_socket);
 }
 
 void auth_check_email_post(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
     char *request = request_ctx.request;
-    DBConnection *connection = NULL;
+
     char *response = NULL;
+    char *ptr = NULL;
 
     String body = find_body(request);
     Dict params = parse_and_decode_params(request_arena, body);
 
     char *email = find_value("email", params);
     ValidationError bad_email = validate_email(request_arena, email);
-
     if (bad_email) {
-        char *template = find_value("email_check_error", global_arena_data->templates);
-
-        response = (char *)request_arena->current;
-
-        sprintf(response,
-                "HTTP/1.1 422 Unprocessable Entity\r\n"
-                "Content-Type: text/html\r\n\r\n"
-                "%s",
-                template);
-
-        response[strlen(response)] = '\0';
-
-        render_val(response, "email_validation_error_message", bad_email);
-
-        request_arena->current = response + strlen(response) + 1;
-
-        goto send_response;
+        /* TODO */
     }
 
-    connection = get_available_connection(request_arena);
+    int rc;
+    const char *sql = "SELECT email FROM users WHERE email = ?";
 
-    const char *command_1 = "SELECT email FROM app.users WHERE email = $1";
-    Oid paramTypes_1[N1_PARAMS] = {25};
-    const char *paramValues_1[N1_PARAMS];
-    paramValues_1[0] = email;
-    int paramLengths_1[N1_PARAMS] = {0};
-    int paramFormats_1[N1_PARAMS] = {0};
+    rc = sqlite3_exec(request_ctx.db, sql, 0, 0, 0);
+    sqlite3_stmt *stmt = NULL;
+    rc = sqlite3_prepare_v2(request_ctx.db, sql, strlen(sql) + 1, &stmt, NULL);
+    assert(rc == SQLITE_OK);
 
-    PGresult *result_1 = WPQsendQueryParams(connection, command_1, N1_PARAMS, paramTypes_1, paramValues_1, paramLengths_1, paramFormats_1, TEXT);
-
-    int rows = PQntuples(result_1);
-    PQclear(result_1);
+    rc = sqlite3_bind_text(stmt, 1, email, strlen(email), SQLITE_STATIC);
+    assert(rc == SQLITE_OK);
 
     char *template = NULL;
 
-    if (rows) {
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
         template = find_value("login_view", global_arena_data->templates);
     } else {
         template = find_value("register_view", global_arena_data->templates);
     }
 
-    response = (char *)request_arena->current;
+    char *template_cpy = NULL;
+    char *tmp = NULL;
+    ARENA_IN_USE(scratch_arena, template_cpy, tmp) {
+        memcpy(template_cpy, template, strlen(template));
+        replace_val(template_cpy, "email", email);
 
-    sprintf(response,
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "%s",
-            template);
-
-    response[strlen(response)] = '\0';
-
-    replace_val(response, "email", email);
-
-    request_arena->current = response + strlen(response) + 1;
-
-send_response:
-    if (send(client_socket, response, strlen(response), 0) == -1) {
+        tmp = template_cpy + strlen(template_cpy) + 1;
     }
 
-    request_cleanup(request_arena, connection, client_socket);
+    ARENA_IN_USE(request_arena, response, ptr) {
+        sprintf(response,
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: %lu\r\n"
+                "Content-Type: text/html\r\n\r\n"
+                "%s",
+                strlen(template_cpy), template_cpy);
+
+        ptr = response + strlen(response) + 1;
+    }
+
+    arena_reset(scratch_arena, sizeof(Arena));
+
+    if (send(client_socket, response, strlen(response), 0) == -1) {
+        /* TODO */
+    }
 }
 
+/*
 void register_create_account_post(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
@@ -604,15 +529,14 @@ void register_create_account_post(RequestCtx request_ctx) {
 
     connection = get_available_connection(request_arena);
 
-    /** Hash user password */
     uint8_t salt[SALT_LENGTH];
     memset(salt, 0, SALT_LENGTH);
 
     assert(generate_salt(salt, SALT_LENGTH) != -1);
 
-    uint32_t t_cost = 2;         /* 2-pass computation */
-    uint32_t m_cost = (1 << 16); /* 64 mebibytes memory usage */
-    uint32_t parallelism = 1;    /* number of threads and lanes */
+    uint32_t t_cost = 2;
+    uint32_t m_cost = (1 << 16);
+    uint32_t parallelism = 1;
 
     uint8_t hash[HASH_LENGTH];
     memset(hash, 0, HASH_LENGTH);
@@ -644,7 +568,6 @@ void register_create_account_post(RequestCtx request_ctx) {
 
     unsigned char *user_id = (unsigned char *)PQgetvalue(result_1, 0, 0);
 
-    /** Create session */
     const char *command_2 = "INSERT INTO app.users_sessions (user_id, expires_at) "
                             "VALUES ($1, NOW() + INTERVAL '1 hour') "
                             "ON CONFLICT (user_id) DO UPDATE SET "
@@ -682,7 +605,9 @@ send_response:
 
     request_cleanup(request_arena, connection, client_socket);
 }
+*/
 
+/*
 void logout_post(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
@@ -726,7 +651,9 @@ void logout_post(RequestCtx request_ctx) {
 
     request_cleanup(request_arena, connection, client_socket);
 }
+*/
 
+/*
 void login_create_session_post(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     int client_socket = request_ctx.client_socket;
@@ -800,7 +727,6 @@ void login_create_session_post(RequestCtx request_ctx) {
 
     unsigned char *user_id = (unsigned char *)PQgetvalue(result_1, 0, 0);
 
-    /** Create session */
     const char *command_2 = "INSERT INTO app.users_sessions (user_id, expires_at) "
                             "VALUES ($1, NOW() + INTERVAL '1 hour') "
                             "ON CONFLICT (user_id) DO UPDATE SET "
@@ -838,10 +764,12 @@ send_response:
 
     request_cleanup(request_arena, connection, client_socket);
 }
+*/
 
-Dict is_authenticated(RequestCtx request_ctx, DBConnection *connection) {
+Dict is_authenticated(RequestCtx request_ctx) {
     Arena *request_arena = request_ctx.request_arena;
     char *request = request_ctx.request;
+    sqlite3 *db = request_ctx.db;
 
     Dict user = {0};
 
@@ -849,49 +777,52 @@ Dict is_authenticated(RequestCtx request_ctx, DBConnection *connection) {
     if (cookie.start_addr && cookie.length) {
         String session_id_reference = find_cookie_value("session_id", cookie);
         if (session_id_reference.start_addr && session_id_reference.length) {
-            uuid_str_t session_id_str;
-            memset(session_id_str, 0, sizeof(uuid_str_t));
+            int rc;
+
+            const char *sql = "SELECT u.id, u.email "
+                              "FROM users_sessions us "
+                              "JOIN users u ON u.id = us.user_id "
+                              "WHERE us.id = ? AND datetime('now') < us.expires_at";
+
+            rc = sqlite3_exec(db, sql, 0, 0, 0);
+            sqlite3_stmt *stmt = NULL;
+            rc = sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &stmt, NULL);
+            assert(rc == SQLITE_OK);
+
+            char session_id_str[10];
+            memset(session_id_str, 0, sizeof(session_id_str));
             memcpy(session_id_str, session_id_reference.start_addr, session_id_reference.length);
-            session_id_str[session_id_reference.length] = '\0';
 
-            uuid_t session_id;
-            memset(session_id, 0, sizeof(uuid_t));
-            uuid_parse(session_id_str, session_id);
+            int session_id = atoi(session_id_str);
+            rc = sqlite3_bind_int(stmt, 1, session_id);
+            assert(rc == SQLITE_OK);
 
-            const char *command_1 = "SELECT u.id, u.email "
-                                    "FROM app.users_sessions us "
-                                    "JOIN app.users u ON u.id = us.user_id "
-                                    "WHERE us.id = $1 AND NOW() < us.expires_at";
+            rc = sqlite3_step(stmt);
+            if (rc == SQLITE_ROW) {
+                int id = sqlite3_column_int(stmt, 0);
+                const unsigned char *user_email = sqlite3_column_text(stmt, 1);
 
-            Oid paramTypes_1[N1_PARAMS] = {2950};
-            const char *paramValues_1[N1_PARAMS];
-            paramValues_1[0] = (const char *)session_id;
-            int paramLengths_1[N1_PARAMS] = {16};
-            int paramFormats_1[N1_PARAMS] = {1};
+                char user_id[10];
+                memset(user_id, 0, sizeof(user_id));
+                sprintf(user_id, "%d", id);
 
-            PGresult *result_1 = WPQsendQueryParams(connection, command_1, N1_PARAMS, paramTypes_1, paramValues_1, paramLengths_1, paramFormats_1, TEXT);
-
-            int num_rows = PQntuples(result_1);
-            if (num_rows) {
-                char *user_info = (char *)request_arena->current;
-
-                char *user_id = PQgetvalue(result_1, 0, 0);
-                char *user_email = PQgetvalue(result_1, 0, 1);
-
-                user = add_to_dictionary(user_info, 2, "id", user_id, "email", user_email);
-
-                request_arena->current = user.end_addr;
-
-                PQclear(result_1);
-
-                return user;
+                char *user_info = NULL;
+                char *ptr = NULL;
+                ARENA_IN_USE(request_arena, user_info, ptr) { user = add_to_dictionary(user_info, 2, "id", user_id, "email", user_email); }
+            } else {
+                assert(rc == SQLITE_DONE);
             }
+
+            sqlite3_finalize(stmt);
+
+            return user;
         }
     }
 
     return user;
 }
 
+/*
 void request_cleanup(Arena *arena, DBConnection *connection, int client_socket) {
     close(client_socket);
     arena_free(arena);
@@ -899,10 +830,8 @@ void request_cleanup(Arena *arena, DBConnection *connection, int client_socket) 
     if (connection != NULL && connection->client.fd != 0) {
         uint8_t was_request_queued = connection->client.queued;
 
-        /* Set connection as unused */
         memset(&(connection->client), 0, sizeof(Client));
 
-        /** Set connection available for write */
         int conn_socket = PQsocket(connection->conn);
         event.events = EPOLLOUT | EPOLLET;
         event.data.ptr = connection;
@@ -915,6 +844,7 @@ void request_cleanup(Arena *arena, DBConnection *connection, int client_socket) 
         longjmp(ctx, 1);
     }
 }
+*/
 
 ValidationError validate_email(Arena *arena, const char *email) {
     regex_t regex;

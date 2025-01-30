@@ -5,10 +5,16 @@
             "name": "Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/dev",
+            "program": "${workspaceFolder}/littlechef-dev",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/workspaces/sqlite-amalgamation-3480000"
+                }
+            ],
             "externalConsole": false,
             "miDebuggerPath": "/usr/bin/gdb",
             "MIMode": "gdb",

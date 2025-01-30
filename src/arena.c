@@ -58,6 +58,13 @@ void arena_reset(Arena *arena, size_t arena_header_size) {
     arena->current = start;
 }
 
+void arena_reset2(Arena *arena, uint8_t *ptr) {
+    size_t set_bytes = (uint8_t *)arena->current - ptr;
+    memset(ptr, 0, set_bytes);
+
+    arena->current = ptr;
+}
+
 void arena_free(Arena *arena) {
     if (munmap(arena->start, arena->size) == -1) {
         assert(0);

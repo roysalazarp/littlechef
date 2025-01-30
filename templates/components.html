@@ -74,6 +74,15 @@
                         </form>
                     </div>
                 </div>
+                <script>
+                    (async () => {
+                        const element = document.querySelector("#sign-in-view");
+                        element.classList.remove("sheet");
+                        const dialog = await openDialog("register-view");
+                        dialogSetup(dialog);
+                        /** TODO: need to add "sheet" class to #sign-in-view after closing register-view dialog */
+                    })();
+                </script>
             </x-insert>
         </div>
     </x-component>
@@ -285,7 +294,7 @@
 </x-component-def>
 
 <x-component-def name="side_view">
-    <dialog id="%id%" class="side-view app-bg">
+    <dialog id="%id%" class="sheet side-view app-bg">
         <div style="visibility: hidden" class="side-view-sticky-header fixed z-10 top-0 left-0 right-0 backdrop-blur-sm transform -translate-y-full transition-transform duration-300">
             <div class="bottom-modal-bg flex flex-row items-center pt-2 pb-2 px-2">
                 <div class="close-side-view">

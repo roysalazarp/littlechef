@@ -15,12 +15,12 @@
 
             <link rel="stylesheet" href="public/index.css" />
 
-            <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
-            <script src="https://unpkg.com/htmx-ext-response-targets@2.0.0/response-targets.js"></script>
+            <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous" defer></script>
+            <script src="https://unpkg.com/htmx-ext-response-targets@2.0.0/response-targets.js" defer></script>
 
             <script src="https://cdn.tailwindcss.com"></script>
 
-            <script src="/public/index.js"></script>
+            <script src="/public/index.js" defer></script>
             <link rel="manifest" href="public/manifest.json" />
             <title>Little Chef</title>
         </head>
@@ -42,7 +42,7 @@
 </x-component-def>
 
 <x-component-def name="register_view">
-    <x-component name="side_view" id="register-view">
+    <x-component name="view" id="register-view">
         <div>
             <x-insert name="title"> Register </x-insert>
         </div>
@@ -52,7 +52,7 @@
                     <div hx-ext="response-targets">
                         <form id="register-form" hx-post="/register/create-account" hx-swap="none" hx-select-oob="#email-validation-error,#password-validation-error,#repeat-password-validation-error,#accept-terms-validation-error" hx-target-error="#register-form" class="mt-8">
                             <div>
-                                <x-component name="text_input" id="register-email" type="email" input-attributes="value='%email%'">
+                                <x-component name="text_input" id="register-email" type="email" input-tw-classes="!text-[#9D9DAE]" input-attributes="value='%email%' readonly">
                                     <x-insert name="label"> Email </x-insert>
                                 </x-component>
                             </div>
@@ -76,11 +76,12 @@
                 </div>
                 <script>
                     (async () => {
-                        const element = document.querySelector("#sign-in-view");
-                        element.classList.remove("sheet");
-                        const dialog = await openDialog("register-view");
-                        dialogSetup(dialog);
-                        /** TODO: need to add "sheet" class to #sign-in-view after closing register-view dialog */
+                        const dialog = document.querySelector("#register-view");
+                        await viewSetup(dialog);
+                        await openView(dialog);
+                        dialog.querySelectorAll(".text-input").forEach((container) => {
+                            textInputSetup(container);
+                        });
                     })();
                 </script>
             </x-insert>
@@ -89,7 +90,7 @@
 </x-component-def>
 
 <x-component-def name="login_view">
-    <x-component name="side_view" id="login-view">
+    <x-component name="view" id="login-view">
         <div>
             <x-insert name="title"> Login </x-insert>
         </div>
@@ -114,7 +115,7 @@
 </x-component-def>
 
 <x-component-def name="sign_in_view">
-    <x-component name="side_view" id="sign-in-view">
+    <x-component name="view" id="sign-in-view">
         <div>
             <x-insert name="title"> Sign In </x-insert>
         </div>
@@ -167,7 +168,7 @@
                     <div class="flex justify-center">
                         <x-component name="welcome_logo_icon" />
                     </div>
-                    <div data-side-view-id="sign-in-view">
+                    <div data-view-id="sign-in-view">
                         <x-component name="primary_btn">
                             <x-insert name="button_text"> Continue </x-insert>
                         </x-component>
@@ -191,7 +192,7 @@
 <x-component-def name="home">
     <x-component name="app">
         <x-insert name="content">
-            <x-component name="bottom_modal">
+            <x-component name="location_modal">
                 <x-insert name="modal_title"> Location </x-insert>
             </x-component>
             <div class="flex flex-col w-full">
@@ -256,7 +257,7 @@
 
 <x-component-def name="text_input">
     <div class="text-input relative mb-[25px]" data-input-group="%id%">
-        <input id="%id%" name="%id%" type="%type%" %input-attributes% class="w-full h-14 px-4 pt-2 bg-[#141E1F]/80 text-[17px] text-white rounded-lg border border-[#353541] focus:outline-none caret-[#FFFFFF]" placeholder=" " autocomplete="on" />
+        <input id="%id%" name="%id%" type="%type%" %input-attributes% class="w-full h-14 px-4 pt-2 bg-[#141E1F]/80 text-[17px] text-white rounded-lg border border-[#353541] focus:outline-none caret-[#FFFFFF] %input-tw-classes%" placeholder=" " autocomplete="on" />
         <label for="%id%" class="absolute left-4 top-4 text-[#787878] transition-all duration-200 pointer-events-none"> <x-slot name="label" /> </label>
         <div class="absolute right-4 top-7 transform -translate-y-1/2 text-[#888888] cursor-pointer">
             <div class="clear-button" style="visibility: hidden">
@@ -269,7 +270,7 @@
 
 <x-component-def name="top_bar">
     <div class="flex gap-2 justify-between">
-        <div id="openBottomModal" class="flex flex-1 gap-2 text-left cursor-pointer">
+        <div data-modal-id="location-modal" class="flex flex-1 gap-2 text-left cursor-pointer">
             <x-component name="circle_container" tw-bg-color-2="bg-[#101C1C]" tw-text-color-2="text-[#41ADFC]">
                 <x-insert name="default">
                     <x-component name="house_icon" />
@@ -293,11 +294,11 @@
     <div class="w-8 h-1 bg-[#1F3A3D] rounded m-2 mx-auto"></div>
 </x-component-def>
 
-<x-component-def name="side_view">
-    <dialog id="%id%" class="sheet side-view app-bg">
-        <div style="visibility: hidden" class="side-view-sticky-header fixed z-10 top-0 left-0 right-0 backdrop-blur-sm transform -translate-y-full transition-transform duration-300">
-            <div class="bottom-modal-bg flex flex-row items-center pt-2 pb-2 px-2">
-                <div class="close-side-view">
+<x-component-def name="view">
+    <dialog id="%id%" class="view-dialog view app-bg">
+        <div style="visibility: hidden" class="view-sticky-header fixed z-10 top-0 left-0 right-0 backdrop-blur-sm transform -translate-y-full transition-transform duration-300">
+            <div class="modal-bg flex flex-row items-center pt-2 pb-2 px-2">
+                <div class="close-view">
                     <x-component name="back_btn" />
                 </div>
                 <x-component name="title_3" tw-text-classes="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-semibold text-white transition-opacity duration-300">
@@ -305,8 +306,8 @@
                 </x-component>
             </div>
         </div>
-        <div class="side-view-header">
-            <div class="close-side-view flex flex-row items-center pt-2 pb-2 px-2">
+        <div class="view-header">
+            <div class="close-view flex flex-row items-center pt-2 pb-2 px-2">
                 <x-component name="back_btn" />
             </div>
             <x-component name="title_1" tw-text-classes="px-2 font-bold text-white mt-[25px] mb-[35px]">
@@ -319,8 +320,8 @@
     </dialog>
 </x-component-def>
 
-<x-component-def name="bottom_modal">
-    <dialog id="bottomModal" class="bottom-modal-bg">
+<x-component-def name="location_modal">
+    <dialog id="location-modal" class="modal-dialog modal modal-bg">
         <x-component name="drag_indicator" />
         <div class="flex justify-between mb-[30px]">
             <div class="flex flex-col justify-center">
@@ -330,7 +331,7 @@
                     </x-insert>
                 </x-component>
             </div>
-            <div id="closeBottomModal" class="flex transform -rotate-90">
+            <div class="close-modal flex transform -rotate-90">
                 <x-component name="back_btn" />
             </div>
         </div>

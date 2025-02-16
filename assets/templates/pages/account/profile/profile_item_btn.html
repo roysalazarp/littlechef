@@ -1,0 +1,13 @@
+<x-component-def name="profile_item_btn">
+    <button data-view-id="%data-view-id%" class="flex flex-row w-full py-[10px]">
+        <x-component name="body" tw-text-classes="flex w-full place-content-between text-[#9D9DAE]">
+            <x-insert name="text">
+                <x-slot name="button_text" />
+                <span class="flex items-center rotate-180">
+                    <x-component name="arrow_icon" />
+                </span>
+            </x-insert>
+        </x-component>
+    </button>
+    <x-slot name="item_view" />
+</x-component-def>

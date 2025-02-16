@@ -1,0 +1,32 @@
+<x-component-def name="test">
+    <!DOCTYPE html>
+    <html lang="en">
+        <head>
+            <title>Little Chef - Test</title>
+        </head>
+        <body class="bg-black text-white px-4 py-8 min-h-screen flex flex-col items-center">
+            <div class="w-full max-w-xl flex flex-col h-full">
+                <div>
+                    <x-val name="page_name" />
+                </div>
+                <div>
+                    <x-for name="table">
+                        <td>
+                            <x-val name="name" />
+                        </td>
+                        <p>
+                            <x-val name="sub_name" />
+                        </p>
+                        <x-for name="rows">
+                            <div>
+                                <x-for name="cells">
+                                    <x-val name="." />
+                                </x-for>
+                            </div>
+                        </x-for>
+                    </x-for>
+                </div>
+            </div>
+        </body>
+    </html>
+</x-component-def>

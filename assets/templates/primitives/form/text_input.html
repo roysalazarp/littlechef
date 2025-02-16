@@ -1,0 +1,14 @@
+<x-component-def name="text_input">
+    <div class="text-input relative mb-[25px]" data-input-group="%id%">
+        <input id="%id%" name="%id%" type="%type%" %input-attributes% class="w-full h-14 px-4 pt-2 bg-[#141E1F]/80 text-[17px] text-white rounded-lg border border-[#353541] focus:outline-none caret-[#FFFFFF] %input-tw-classes%" placeholder=" " autocomplete="on" />
+        <label for="%id%" class="absolute left-4 top-4 text-[#787878] transition-all duration-200 pointer-events-none"> <x-slot name="label" /> </label>
+        <div class="absolute right-4 top-7 transform -translate-y-1/2 text-[#888888] cursor-pointer">
+            <div class="clear-button" style="visibility: hidden">
+                <x-component name="close_icon" />
+            </div>
+        </div>
+        <div class="px-4">
+            <x-slot name="validation_error" />
+        </div>
+    </div>
+</x-component-def>

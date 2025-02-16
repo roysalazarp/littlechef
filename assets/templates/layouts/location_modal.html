@@ -1,0 +1,33 @@
+<x-component-def name="location_modal">
+    <dialog id="location-modal" class="modal-dialog modal modal-bg">
+        <x-component name="drag_indicator" />
+        <div class="flex justify-between mb-[30px]">
+            <div class="flex flex-col justify-center">
+                <x-component name="title_3" tw-text-classes="font-semibold text-white">
+                    <x-insert name="text">
+                        <x-slot name="modal_title" />
+                    </x-insert>
+                </x-component>
+            </div>
+            <div class="close-modal flex transform -rotate-90">
+                <x-component name="back_btn" />
+            </div>
+        </div>
+        <div class="flex flex-1 gap-2 text-left cursor-pointer">
+            <x-component name="circle_container" tw-bg-color-2="bg-[#3EFFA2]" tw-text-color-2="text-[#182425]">
+                <x-insert name="default">
+                    <x-component name="house_icon" />
+                </x-insert>
+            </x-component>
+            <div class="flex flex-col justify-between py-[2px] flex-1">
+                <x-component name="callout" tw-text-classes="font-semibold text-[#3EFFA2]">
+                    <x-insert name="text">Runeberginkatu 22</x-insert>
+                </x-component>
+                <x-component name="footnote" tw-text-classes="font-semibold text-[#3EFFA2]">
+                    <x-insert name="text">Home</x-insert>
+                </x-component>
+            </div>
+        </div>
+        <div class="h-[50px]"></div>
+    </dialog>
+</x-component-def>

@@ -1,0 +1,9 @@
+<x-component-def name="primary_btn">
+    <button type="submit" class="w-full h-14 rounded-lg bg-[#3EFFA2]">
+        <x-component name="body" tw-text-classes="text-[#091011] font-semibold">
+            <x-insert name="text">
+                <x-slot name="button_text" />
+            </x-insert>
+        </x-component>
+    </button>
+</x-component-def>

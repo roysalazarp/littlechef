@@ -1,8 +1,33 @@
 <x-component-def name="home">
     <x-component name="app">
         <x-insert name="content">
-            <x-component name="location_modal">
-                <x-insert name="modal_title"> Location </x-insert>
+            <x-component name="bottom_modal" id="location-modal">
+                <div>
+                    <x-insert name="title"> Location </x-insert>
+                </div>
+                <div>
+                    <x-insert name="content">
+                        <div class="flex flex-1 gap-2 text-left cursor-pointer">
+                            <x-component name="circle_container" tw-bg-color-2="bg-[#3EFFA2]" tw-text-color-2="text-[#182425]">
+                                <x-insert name="default">
+                                    <x-component name="house_icon" />
+                                </x-insert>
+                            </x-component>
+                            <div class="flex flex-col justify-between py-[2px] flex-1">
+                                <div>
+                                    <x-component name="callout" tw-text-classes="font-semibold text-[#3EFFA2]">
+                                        <x-insert name="text">Runeberginkatu 22</x-insert>
+                                    </x-component>
+                                </div>
+                                <div>
+                                    <x-component name="footnote" tw-text-classes="font-semibold text-[#3EFFA2]">
+                                        <x-insert name="text">Home</x-insert>
+                                    </x-component>
+                                </div>
+                            </div>
+                        </div>
+                    </x-insert>
+                </div>
             </x-component>
             <div class="flex flex-col w-full">
                 <div class="sticky top-0 flex flex-col w-full px-2 pb-3 pt-[env(safe-area-inset-top)]">

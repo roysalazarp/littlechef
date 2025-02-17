@@ -5,7 +5,29 @@
         </div>
         <div>
             <x-insert name="content">
-                <div class="px-2 text-white">TODO</div>
+                <div class="px-2 pb-2 flex flex-1">
+                    <div class="flex flex-1" hx-ext="response-targets">
+                        <form class="flex flex-col flex-1 justify-between" id="phone-number-form" hx-post="/update-phone-number" hx-swap="none" hx-select-oob="#phone-number-validation-error" hx-target-error="#phone-number-form">
+                            <div>
+                                <x-component name="text_input" id="phone-number" type="tel" input-attributes="value='%phone_number%'">
+                                    <div>
+                                        <x-insert name="label"> Phone number </x-insert>
+                                    </div>
+                                    <div>
+                                        <x-insert name="validation_error">
+                                            <div id="phone-number-validation-error"></div>
+                                        </x-insert>
+                                    </div>
+                                </x-component>
+                            </div>
+                            <div>
+                                <x-component name="primary_btn">
+                                    <x-insert name="button_text"> Save </x-insert>
+                                </x-component>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </x-insert>
         </div>
     </x-component>

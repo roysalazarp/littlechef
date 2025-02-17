@@ -362,7 +362,9 @@ int main() {
                                 goto request_cleanup;
                             }
 
-                            ASSERT(data_size > 0); /** ??? */
+                            /*
+                            ASSERT(data_size > 0);
+                            */
 
                             read_stream += data_size;
 

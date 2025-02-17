@@ -6,7 +6,52 @@
         <div>
             <x-insert name="content">
                 <div class="px-2">
-                    <p class="text-white">My addresses content</p>
+                    <div class="flex flex-1 gap-2 text-left cursor-pointer py-4">
+                        <x-component name="circle_container" tw-bg-color-2="bg-[#CDCDD5]" tw-text-color-2="text-[#182425]">
+                            <x-insert name="default">
+                                <x-component name="house_icon" />
+                            </x-insert>
+                        </x-component>
+                        <div class="flex flex-col justify-between py-[2px] flex-1">
+                            <div>
+                                <x-component name="callout" tw-text-classes="font-semibold text-[#CDCDD5]">
+                                    <x-insert name="text">Runeberginkatu 22</x-insert>
+                                </x-component>
+                            </div>
+                            <div>
+                                <x-component name="footnote" tw-text-classes="font-semibold text-[#CDCDD5]">
+                                    <x-insert name="text">Home</x-insert>
+                                </x-component>
+                            </div>
+                        </div>
+                        <span class="flex items-center rotate-180 text-[#9D9DAE]">
+                            <x-component name="arrow_icon" />
+                        </span>
+                    </div>
+                    <div class="border-b border-[#353541]"></div>
+                    <div class="flex flex-1 gap-2 text-left cursor-pointer py-4">
+                        <x-component name="circle_container" tw-bg-color-2="bg-[#CDCDD5]" tw-text-color-2="text-[#182425]">
+                            <x-insert name="default">
+                                <x-component name="house_icon" />
+                            </x-insert>
+                        </x-component>
+                        <div class="flex flex-col justify-between py-[2px] flex-1">
+                            <div>
+                                <x-component name="callout" tw-text-classes="font-semibold text-[#CDCDD5]">
+                                    <x-insert name="text">Runeberginkatu 22</x-insert>
+                                </x-component>
+                            </div>
+                            <div>
+                                <x-component name="footnote" tw-text-classes="font-semibold text-[#CDCDD5]">
+                                    <x-insert name="text">Home</x-insert>
+                                </x-component>
+                            </div>
+                        </div>
+                        <span class="flex items-center rotate-180 text-[#9D9DAE]">
+                            <x-component name="arrow_icon" />
+                        </span>
+                    </div>
+                    <div class="border-b border-[#353541]"></div>
                 </div>
             </x-insert>
         </div>

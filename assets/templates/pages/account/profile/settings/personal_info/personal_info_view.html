@@ -8,7 +8,7 @@
                 <div class="px-2">
                     <ul>
                         <li class="border-b border-[#353541]">
-                            <x-component name="profile_info_item_btn" data-view-id="photo-view">
+                            <x-component name="profile_info_item_btn" attributes="data-modal-id='photo-modal'">
                                 <div>
                                     <x-insert name="button_text"> Photo </x-insert>
                                 </div>
@@ -25,13 +25,13 @@
                                 </div>
                                 <div>
                                     <x-insert name="info_item_view">
-                                        <x-component name="photo_view" />
+                                        <x-component name="photo_modal" />
                                     </x-insert>
                                 </div>
                             </x-component>
                         </li>
                         <li class="border-b border-[#353541]">
-                            <x-component name="profile_info_item_btn" data-view-id="name-view">
+                            <x-component name="profile_info_item_btn" attributes="data-view-id='name-view'">
                                 <div>
                                     <x-insert name="button_text"> Name </x-insert>
                                 </div>
@@ -46,7 +46,7 @@
                             </x-component>
                         </li>
                         <li class="border-b border-[#353541]">
-                            <x-component name="profile_info_item_btn" data-view-id="email-view">
+                            <x-component name="profile_info_item_btn" attributes="data-view-id='email-view'">
                                 <div>
                                     <x-insert name="button_text"> Email </x-insert>
                                 </div>
@@ -61,7 +61,7 @@
                             </x-component>
                         </li>
                         <li class="border-b border-[#353541]">
-                            <x-component name="profile_info_item_btn" data-view-id="phone-number-view">
+                            <x-component name="profile_info_item_btn" attributes="data-view-id='phone-number-view'">
                                 <div>
                                     <x-insert name="button_text"> Phone number </x-insert>
                                 </div>
@@ -76,7 +76,7 @@
                             </x-component>
                         </li>
                         <li>
-                            <x-component name="profile_info_item_btn" data-view-id="country-view">
+                            <x-component name="profile_info_item_btn" attributes="data-modal-id='country-modal'">
                                 <div>
                                     <x-insert name="button_text"> Country </x-insert>
                                 </div>
@@ -85,7 +85,7 @@
                                 </div>
                                 <div>
                                     <x-insert name="info_item_view">
-                                        <x-component name="country_view" />
+                                        <x-component name="country_modal" />
                                     </x-insert>
                                 </div>
                             </x-component>

@@ -11,7 +11,7 @@
             </div>
         </div>
         <div class="view-header">
-            <div class="close-view flex flex-row items-center pt-2 pb-2 px-2">
+            <div class="close-view flex flex-row items-center pb-2 px-2">
                 <x-component name="back_btn" />
             </div>
             <x-component name="title_1" tw-text-classes="px-2 font-bold text-white mt-[25px] mb-[35px]">
@@ -20,6 +20,8 @@
                 </x-insert>
             </x-component>
         </div>
-        <x-slot name="content" />
+        <div class="flex flex-col flex-1">
+            <x-slot name="content" />
+        </div>
     </dialog>
 </x-component-def>

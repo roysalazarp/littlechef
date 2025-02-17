@@ -7,7 +7,7 @@
             <x-insert name="content">
                 <div class="px-2">
                     <div hx-ext="response-targets">
-                        <form id="register-form" hx-post="/register/create-account" hx-swap="none" hx-select-oob="#email-validation-error,#password-validation-error,#repeat-password-validation-error" hx-target-error="#register-form" class="mt-8">
+                        <form id="register-form" hx-post="/register/create-account" hx-swap="none" hx-select-oob="#email-validation-error,#password-validation-error,#repeat-password-validation-error" hx-target-error="#register-form">
                             <div>
                                 <x-component name="text_input" id="email" type="email" input-tw-classes="!text-[#9D9DAE]" input-attributes="value='%email%' readonly">
                                     <div>

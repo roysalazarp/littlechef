@@ -220,7 +220,7 @@ int main() {
         ASSERT(0);
     }
 
-    Memory *persisting_memory = initialise_memory(PAGE_SIZE * 80);
+    Memory *persisting_memory = initialise_memory(PAGE_SIZE * 150);
 
 #ifndef DEBUG
     initialise_web_server_resources(persisting_memory);

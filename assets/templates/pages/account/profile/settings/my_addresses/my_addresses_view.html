@@ -1,0 +1,51 @@
+<x-component-def name="my_addresses_view">
+    <x-component name="view" id="my-addresses-view">
+        <div>
+            <x-insert name="title"> My addresses </x-insert>
+        </div>
+        <div>
+            <x-insert name="content">
+                <div>
+                    <x-component name="address_info_item_btn" attributes="data-view-id='address-view'">
+                        <div>
+                            <x-insert name="address_type_icon">
+                                <x-component name="building_icon" />
+                            </x-insert>
+                        </div>
+                        <div>
+                            <x-insert name="address_text"> Runeberginkatu 22 </x-insert>
+                        </div>
+                        <div>
+                            <x-insert name="address_type_text"> Office </x-insert>
+                        </div>
+                        <div>
+                            <x-insert name="info_item_view">
+                                <x-component name="address_view" />
+                            </x-insert>
+                        </div>
+                    </x-component>
+                </div>
+                <div>
+                    <x-component name="address_info_item_btn" attributes="data-view-id='address-view'">
+                        <div>
+                            <x-insert name="address_type_icon">
+                                <x-component name="house_icon" />
+                            </x-insert>
+                        </div>
+                        <div>
+                            <x-insert name="address_text"> Pellaksenmäentie 81 </x-insert>
+                        </div>
+                        <div>
+                            <x-insert name="address_type_text"> Home </x-insert>
+                        </div>
+                        <div>
+                            <x-insert name="info_item_view">
+                                <x-component name="address_view" />
+                            </x-insert>
+                        </div>
+                    </x-component>
+                </div>
+            </x-insert>
+        </div>
+    </x-component>
+</x-component-def>

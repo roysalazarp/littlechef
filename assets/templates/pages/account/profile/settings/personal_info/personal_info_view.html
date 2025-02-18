@@ -1,98 +1,64 @@
 <x-component-def name="personal_info_view">
     <x-component name="view" id="personal-info-view">
-        <div>
-            <x-insert name="title"> Personal information </x-insert>
-        </div>
-        <div>
-            <x-insert name="content">
-                <div class="px-2">
-                    <ul>
-                        <li class="border-b border-[#353541]">
-                            <x-component name="profile_info_item_btn" attributes="data-modal-id='photo-modal'">
-                                <div>
-                                    <x-insert name="button_text"> Photo </x-insert>
+        <x-insert name="title"> Personal information </x-insert>
+        <x-insert name="content">
+            <div class="px-2">
+                <ul>
+                    <li class="border-b border-[#353541]">
+                        <x-component name="profile_info_item_btn" attributes="data-modal-id='photo-modal'">
+                            <x-insert name="button_text"> Photo </x-insert>
+                            <x-insert name="data">
+                                <div class="relative w-[32px]">
+                                    <div class="absolute top-1/2 -translate-y-1/2 w-[32px] h-[32px] overflow-hidden bg-gray-100 rounded-full dark:bg-gray-600">
+                                        <svg class="absolute w-[38px] h-[38px] text-gray-400 -left-[3px]" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                                        </svg>
+                                    </div>
                                 </div>
-                                <div>
-                                    <x-insert name="data">
-                                        <div class="relative w-[32px]">
-                                            <div class="absolute top-1/2 -translate-y-1/2 w-[32px] h-[32px] overflow-hidden bg-gray-100 rounded-full dark:bg-gray-600">
-                                                <svg class="absolute w-[38px] h-[38px] text-gray-400 -left-[3px]" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="info_item_view">
-                                        <x-component name="photo_modal" />
-                                    </x-insert>
-                                </div>
-                            </x-component>
-                        </li>
-                        <li class="border-b border-[#353541]">
-                            <x-component name="profile_info_item_btn" attributes="data-view-id='name-view'">
-                                <div>
-                                    <x-insert name="button_text"> Name </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="data"> Add name </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="info_item_view">
-                                        <x-component name="name_view" />
-                                    </x-insert>
-                                </div>
-                            </x-component>
-                        </li>
-                        <li class="border-b border-[#353541]">
-                            <x-component name="profile_info_item_btn" attributes="data-view-id='email-view'">
-                                <div>
-                                    <x-insert name="button_text"> Email </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="data"> <x-val name="email" /> </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="info_item_view">
-                                        <x-component name="email_view" />
-                                    </x-insert>
-                                </div>
-                            </x-component>
-                        </li>
-                        <li class="border-b border-[#353541]">
-                            <x-component name="profile_info_item_btn" attributes="data-view-id='phone-number-view'">
-                                <div>
-                                    <x-insert name="button_text"> Phone number </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="data"> Add number </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="info_item_view">
-                                        <x-component name="phone_number_view" />
-                                    </x-insert>
-                                </div>
-                            </x-component>
-                        </li>
-                        <li>
-                            <x-component name="profile_info_item_btn" attributes="data-modal-id='country-modal'">
-                                <div>
-                                    <x-insert name="button_text"> Country </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="data"> Select country </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="info_item_view">
-                                        <x-component name="country_modal" />
-                                    </x-insert>
-                                </div>
-                            </x-component>
-                        </li>
-                    </ul>
-                </div>
-            </x-insert>
-        </div>
+                            </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="photo_modal" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                    <li class="border-b border-[#353541]">
+                        <x-component name="profile_info_item_btn" attributes="data-view-id='name-view'">
+                            <x-insert name="button_text"> Name </x-insert>
+                            <x-insert name="data"> Add name </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="name_view" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                    <li class="border-b border-[#353541]">
+                        <x-component name="profile_info_item_btn" attributes="data-view-id='email-view'">
+                            <x-insert name="button_text"> Email </x-insert>
+                            <x-insert name="data"> <x-val name="email" /> </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="email_view" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                    <li class="border-b border-[#353541]">
+                        <x-component name="profile_info_item_btn" attributes="data-view-id='phone-number-view'">
+                            <x-insert name="button_text"> Phone number </x-insert>
+                            <x-insert name="data"> Add number </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="phone_number_view" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                    <li>
+                        <x-component name="profile_info_item_btn" attributes="data-modal-id='country-modal'">
+                            <x-insert name="button_text"> Country </x-insert>
+                            <x-insert name="data"> Select country </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="country_modal" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                </ul>
+            </div>
+        </x-insert>
     </x-component>
 </x-component-def>

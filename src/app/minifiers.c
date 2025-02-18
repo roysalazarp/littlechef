@@ -58,6 +58,12 @@ size_t html_minify(char *buffer, char *html, size_t html_length) {
 
     uint8_t skip_whitespace = 0;
     while (html < html_end) {
+        /** IMPORTANT: Commented the following code because it
+         * contains a bug that causes weird duplicated element
+         * in the html */
+        /** TODO: FIX, IMPORTANT */
+
+        /*
         if (strlen(start) == 0 && isspace(*html)) {
             skip_whitespace = 1;
             html++;
@@ -123,7 +129,9 @@ size_t html_minify(char *buffer, char *html, size_t html_length) {
             goto copy_char;
         }
 
-    copy_char:
+        copy_char:
+        */
+
         *buffer = *html;
         buffer++;
 

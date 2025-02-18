@@ -28,11 +28,9 @@
                                 <x-insert name="text"> Add name </x-insert>
                             </x-component>
                         </div>
-                        <div>
-                            <x-component name="body" tw-text-classes="text-[#636378]">
-                                <x-insert name="text"> <x-val name="email" /> </x-insert>
-                            </x-component>
-                        </div>
+                        <x-component name="body" tw-text-classes="text-[#636378]">
+                            <x-insert name="text"> <x-val name="email" /> </x-insert>
+                        </x-component>
                     </div>
                 </div>
                 <div class="border-b border-[#353541] py-4"></div>
@@ -43,38 +41,26 @@
                     <ul>
                         <li>
                             <x-component name="profile_item_btn" data-view-id="personal-info-view">
-                                <div>
-                                    <x-insert name="button_text"> Personal information </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="item_view">
-                                        <x-component name="personal_info_view" />
-                                    </x-insert>
-                                </div>
+                                <x-insert name="button_text"> Personal information </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="personal_info_view" />
+                                </x-insert>
                             </x-component>
                         </li>
                         <li>
                             <x-component name="profile_item_btn" data-view-id="my-addresses-view">
-                                <div>
-                                    <x-insert name="button_text"> My addresses </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="item_view">
-                                        <x-component name="my_addresses_view" />
-                                    </x-insert>
-                                </div>
+                                <x-insert name="button_text"> My addresses </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="my_addresses_view" />
+                                </x-insert>
                             </x-component>
                         </li>
                         <li>
                             <x-component name="profile_item_btn" data-view-id="delete-account-view">
-                                <div>
-                                    <x-insert name="button_text"> Delete account </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="item_view">
-                                        <x-component name="delete_account_view" />
-                                    </x-insert>
-                                </div>
+                                <x-insert name="button_text"> Delete account </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="delete_account_view" />
+                                </x-insert>
                             </x-component>
                         </li>
                     </ul>
@@ -86,38 +72,26 @@
                     <ul>
                         <li>
                             <x-component name="profile_item_btn" data-view-id="contact-us-view">
-                                <div>
-                                    <x-insert name="button_text"> Contact us </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="item_view">
-                                        <x-component name="contact_us_view" />
-                                    </x-insert>
-                                </div>
+                                <x-insert name="button_text"> Contact us </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="contact_us_view" />
+                                </x-insert>
                             </x-component>
                         </li>
                         <li>
                             <x-component name="profile_item_btn" data-view-id="how-to-use-the-app-view">
-                                <div>
-                                    <x-insert name="button_text"> How to use the app </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="item_view">
-                                        <x-component name="how_to_use_the_app_view" />
-                                    </x-insert>
-                                </div>
+                                <x-insert name="button_text"> How to use the app </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="how_to_use_the_app_view" />
+                                </x-insert>
                             </x-component>
                         </li>
                         <li>
                             <x-component name="profile_item_btn" data-view-id="faq-view">
-                                <div>
-                                    <x-insert name="button_text"> FAQ </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="item_view">
-                                        <x-component name="faq_view" />
-                                    </x-insert>
-                                </div>
+                                <x-insert name="button_text"> FAQ </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="faq_view" />
+                                </x-insert>
                             </x-component>
                         </li>
                     </ul>
@@ -129,26 +103,18 @@
                     <ul>
                         <li>
                             <x-component name="profile_item_btn" data-view-id="terms-of-service-view">
-                                <div>
-                                    <x-insert name="button_text"> Terms of service </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="item_view">
-                                        <x-component name="terms_of_service_view" />
-                                    </x-insert>
-                                </div>
+                                <x-insert name="button_text"> Terms of service </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="terms_of_service_view" />
+                                </x-insert>
                             </x-component>
                         </li>
                         <li>
                             <x-component name="profile_item_btn" data-view-id="privacy-policy-view">
-                                <div>
-                                    <x-insert name="button_text"> Privacy Policy </x-insert>
-                                </div>
-                                <div>
-                                    <x-insert name="item_view">
-                                        <x-component name="privacy_policy_view" />
-                                    </x-insert>
-                                </div>
+                                <x-insert name="button_text"> Privacy Policy </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="privacy_policy_view" />
+                                </x-insert>
                             </x-component>
                         </li>
                     </ul>

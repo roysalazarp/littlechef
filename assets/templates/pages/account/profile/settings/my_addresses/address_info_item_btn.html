@@ -7,20 +7,16 @@
                 </x-insert>
             </x-component>
             <div class="flex flex-col justify-between py-[2px] flex-1">
-                <div>
-                    <x-component name="callout" tw-text-classes="font-semibold text-[#CDCDD5]">
-                        <x-insert name="text">
-                            <x-slot name="address_text" />
-                        </x-insert>
-                    </x-component>
-                </div>
-                <div>
-                    <x-component name="footnote" tw-text-classes="font-semibold text-[#CDCDD5]">
-                        <x-insert name="text">
-                            <x-slot name="address_type_text" />
-                        </x-insert>
-                    </x-component>
-                </div>
+                <x-component name="callout" tw-text-classes="font-semibold text-[#CDCDD5]">
+                    <x-insert name="text">
+                        <x-slot name="address_text" />
+                    </x-insert>
+                </x-component>
+                <x-component name="footnote" tw-text-classes="font-semibold text-[#CDCDD5]">
+                    <x-insert name="text">
+                        <x-slot name="address_type_text" />
+                    </x-insert>
+                </x-component>
             </div>
             <span class="flex items-center rotate-180 text-[#9D9DAE]">
                 <x-component name="arrow_icon" />

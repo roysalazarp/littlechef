@@ -106,7 +106,9 @@ async function viewSetup(dialog) {
         }
     }
 
-    dialog.addEventListener("scroll", (event) => {
+    const dialogContainer = dialog.querySelector(".dialog-container");
+
+    dialogContainer.addEventListener("scroll", (event) => {
         if (event.target.scrollTop > header.offsetHeight) {
             stickyHeader.classList.remove("-translate-y-full");
         } else {

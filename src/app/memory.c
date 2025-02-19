@@ -37,15 +37,6 @@ void *memory_in_use(Memory *memory) {
     return memory->current;
 }
 
-void memory_in_use2(Memory *memory, void **ptr, void **tmp) {
-    ASSERT(!memory->in_use); /** Memory is already in use! */
-    memory->in_use = true;
-    if (ptr != NULL) {
-        *ptr = memory->current;
-    }
-    *tmp = memory->current;
-}
-
 void memory_out_of_use(Memory *memory, void *tmp) {
     memory->in_use = false;
     memory->current = (uint8_t *)tmp;

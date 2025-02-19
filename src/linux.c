@@ -220,7 +220,7 @@ int main() {
         ASSERT(0);
     }
 
-    Memory *persisting_memory = initialise_memory(PAGE_SIZE * 150);
+    Memory *persisting_memory = initialise_memory(PAGE_SIZE * 200);
 
 #ifndef DEBUG
     initialise_web_server_resources(persisting_memory);
@@ -287,7 +287,7 @@ int main() {
                         initialise_web_server_resources(persisting_memory);
 #endif
 
-                        Memory *request_memory = initialise_memory(PAGE_SIZE * 50);
+                        Memory *request_memory = initialise_memory(PAGE_SIZE * 100);
 
                         Socket *client_socket_info = (Socket *)memory_alloc(request_memory, sizeof(Socket));
                         client_socket_info->type = CLIENT_SOCKET;

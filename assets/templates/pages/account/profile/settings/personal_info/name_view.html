@@ -4,12 +4,12 @@
         <x-insert name="content">
             <div class="px-2 pb-2 flex flex-1">
                 <div class="flex flex-1" hx-ext="response-targets">
-                    <form class="flex flex-col flex-1 justify-between" id="name-form" hx-post="/update-name" hx-swap="none" hx-select-oob="#name-validation-error,#lastname-validation-error" hx-target-error="#name-form">
+                    <form class="flex flex-col flex-1 justify-between" id="name-form" hx-post="/update-name" hx-swap="none" hx-select-oob="#firstname-validation-error,#lastname-validation-error" hx-target-error="#name-form">
                         <div>
-                            <x-component name="text_input" id="name" type="text" input-attributes="value='%name%'">
+                            <x-component name="text_input" id="firstname" type="text" input-attributes="value='%firstname%'">
                                 <x-insert name="label"> Name </x-insert>
                                 <x-insert name="validation_error">
-                                    <div id="name-validation-error"></div>
+                                    <div id="firstname-validation-error"></div>
                                 </x-insert>
                             </x-component>
                             <x-component name="text_input" id="lastname" type="text" input-attributes="value='%lastname%'">

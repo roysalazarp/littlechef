@@ -30,6 +30,7 @@
         "signal.h": "c",
         "stdio.h": "c",
         "http_utils.h": "c",
-        "errno.h": "c"
+        "errno.h": "c",
+        "typeinfo": "c"
     }
 }

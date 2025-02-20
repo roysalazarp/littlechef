@@ -187,7 +187,7 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
             const char *session_id = find_value("session_id", query_params);
 
             const char *sql = "SELECT u.id, u.email, us.id as sid "
-                              "FROM users_sessions us "
+                              "FROM sessions us "
                               "JOIN users u ON u.id = us.user_id "
                               "WHERE us.id = ? AND datetime('now') < us.expires_at;";
 
@@ -204,6 +204,24 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
             }
 
             if (sqlite3_step(stmt) == SQLITE_ROW) {
+                sqlite3_stmt *stmt2 = NULL;
+
+                int user_id = sqlite3_column_int(stmt, 0);
+
+                const char *sql2 = "SELECT photo, name, surname, phone_number, country_id FROM user_info WHERE user_id = ?;";
+
+                rc = sqlite3_prepare_v2((sqlite3 *)db, sql2, strlen(sql2) + 1, &stmt2, NULL);
+                if (rc != SQLITE_OK) {
+                    ASSERT(0);
+                    return rows;
+                }
+
+                rc = sqlite3_bind_int(stmt2, 1, user_id);
+                if (rc != SQLITE_OK) {
+                    ASSERT(0);
+                    return rows;
+                }
+
                 rows.dicts = (Dict **)memory_alloc(memory, 1 * sizeof(Dict *));
 
                 p = (char *)memory_in_use(memory);
@@ -214,7 +232,6 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
                 rows.length = 1;
                 rows.dicts[0] = dict;
 
-                int user_id = sqlite3_column_int(stmt, 0);
                 strncpy(p, "user_id", strlen("user_id") + 1);
                 p += strlen(p) + 1;
                 sprintf(p, "%d", user_id);
@@ -231,8 +248,63 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
                 sprintf(p, "%d", sqlite3_column_int(stmt, 2));
                 p += strlen(p) + 1;
 
+                if (sqlite3_step(stmt2) == SQLITE_ROW) {
+                    const char *photo = (const char *)sqlite3_column_text(stmt2, 0);
+                    strncpy(p, "photo", strlen("photo") + 1);
+                    p += strlen(p) + 1;
+                    strncpy(p, photo, strlen(photo) + 1);
+                    p += strlen(p) + 1;
+
+                    const char *name = (const char *)sqlite3_column_text(stmt2, 1);
+                    strncpy(p, "name", strlen("name") + 1);
+                    p += strlen(p) + 1;
+                    strncpy(p, name, strlen(name) + 1);
+                    p += strlen(p) + 1;
+
+                    const char *surname = (const char *)sqlite3_column_text(stmt2, 2);
+                    strncpy(p, "surname", strlen("surname") + 1);
+                    p += strlen(p) + 1;
+                    strncpy(p, surname, strlen(surname) + 1);
+                    p += strlen(p) + 1;
+
+                    const char *phone_number = (const char *)sqlite3_column_text(stmt2, 3);
+                    strncpy(p, "phone_number", strlen("phone_number") + 1);
+                    p += strlen(p) + 1;
+                    strncpy(p, phone_number, strlen(phone_number) + 1);
+                    p += strlen(p) + 1;
+
+                    int country_id = sqlite3_column_int(stmt2, 4);
+
+                    sqlite3_stmt *stmt3 = NULL;
+                    const char *sql3 = "SELECT name FROM country WHERE id = ?;";
+
+                    rc = sqlite3_prepare_v2((sqlite3 *)db, sql3, strlen(sql3) + 1, &stmt3, NULL);
+                    if (rc != SQLITE_OK) {
+                        ASSERT(0);
+                        return rows;
+                    }
+
+                    rc = sqlite3_bind_int(stmt3, 1, country_id);
+                    if (rc != SQLITE_OK) {
+                        ASSERT(0);
+                        return rows;
+                    }
+
+                    if (sqlite3_step(stmt3) == SQLITE_ROW) {
+                        const char *country = (const char *)sqlite3_column_text(stmt3, 0);
+                        strncpy(p, "country", strlen("country") + 1);
+                        p += strlen(p) + 1;
+                        strncpy(p, country, strlen(country) + 1);
+                        p += strlen(p) + 1;
+                    }
+
+                    sqlite3_finalize(stmt3);
+                }
+
                 dict->end_addr = p;
                 memory_out_of_use(memory, p);
+
+                sqlite3_finalize(stmt2);
             }
 
             sqlite3_finalize(stmt);
@@ -336,7 +408,7 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
         case CREATE_USER_SESSION: {
             char *user_id = find_value("user_id", query_params);
 
-            const char *sql = "INSERT OR REPLACE INTO users_sessions (user_id, expires_at, updated_at) "
+            const char *sql = "INSERT OR REPLACE INTO sessions (user_id, expires_at, updated_at) "
                               "VALUES (?, datetime('now', '+1 hour'), datetime('now')) "
                               "RETURNING id, "
                               "strftime('%d', expires_at) AS day, "
@@ -442,7 +514,7 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
         case LOGOUT: {
             const char *session_id = find_value("session_id", query_params);
 
-            const char *sql = "DELETE FROM users_sessions WHERE id = ?;";
+            const char *sql = "DELETE FROM sessions WHERE id = ?;";
 
             rc = sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
             if (rc != SQLITE_OK) {

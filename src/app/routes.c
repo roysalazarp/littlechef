@@ -252,13 +252,47 @@ Response account_get(RequestCtx request_ctx) {
     Dict user = is_authenticated(request_ctx);
     if (user.start_addr) {
         char *template = find_value("profile", templates);
+
         char *email = find_value("email", user);
+        char *photo = find_value("photo", user);
+        char *name = find_value("name", user);
+        char *surname = find_value("surname", user);
+        char *phone_number = find_value("phone_number", user);
+        char *country = find_value("country", user);
 
         char *rendered_template = NULL;
         rendered_template = p = (char *)memory_in_use(request_memory);
         memcpy(p, template, strlen(template));
         render_val(p, "email", email); /** For profile view */
         render_val(p, "email", email); /** For personal info view */
+
+        replace_val(p, "email", email);
+
+        if (photo) {
+            replace_val(p, "user_avatar_big", photo);
+            replace_val(p, "user_avatar", photo);
+        }
+
+        if (name) {
+            render_val(p, "name", name);
+            render_val(p, "name", name);
+            replace_val(p, "firstname", name);
+        }
+
+        if (surname) {
+            render_val(p, "surname", surname);
+            render_val(p, "surname", surname);
+            replace_val(p, "lastname", surname);
+        }
+
+        if (phone_number) {
+            render_val(p, "phone_number", phone_number);
+            replace_val(p, "phone_number", phone_number);
+        }
+
+        if (country) {
+            render_val(p, "country", country);
+        }
 
         p += strlen(p) + 1;
         memory_out_of_use(request_memory, p);

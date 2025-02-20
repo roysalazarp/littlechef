@@ -10,9 +10,7 @@
                             <x-insert name="data">
                                 <div class="relative w-[32px]">
                                     <div class="absolute top-1/2 -translate-y-1/2 w-[32px] h-[32px] overflow-hidden bg-gray-100 rounded-full dark:bg-gray-600">
-                                        <svg class="absolute w-[38px] h-[38px] text-gray-400 -left-[3px]" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
-                                        </svg>
+                                        <img src="%user_avatar%" alt="avatar" />
                                     </div>
                                 </div>
                             </x-insert>
@@ -24,7 +22,10 @@
                     <li class="border-b border-[#353541]">
                         <x-component name="profile_info_item_btn" attributes="data-view-id='name-view'">
                             <x-insert name="button_text"> Name </x-insert>
-                            <x-insert name="data"> Add name </x-insert>
+                            <x-insert name="data">
+                                <x-val name="name" />
+                                <x-val name="surname" />
+                            </x-insert>
                             <x-insert name="info_item_view">
                                 <x-component name="name_view" />
                             </x-insert>
@@ -42,7 +43,7 @@
                     <li class="border-b border-[#353541]">
                         <x-component name="profile_info_item_btn" attributes="data-view-id='phone-number-view'">
                             <x-insert name="button_text"> Phone number </x-insert>
-                            <x-insert name="data"> Add number </x-insert>
+                            <x-insert name="data"> <x-val name="phone_number" /> </x-insert>
                             <x-insert name="info_item_view">
                                 <x-component name="phone_number_view" />
                             </x-insert>
@@ -51,7 +52,7 @@
                     <li>
                         <x-component name="profile_info_item_btn" attributes="data-modal-id='country-modal'">
                             <x-insert name="button_text"> Country </x-insert>
-                            <x-insert name="data"> Select country </x-insert>
+                            <x-insert name="data"> <x-val name="country" /> </x-insert>
                             <x-insert name="info_item_view">
                                 <x-component name="country_modal" />
                             </x-insert>

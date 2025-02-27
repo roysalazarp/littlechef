@@ -31,6 +31,13 @@
         "stdio.h": "c",
         "http_utils.h": "c",
         "errno.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "routes_utils.h": "c",
+        "cmath": "cpp",
+        "limits": "cpp",
+        "new": "cpp",
+        "cstdint": "cpp",
+        "profiler.h": "c",
+        "string.h": "c"
     }
 }

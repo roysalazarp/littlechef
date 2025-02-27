@@ -80,7 +80,7 @@ String find_http_request_value(const char key[], char *request) {
     if (strncmp(key, "PROTOCOL_VERSION", strlen(key)) == 0) {
         char *ptr = request;
 
-        uint8_t skiped_spaces = 0;
+        u8 skiped_spaces = 0;
         while (*ptr != '\0') {
             if (*ptr == ' ') {
                 skiped_spaces++;

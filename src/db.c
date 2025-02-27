@@ -11,6 +11,13 @@
 #include "./db.h"
 /* clang-format on */
 
+char *copy_string(Memory *memory, const char *str) {
+    char *buffer = (char *)memory_alloc(memory, strlen(str) + 1);
+    memcpy(buffer, str, strlen(str));
+
+    return buffer;
+}
+
 enum DayOfWeek { MONDAY = 1, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY };
 enum Month { JANUARY = 1, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER };
 
@@ -118,14 +125,14 @@ const char *str_month(int month) {
     }
 }
 
-DictArray query(Memory *memory, void *db, enum Comands command, Dict query_params) {
+DictArray query(Memory *memory, void *db, Comand command, Dict query_params) {
     DictArray rows = {0};
     sqlite3_stmt *stmt = NULL;
     char *p = NULL;
     int rc = 0;
 
     switch (command) {
-        case TEST_QUERY: {
+        case _TestQuery: {
             int limit = 2;
             const char *sql_test = "SELECT id, email FROM users WHERE id < ? ORDER BY id ASC LIMIT ?;";
 
@@ -183,7 +190,7 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
 
             return rows;
         }
-        case IS_USER_AUTHENTICATED: {
+        case _IsUserAuthenticated: {
             const char *session_id = find_value("session_id", query_params);
 
             const char *sql = "SELECT u.id, u.email, us.id as sid "
@@ -311,7 +318,7 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
 
             return rows;
         }
-        case IS_USER_REGISTERED: {
+        case _IsUserRegistered: {
             const char *email = find_value("email", query_params);
 
             const char *sql = "SELECT email FROM users WHERE email = ?;";
@@ -357,7 +364,7 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
 
             return rows;
         }
-        case GET_USER_HASHED_PASSWORD_BY_EMAIL: {
+        case _GetUserHashedPasswordByEmail: {
             const char *email = find_value("email", query_params);
 
             const char *sql = "SELECT id, password FROM users WHERE email = ?;";
@@ -405,7 +412,7 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
 
             return rows;
         }
-        case CREATE_USER_SESSION: {
+        case _CreateUserSession: {
             char *user_id = find_value("user_id", query_params);
 
             const char *sql = "INSERT OR REPLACE INTO sessions (user_id, expires_at, updated_at) "
@@ -466,7 +473,7 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
 
             return rows;
         }
-        case CREATE_USER: {
+        case _CreateUser: {
             const char *email = find_value("email", query_params);
             const char *hashed_password = find_value("hashed_password", query_params);
 
@@ -504,14 +511,14 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
                 query_params2.end_addr = p;
                 memory_out_of_use(memory, p);
 
-                rows = query(memory, db, CREATE_USER_SESSION, query_params2);
+                rows = query(memory, db, _CreateUserSession, query_params2);
             }
 
             sqlite3_finalize(stmt);
 
             return rows;
         }
-        case LOGOUT: {
+        case _Logout: {
             const char *session_id = find_value("session_id", query_params);
 
             const char *sql = "DELETE FROM sessions WHERE id = ?;";
@@ -559,6 +566,77 @@ DictArray query(Memory *memory, void *db, enum Comands command, Dict query_param
         }
         default: {
             return rows;
+        }
+    }
+}
+
+void query2(Memory *memory, QueryHeader *header) {
+    const char *sql = NULL;
+    sqlite3_stmt *stmt = NULL;
+
+    sqlite3 *db = header->db;
+
+    switch (header->command) {
+        case _IsUserAuthenticated: {
+            IsUserAuthenticated *helper = (IsUserAuthenticated *)header;
+
+            sql = "SELECT u.id, u.email, us.id as sid "
+                  "FROM sessions us "
+                  "JOIN users u ON u.id = us.user_id "
+                  "WHERE us.id = ? AND datetime('now') < us.expires_at;";
+
+            sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_int(stmt, 1, helper->query_params.session_id);
+
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int user_id = sqlite3_column_int(stmt, 0);
+                helper->result.user_id = user_id;
+
+                const char *email = (const char *)sqlite3_column_text(stmt, 1);
+                helper->result.email = copy_string(memory, email);
+
+                sqlite3_finalize(stmt);
+
+                sql = "SELECT photo, name, surname, phone_number, country_id FROM user_info WHERE user_id = ?;";
+
+                sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &stmt, NULL);
+                sqlite3_bind_int(stmt, 1, user_id);
+
+                if (sqlite3_step(stmt) == SQLITE_ROW) {
+                    const char *photo = (const char *)sqlite3_column_text(stmt, 0);
+                    helper->result.photo = copy_string(memory, photo);
+
+                    const char *name = (const char *)sqlite3_column_text(stmt, 1);
+                    helper->result.name = copy_string(memory, name);
+
+                    const char *surname = (const char *)sqlite3_column_text(stmt, 2);
+                    helper->result.surname = copy_string(memory, surname);
+
+                    const char *phone_number = (const char *)sqlite3_column_text(stmt, 3);
+                    helper->result.phone_number = copy_string(memory, phone_number);
+
+                    int country_id = sqlite3_column_int(stmt, 4);
+
+                    sqlite3_finalize(stmt);
+
+                    sql = "SELECT name FROM country WHERE id = ?;";
+
+                    sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
+                    sqlite3_bind_int(stmt, 1, country_id);
+
+                    if (sqlite3_step(stmt) == SQLITE_ROW) {
+                        const char *country = (const char *)sqlite3_column_text(stmt, 0);
+                        helper->result.country = copy_string(memory, country);
+
+                        sqlite3_finalize(stmt);
+                    }
+                }
+            }
+
+            return;
+        }
+        default: {
+            return;
         }
     }
 }

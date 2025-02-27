@@ -7,7 +7,7 @@
 #include "./shared.h"
 /* clang-format on */
 
-uint8_t get_string_array_length(StringArray array) {
+u8 get_string_array_length(StringArray array) {
     size_t array_length = 0;
 
     char *ptr = array.start_addr;
@@ -19,8 +19,8 @@ uint8_t get_string_array_length(StringArray array) {
     return array_length;
 }
 
-char *get_string_at(StringArray array, uint8_t pos) {
-    uint8_t array_length = get_string_array_length(array);
+char *get_string_at(StringArray array, u8 pos) {
+    u8 array_length = get_string_array_length(array);
 
     if (pos > array_length) {
         printf("You requested to get a string at pos %d, but string array only contains %d elements", pos, array_length);
@@ -29,7 +29,7 @@ char *get_string_at(StringArray array, uint8_t pos) {
 
     char *ptr = array.start_addr;
 
-    uint8_t i;
+    u8 i;
     for (i = 0; i < array_length; i++) {
         if (i == pos) {
             break;
@@ -46,7 +46,7 @@ char *add_string(char *buffer, String str) {
     return buffer + strlen(buffer) + 1;
 }
 
-uint8_t get_dictionary_size(Dict dict) {
+u8 get_dictionary_size(Dict dict) {
     size_t size = 0;
 
     char *ptr = dict.start_addr;
@@ -59,10 +59,10 @@ uint8_t get_dictionary_size(Dict dict) {
     return size;
 }
 
-KV get_key_value(Dict dict, uint8_t pos) {
+KV get_key_value(Dict dict, u8 pos) {
     KV kv = {0};
 
-    uint8_t size = get_dictionary_size(dict);
+    u8 size = get_dictionary_size(dict);
 
     if (pos > size) {
         printf("You requested to get key-value at pos %d, but dict only contains %d elements", pos, size);
@@ -71,7 +71,7 @@ KV get_key_value(Dict dict, uint8_t pos) {
 
     char *ptr = dict.start_addr;
 
-    uint8_t i;
+    u8 i;
     for (i = 0; i < size; i++) {
         if (i == pos) {
             char *key = ptr;

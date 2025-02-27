@@ -3,11 +3,11 @@
 
 #include "./shared.h"
 
-uint8_t get_string_array_length(StringArray array);
+u8 get_string_array_length(StringArray array);
 char *add_string(char *buffer, String str);
-char *get_string_at(StringArray array, uint8_t pos);
-uint8_t get_dictionary_size(Dict dict);
-KV get_key_value(Dict dict, uint8_t pos);
+char *get_string_at(StringArray array, u8 pos);
+u8 get_dictionary_size(Dict dict);
+KV get_key_value(Dict dict, u8 pos);
 char *add_string(char *buffer, String str);
 char *find_value(const char key[], Dict dict);
 

@@ -11,9 +11,14 @@
 
 #define NULL ((void *)0)
 
-typedef unsigned char uint8_t;
-typedef uint8_t boolean;
-typedef long unsigned int size_t;
+typedef unsigned char u8;
+typedef unsigned int u32;
+typedef unsigned long long u64;
+
+typedef float f32;
+typedef double f64;
+
+typedef u8 boolean;
 
 typedef struct {
     char *start_addr;

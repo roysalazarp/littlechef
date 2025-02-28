@@ -1,0 +1,22 @@
+<x-component-def name="phone_number_view">
+    <x-component name="view" id="phone-number-view">
+        <x-insert name="title"> Phone number </x-insert>
+        <x-insert name="content">
+            <div class="px-2 pb-2 flex flex-1">
+                <div class="flex flex-1" hx-ext="response-targets">
+                    <form class="flex flex-col flex-1 justify-between" id="phone-number-form" hx-post="/update-phone-number" hx-swap="none" hx-select-oob="#phone-number-validation-error" hx-target-error="#phone-number-form">
+                        <x-component name="text_input" id="phone-number" type="tel" input-attributes="value='%phone_number%'">
+                            <x-insert name="label"> Phone number </x-insert>
+                            <x-insert name="validation_error">
+                                <div id="phone-number-validation-error"></div>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Save </x-insert>
+                        </x-component>
+                    </form>
+                </div>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

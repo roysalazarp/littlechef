@@ -1,0 +1,27 @@
+<x-component-def name="my_addresses_view">
+    <x-component name="view" id="my-addresses-view">
+        <x-insert name="title"> My addresses </x-insert>
+        <x-insert name="content">
+            <x-component name="address_info_item_btn" attributes="data-view-id='address-view'">
+                <x-insert name="address_type_icon">
+                    <x-component name="building_icon" />
+                </x-insert>
+                <x-insert name="address_text"> Runeberginkatu 22 </x-insert>
+                <x-insert name="address_type_text"> Office </x-insert>
+                <x-insert name="info_item_view">
+                    <x-component name="address_view" />
+                </x-insert>
+            </x-component>
+            <x-component name="address_info_item_btn" attributes="data-view-id='address-view'">
+                <x-insert name="address_type_icon">
+                    <x-component name="house_icon" />
+                </x-insert>
+                <x-insert name="address_text"> Pellaksenmäentie 81 </x-insert>
+                <x-insert name="address_type_text"> Home </x-insert>
+                <x-insert name="info_item_view">
+                    <x-component name="address_view" />
+                </x-insert>
+            </x-component>
+        </x-insert>
+    </x-component>
+</x-component-def>

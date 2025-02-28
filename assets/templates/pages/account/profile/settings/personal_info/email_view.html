@@ -1,0 +1,22 @@
+<x-component-def name="email_view">
+    <x-component name="view" id="email-view">
+        <x-insert name="title"> Email </x-insert>
+        <x-insert name="content">
+            <div class="px-2 pb-2 flex flex-1">
+                <div class="flex flex-1" hx-ext="response-targets">
+                    <form class="flex flex-col flex-1 justify-between" id="email-form" hx-post="/update-email" hx-swap="none" hx-select-oob="#email-validation-error" hx-target-error="#email-form">
+                        <x-component name="text_input" id="email" type="text" input-attributes="value='%email%'">
+                            <x-insert name="label"> Email </x-insert>
+                            <x-insert name="validation_error">
+                                <div id="email-validation-error"></div>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Save </x-insert>
+                        </x-component>
+                    </form>
+                </div>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

@@ -11,6 +11,13 @@
 #include "./db.h"
 /* clang-format on */
 
+char *copy_string(Memory *memory, const char *str) {
+    char *buffer = (char *)memory_alloc(memory, strlen(str) + 1);
+    memcpy(buffer, str, strlen(str));
+
+    return buffer;
+}
+
 enum DayOfWeek { MONDAY = 1, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY };
 enum Month { JANUARY = 1, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER };
 
@@ -118,375 +125,266 @@ const char *str_month(int month) {
     }
 }
 
-DictArray query(Memory *memory, void *db, enum Comands command, Dict query_params) {
-    DictArray rows = {0};
+void query(Memory *memory, QueryHeader *header) {
+    const char *sql = NULL;
     sqlite3_stmt *stmt = NULL;
-    char *p = NULL;
-    int rc = 0;
 
-    switch (command) {
-        case TEST_QUERY: {
-            int limit = 2;
-            const char *sql_test = "SELECT id, email FROM users WHERE id < ? ORDER BY id ASC LIMIT ?;";
+    sqlite3 *db = header->db;
 
-            rc = sqlite3_prepare_v2((sqlite3 *)db, sql_test, strlen(sql_test) + 1, &stmt, NULL);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
+    switch (header->command) {
+        case _IsUserAuthenticated: {
+            IsUserAuthenticated *helper = (IsUserAuthenticated *)header;
+
+            int session_id_param = helper->query_params.session_id;
+
+            sql = "SELECT u.id, u.email, us.id as sid "
+                  "FROM sessions us "
+                  "JOIN users u ON u.id = us.user_id "
+                  "WHERE us.id = ? AND datetime('now') < us.expires_at;";
+
+            sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_int(stmt, 1, session_id_param);
+
+            if (sqlite3_step(stmt) != SQLITE_ROW) {
+                goto exit;
             }
 
-            int max_id = 3;
+            int user_id = sqlite3_column_int(stmt, 0);
+            helper->result.user_id = user_id;
 
-            rc = sqlite3_bind_int(stmt, 1, max_id);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
-
-            rc = sqlite3_bind_int(stmt, 2, limit);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
-
-            rows.dicts = (Dict **)memory_alloc(memory, limit * sizeof(Dict *));
-
-            int count = 0;
-            p = (char *)memory_in_use(memory);
-            while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-                Dict *dict = (Dict *)p;
-                p += sizeof(Dict);
-                dict->start_addr = p;
-
-                rows.length = count + 1;
-                rows.dicts[count] = dict;
-
-                int user_id = sqlite3_column_int(stmt, 0);
-                strncpy(p, "user_id", strlen("user_id") + 1);
-                p += strlen(p) + 1;
-                sprintf(p, "%d", user_id);
-                p += strlen(p) + 1;
-
-                const char *email = (const char *)sqlite3_column_text(stmt, 1);
-                strncpy(p, "email", strlen("email") + 1);
-                p += strlen(p) + 1;
-                strncpy(p, email, strlen(email) + 1);
-                p += strlen(p) + 1;
-
-                dict->end_addr = p;
-
-                count++;
-            }
-            memory_out_of_use(memory, p);
+            const char *email = (const char *)sqlite3_column_text(stmt, 1);
+            helper->result.email = copy_string(memory, email);
 
             sqlite3_finalize(stmt);
 
-            return rows;
-        }
-        case IS_USER_AUTHENTICATED: {
-            const char *session_id = find_value("session_id", query_params);
+            sql = "SELECT photo, name, surname, phone_number, country_id FROM user_info WHERE user_id = ?;";
 
-            const char *sql = "SELECT u.id, u.email, us.id as sid "
-                              "FROM users_sessions us "
-                              "JOIN users u ON u.id = us.user_id "
-                              "WHERE us.id = ? AND datetime('now') < us.expires_at;";
+            sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_int(stmt, 1, user_id);
 
-            rc = sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
+            if (sqlite3_step(stmt) != SQLITE_ROW) {
+                goto exit;
             }
 
-            rc = sqlite3_bind_int(stmt, 1, atoi(session_id));
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
+            const char *photo = (const char *)sqlite3_column_text(stmt, 0);
+            helper->result.photo = copy_string(memory, photo);
 
-            if (sqlite3_step(stmt) == SQLITE_ROW) {
-                rows.dicts = (Dict **)memory_alloc(memory, 1 * sizeof(Dict *));
+            const char *name = (const char *)sqlite3_column_text(stmt, 1);
+            helper->result.name = copy_string(memory, name);
 
-                p = (char *)memory_in_use(memory);
-                Dict *dict = (Dict *)p;
-                p += sizeof(Dict);
-                dict->start_addr = p;
+            const char *surname = (const char *)sqlite3_column_text(stmt, 2);
+            helper->result.surname = copy_string(memory, surname);
 
-                rows.length = 1;
-                rows.dicts[0] = dict;
+            const char *phone_number = (const char *)sqlite3_column_text(stmt, 3);
+            helper->result.phone_number = copy_string(memory, phone_number);
 
-                int user_id = sqlite3_column_int(stmt, 0);
-                strncpy(p, "user_id", strlen("user_id") + 1);
-                p += strlen(p) + 1;
-                sprintf(p, "%d", user_id);
-                p += strlen(p) + 1;
-
-                const char *email = (const char *)sqlite3_column_text(stmt, 1);
-                strncpy(p, "email", strlen("email") + 1);
-                p += strlen(p) + 1;
-                strncpy(p, email, strlen(email) + 1);
-                p += strlen(p) + 1;
-
-                strncpy(p, "session_id", strlen("session_id") + 1);
-                p += strlen(p) + 1;
-                sprintf(p, "%d", sqlite3_column_int(stmt, 2));
-                p += strlen(p) + 1;
-
-                dict->end_addr = p;
-                memory_out_of_use(memory, p);
-            }
+            int country_id = sqlite3_column_int(stmt, 4);
 
             sqlite3_finalize(stmt);
 
-            return rows;
+            sql = "SELECT name FROM country WHERE id = ?;";
+
+            sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_int(stmt, 1, country_id);
+
+            if (sqlite3_step(stmt) != SQLITE_ROW) {
+                goto exit;
+            }
+
+            const char *country = (const char *)sqlite3_column_text(stmt, 0);
+            helper->result.country = copy_string(memory, country);
+
+            goto exit;
         }
-        case IS_USER_REGISTERED: {
-            const char *email = find_value("email", query_params);
+        case _IsUserRegistered: {
+            IsUserRegistered *helper = (IsUserRegistered *)header;
 
-            const char *sql = "SELECT email FROM users WHERE email = ?;";
+            char *email_param = helper->query_params.email;
 
-            rc = sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
+            sql = "SELECT email FROM users WHERE email = ?;";
 
-            rc = sqlite3_bind_text(stmt, 1, email, strlen(email), SQLITE_STATIC);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
-
-            rows.dicts = (Dict **)memory_alloc(memory, 1 * sizeof(Dict *));
-
-            p = (char *)memory_in_use(memory);
-
-            Dict *dict = (Dict *)p;
-            p += sizeof(Dict);
-            dict->start_addr = p;
-
-            rows.length = 1;
-            rows.dicts[0] = dict;
-
-            strncpy(p, "is_registered", strlen("is_registered") + 1);
-            p += strlen(p) + 1;
+            sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_text(stmt, 1, email_param, strlen(email_param), SQLITE_STATIC);
 
             if (sqlite3_step(stmt) == SQLITE_ROW) {
-                *p = 't';
+                helper->result.is_registered = true;
             } else {
-                *p = 'f';
+                helper->result.is_registered = false;
             }
 
-            p += sizeof(char) + 1;
-            dict->end_addr = p;
-
-            memory_out_of_use(memory, p);
-
-            sqlite3_finalize(stmt);
-
-            return rows;
+            goto exit;
         }
-        case GET_USER_HASHED_PASSWORD_BY_EMAIL: {
-            const char *email = find_value("email", query_params);
+        case _GetUserHashedPasswordByEmail: {
+            GetUserHashedPasswordByEmail *helper = (GetUserHashedPasswordByEmail *)header;
 
-            const char *sql = "SELECT id, password FROM users WHERE email = ?;";
+            char *email_param = helper->query_params.email;
 
-            rc = sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
+            sql = "SELECT id, password FROM users WHERE email = ?;";
+
+            sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_text(stmt, 1, email_param, strlen(email_param), SQLITE_STATIC);
+
+            if (sqlite3_step(stmt) != SQLITE_ROW) {
+                goto exit;
             }
 
-            rc = sqlite3_bind_text(stmt, 1, email, strlen(email), SQLITE_STATIC);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
+            int user_id = sqlite3_column_int(stmt, 0);
+            helper->result.user_id = user_id;
 
-            if (sqlite3_step(stmt) == SQLITE_ROW) {
-                rows.dicts = (Dict **)memory_alloc(memory, 1 * sizeof(Dict *));
+            const char *hashed_password = (const char *)sqlite3_column_text(stmt, 1);
+            helper->result.hashed_password = copy_string(memory, hashed_password);
 
-                p = (char *)memory_in_use(memory);
-                Dict *dict = (Dict *)p;
-                p += sizeof(Dict);
-                dict->start_addr = p;
-
-                rows.length = 1;
-                rows.dicts[0] = dict;
-
-                int user_id = sqlite3_column_int(stmt, 0);
-                strncpy(p, "user_id", strlen("user_id") + 1);
-                p += strlen(p) + 1;
-                sprintf(p, "%d", user_id);
-                p += strlen(p) + 1;
-
-                const char *hashed_password = (const char *)sqlite3_column_text(stmt, 1);
-                strncpy(p, "hashed_password", strlen("hashed_password") + 1);
-                p += strlen(p) + 1;
-                strncpy(p, hashed_password, strlen(hashed_password) + 1);
-                p += strlen(p) + 1;
-
-                dict->end_addr = p;
-                memory_out_of_use(memory, p);
-            }
-
-            sqlite3_finalize(stmt);
-
-            return rows;
+            goto exit;
         }
-        case CREATE_USER_SESSION: {
-            char *user_id = find_value("user_id", query_params);
+        case _CreateUserSession: {
+            CreateUserSession *helper = (CreateUserSession *)header;
 
-            const char *sql = "INSERT OR REPLACE INTO users_sessions (user_id, expires_at, updated_at) "
-                              "VALUES (?, datetime('now', '+1 hour'), datetime('now')) "
-                              "RETURNING id, "
-                              "strftime('%d', expires_at) AS day, "
-                              "strftime('%m', expires_at) AS month, "
-                              "strftime('%Y', expires_at) AS year, "
-                              "strftime('%H:%M:%S', expires_at) AS time;";
+            int user_id_param = helper->query_params.user_id;
 
-            rc = sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
+            sql = "INSERT OR REPLACE INTO sessions (user_id, expires_at, updated_at) "
+                  "VALUES (?, datetime('now', '+1 hour'), datetime('now')) "
+                  "RETURNING id, "
+                  "strftime('%d', expires_at) AS day, "
+                  "strftime('%m', expires_at) AS month, "
+                  "strftime('%Y', expires_at) AS year, "
+                  "strftime('%H:%M:%S', expires_at) AS time;";
+
+            sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_int(stmt, 1, user_id_param);
+
+            if (sqlite3_step(stmt) != SQLITE_ROW) {
+                goto exit;
             }
 
-            rc = sqlite3_bind_int(stmt, 1, atoi(user_id));
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
+            int session_id = sqlite3_column_int(stmt, 0);
+            helper->result.session_id = session_id;
 
-            if (sqlite3_step(stmt) == SQLITE_ROW) {
-                rows.dicts = (Dict **)memory_alloc(memory, 1 * sizeof(Dict *));
+            int day = sqlite3_column_int(stmt, 1);
+            int month = sqlite3_column_int(stmt, 2);
+            int year = sqlite3_column_int(stmt, 3);
+            const unsigned char *time = sqlite3_column_text(stmt, 4);
 
-                p = (char *)memory_in_use(memory);
-                Dict *dict = (Dict *)p;
-                p += sizeof(Dict);
-                dict->start_addr = p;
+            const char *day_str = str_day_of_the_week(get_day_of_the_week(day));
+            const char *month_str = str_month(get_month(month));
 
-                rows.length = 1;
-                rows.dicts[0] = dict;
+            char *expires_at = (char *)memory_in_use(memory);
+            sprintf(expires_at, "%s, %d %s %d %s GTM", day_str, day, month_str, year, time);
+            memory_out_of_use(memory, expires_at + strlen(expires_at) + 1);
 
-                int session_id = sqlite3_column_int(stmt, 0);
-                int day = sqlite3_column_int(stmt, 1);
-                int month = sqlite3_column_int(stmt, 2);
-                int year = sqlite3_column_int(stmt, 3);
-                const unsigned char *time = sqlite3_column_text(stmt, 4);
+            helper->result.expires_at = expires_at;
 
-                const char *day_str = str_day_of_the_week(get_day_of_the_week(day));
-                const char *month_str = str_month(get_month(month));
-
-                strncpy(p, "session_id", strlen("session_id") + 1);
-                p += strlen(p) + 1;
-                sprintf(p, "%d", session_id);
-                p += strlen(p) + 1;
-
-                strncpy(p, "expires_at", strlen("expires_at") + 1);
-                p += strlen(p) + 1;
-                sprintf(p, "%s, %d %s %d %s GTM", day_str, day, month_str, year, time);
-                p += strlen(p) + 1;
-
-                dict->end_addr = p;
-                memory_out_of_use(memory, p);
-            }
-
-            sqlite3_finalize(stmt);
-
-            return rows;
+            goto exit;
         }
-        case CREATE_USER: {
-            const char *email = find_value("email", query_params);
-            const char *hashed_password = find_value("hashed_password", query_params);
+        case _CreateUser: {
+            CreateUser *helper = (CreateUser *)header;
 
-            const char *sql = "INSERT INTO users (email, password) VALUES (?, ?) RETURNING id;";
+            char *email_param = helper->query_params.email;
+            char *hashed_password_param = helper->query_params.hashed_password;
 
-            rc = sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
+            sql = "INSERT INTO users (email, password) VALUES (?, ?) RETURNING id;";
+
+            sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_text(stmt, 1, email_param, strlen(email_param), SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 2, hashed_password_param, strlen(hashed_password_param), SQLITE_STATIC);
+
+            if (sqlite3_step(stmt) != SQLITE_ROW) {
+                goto exit;
             }
 
-            rc = sqlite3_bind_text(stmt, 1, email, strlen(email), SQLITE_STATIC);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
+            int user_id = sqlite3_column_int(stmt, 0);
 
-            rc = sqlite3_bind_text(stmt, 2, hashed_password, strlen(hashed_password), SQLITE_STATIC);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
+            CreateUserSession helper2 = {0};
+            helper2.header.command = _CreateUserSession;
+            helper2.header.db = helper->header.db;
+            helper2.query_params.user_id = user_id;
 
-            if (sqlite3_step(stmt) == SQLITE_ROW) {
-                Dict query_params2 = {0};
+            query(memory, (QueryHeader *)&helper2);
 
-                query_params2.start_addr = p = (char *)memory_in_use(memory);
+            helper->result.session_id = helper2.result.session_id;
+            helper->result.expires_at = helper2.result.expires_at;
 
-                int user_id = sqlite3_column_int(stmt, 0);
-                strncpy(p, "user_id", strlen("user_id") + 1);
-                p += strlen(p) + 1;
-                sprintf(p, "%d", user_id);
-                p += strlen(p) + 1;
-
-                query_params2.end_addr = p;
-                memory_out_of_use(memory, p);
-
-                rows = query(memory, db, CREATE_USER_SESSION, query_params2);
-            }
-
-            sqlite3_finalize(stmt);
-
-            return rows;
+            goto exit;
         }
-        case LOGOUT: {
-            const char *session_id = find_value("session_id", query_params);
+        case _Logout: {
+            Logout *helper = (Logout *)header;
 
-            const char *sql = "DELETE FROM users_sessions WHERE id = ?;";
+            int session_id_param = helper->query_params.session_id;
 
-            rc = sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
+            sql = "DELETE FROM sessions WHERE id = ?;";
 
-            rc = sqlite3_bind_int(stmt, 1, atoi(session_id));
-            if (rc != SQLITE_OK) {
-                ASSERT(0);
-                return rows;
-            }
-
-            rows.dicts = (Dict **)memory_alloc(memory, 1 * sizeof(Dict *));
-
-            p = (char *)memory_in_use(memory);
-
-            Dict *dict = (Dict *)p;
-            p += sizeof(Dict);
-            dict->start_addr = p;
-
-            rows.length = 1;
-            rows.dicts[0] = dict;
-
-            strncpy(p, "is_logged_out", strlen("is_logged_out") + 1);
-            p += strlen(p) + 1;
+            sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_int(stmt, 1, session_id_param);
 
             if (sqlite3_step(stmt) == SQLITE_DONE) {
-                *p = 't';
+                helper->result.is_logged_out = true;
             } else {
-                *p = 'f';
+                helper->result.is_logged_out = false;
             }
 
-            p += sizeof(char) + 1;
-            dict->end_addr = p;
+            goto exit;
+        }
+        case _FindProduct: {
+            FindProduct *helper = (FindProduct *)header;
 
-            memory_out_of_use(memory, p);
+            int product_id_param = helper->query_params.product_id;
 
-            sqlite3_finalize(stmt);
+            sql = "SELECT "
+                  "     p.id, "
+                  "     p.name, "
+                  "     p.ingredients_list, "
+                  "     p.photo, "
+                  "     p.price, "
+                  "     p.rating, "
+                  "     p.chef_id, "
+                  "     u.name AS chef_name, "
+                  "     u.surname AS chef_surname "
+                  "FROM products p "
+                  "LEFT JOIN user_info u ON p.chef_id = u.user_id "
+                  "WHERE p.id = ?;";
 
-            return rows;
+            sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
+            sqlite3_bind_int(stmt, 1, product_id_param);
+
+            if (sqlite3_step(stmt) != SQLITE_ROW) {
+                goto exit;
+            }
+
+            int id = sqlite3_column_int(stmt, 0);
+            helper->result.id = id;
+
+            const char *name = (const char *)sqlite3_column_text(stmt, 1);
+            helper->result.name = copy_string(memory, name);
+
+            const char *ingredients_list = (const char *)sqlite3_column_text(stmt, 2);
+            helper->result.ingredients_list = copy_string(memory, ingredients_list);
+
+            const char *photo = (const char *)sqlite3_column_text(stmt, 3);
+            helper->result.photo = copy_string(memory, photo);
+
+            double price = sqlite3_column_double(stmt, 4);
+            helper->result.price = price;
+
+            double rating = sqlite3_column_double(stmt, 5);
+            helper->result.rating = rating;
+
+            int chef_id = sqlite3_column_int(stmt, 6);
+            helper->result.chef_id = chef_id;
+
+            const char *chef_name = (const char *)sqlite3_column_text(stmt, 7);
+            helper->result.chef_name = copy_string(memory, chef_name);
+
+            const char *chef_surname = (const char *)sqlite3_column_text(stmt, 8);
+            helper->result.chef_surname = copy_string(memory, chef_surname);
+
+            goto exit;
         }
         default: {
-            return rows;
+            return;
         }
     }
+
+exit:
+    sqlite3_finalize(stmt);
+
+    return;
 }

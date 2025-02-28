@@ -1,0 +1,36 @@
+<x-component-def name="app">
+    <!DOCTYPE html>
+    <html lang="en">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="viewport-fit=cover,width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+            <link href="https://fonts.googleapis.com/css2?family=Agbalumo&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet" />
+
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+            <link href="https://fonts.googleapis.com/css2?family=Agbalumo&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet" />
+
+            <link rel="stylesheet" href="assets/public/index.css" />
+
+            <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous" defer></script>
+            <script src="https://unpkg.com/htmx-ext-response-targets@2.0.0/response-targets.js" defer></script>
+
+            <script src="https://cdn.tailwindcss.com"></script>
+
+            <script src="assets/public/index.js" defer></script>
+            <link rel="manifest" href="assets/public/manifest.json" />
+            <title>Little Chef</title>
+        </head>
+        <body class="app-bg">
+            <div class="layout-container flex flex-col">
+                <div class="relative flex flex-1 overflow-y-auto">
+                    <x-slot name="content" />
+                </div>
+                <x-component name="bottom_navigation" />
+            </div>
+        </body>
+    </html>
+</x-component-def>

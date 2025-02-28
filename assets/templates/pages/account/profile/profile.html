@@ -1,0 +1,126 @@
+<x-component-def name="profile">
+    <x-component name="app">
+        <x-insert name="content">
+            <div class="flex flex-col w-full px-2">
+                <div class="flex flex-row">
+                    <div class="flex flex-1">
+                        <x-component name="title_1" tw-text-classes="font-bold text-white mt-[25px] mb-[35px]">
+                            <x-insert name="text"> Profile </x-insert>
+                        </x-component>
+                    </div>
+                    <div class="mb-[35px] mt-auto">
+                        <button hx-post="/logout" hx-swap="none">
+                            <x-component name="body" tw-text-classes="text-[#CDCDD5] underline">
+                                <x-insert name="text"> Logout </x-insert>
+                            </x-component>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex">
+                    <div class="relative w-[67px] h-[67px] overflow-hidden bg-gray-100 rounded-full dark:bg-gray-600">
+                        <img src="%user_avatar_big%" alt="avatar" />
+                    </div>
+                    <div class="flex flex-col flex-1 justify-center ml-[18px]">
+                        <div class="mb-[8px]">
+                            <x-component name="headline" tw-text-classes="font-semibold text-[#CDCDD5]">
+                                <x-insert name="text">
+                                    <x-val name="name" />
+                                    <x-val name="surname" />
+                                </x-insert>
+                            </x-component>
+                        </div>
+                        <x-component name="body" tw-text-classes="text-[#636378]">
+                            <x-insert name="text"> <x-val name="email" /> </x-insert>
+                        </x-component>
+                    </div>
+                </div>
+                <div class="border-b border-[#353541] py-4"></div>
+                <div>
+                    <x-component name="title_3" tw-text-classes="mt-[20px] text-white pb-[10px] font-semibold">
+                        <x-insert name="text"> Settings </x-insert>
+                    </x-component>
+                    <ul>
+                        <li>
+                            <x-component name="profile_item_btn" data-view-id="personal-info-view">
+                                <x-insert name="button_text"> Personal information </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="personal_info_view" />
+                                </x-insert>
+                            </x-component>
+                        </li>
+                        <li>
+                            <x-component name="profile_item_btn" data-view-id="my-addresses-view">
+                                <x-insert name="button_text"> My addresses </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="my_addresses_view" />
+                                </x-insert>
+                            </x-component>
+                        </li>
+                        <li>
+                            <x-component name="profile_item_btn" data-view-id="delete-account-view">
+                                <x-insert name="button_text"> Delete account </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="delete_account_view" />
+                                </x-insert>
+                            </x-component>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <x-component name="title_3" tw-text-classes="mt-[20px] text-white pb-[10px] font-semibold">
+                        <x-insert name="text"> Support </x-insert>
+                    </x-component>
+                    <ul>
+                        <li>
+                            <x-component name="profile_item_btn" data-view-id="contact-us-view">
+                                <x-insert name="button_text"> Contact us </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="contact_us_view" />
+                                </x-insert>
+                            </x-component>
+                        </li>
+                        <li>
+                            <x-component name="profile_item_btn" data-view-id="how-to-use-the-app-view">
+                                <x-insert name="button_text"> How to use the app </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="how_to_use_the_app_view" />
+                                </x-insert>
+                            </x-component>
+                        </li>
+                        <li>
+                            <x-component name="profile_item_btn" data-view-id="faq-view">
+                                <x-insert name="button_text"> FAQ </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="faq_view" />
+                                </x-insert>
+                            </x-component>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <x-component name="title_3" tw-text-classes="mt-[20px] text-white pb-[10px] font-semibold">
+                        <x-insert name="text"> Legal </x-insert>
+                    </x-component>
+                    <ul>
+                        <li>
+                            <x-component name="profile_item_btn" data-view-id="terms-of-service-view">
+                                <x-insert name="button_text"> Terms of service </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="terms_of_service_view" />
+                                </x-insert>
+                            </x-component>
+                        </li>
+                        <li>
+                            <x-component name="profile_item_btn" data-view-id="privacy-policy-view">
+                                <x-insert name="button_text"> Privacy Policy </x-insert>
+                                <x-insert name="item_view">
+                                    <x-component name="privacy_policy_view" />
+                                </x-insert>
+                            </x-component>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

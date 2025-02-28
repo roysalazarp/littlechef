@@ -1,0 +1,38 @@
+<x-component-def name="login_view">
+    <x-component name="view" id="login-view">
+        <x-insert name="title"> Login </x-insert>
+        <x-insert name="content">
+            <div class="px-2">
+                <div hx-ext="response-targets">
+                    <form id="login-form" hx-post="/login/create-session" hx-swap="none" hx-select-oob="#email-validation-error,#password-validation-error" hx-target-error="#login-form">
+                        <x-component name="text_input" id="email" type="email" input-tw-classes="!text-[#9D9DAE]" input-attributes="value='%email%' readonly">
+                            <x-insert name="label"> Email </x-insert>
+                            <x-insert name="validation_error">
+                                <div id="email-validation-error"></div>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="text_input" id="password" type="password">
+                            <x-insert name="label"> Password </x-insert>
+                            <x-insert name="validation_error">
+                                <div id="password-validation-error"></div>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Login </x-insert>
+                        </x-component>
+                    </form>
+                </div>
+            </div>
+            <script>
+                (async () => {
+                    const dialog = document.querySelector("#login-view");
+                    await viewSetup(dialog);
+                    await openView(dialog);
+                    dialog.querySelectorAll(".text-input").forEach((container) => {
+                        textInputSetup(container);
+                    });
+                })();
+            </script>
+        </x-insert>
+    </x-component>
+</x-component-def>

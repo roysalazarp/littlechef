@@ -1,0 +1,44 @@
+<x-component-def name="register_view">
+    <x-component name="view" id="register-view">
+        <x-insert name="title"> Register </x-insert>
+        <x-insert name="content">
+            <div class="px-2">
+                <div hx-ext="response-targets">
+                    <form id="register-form" hx-post="/register/create-account" hx-swap="none" hx-select-oob="#email-validation-error,#password-validation-error,#repeat-password-validation-error" hx-target-error="#register-form">
+                        <x-component name="text_input" id="email" type="email" input-tw-classes="!text-[#9D9DAE]" input-attributes="value='%email%' readonly">
+                            <x-insert name="label"> Email </x-insert>
+                            <x-insert name="validation_error">
+                                <div id="email-validation-error"></div>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="text_input" id="password" type="password">
+                            <x-insert name="label"> Password </x-insert>
+                            <x-insert name="validation_error">
+                                <div id="password-validation-error"></div>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="text_input" id="repeat-password" type="password">
+                            <x-insert name="label"> Repeat password </x-insert>
+                            <x-insert name="validation_error">
+                                <div id="repeat-password-validation-error"></div>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Register </x-insert>
+                        </x-component>
+                    </form>
+                </div>
+            </div>
+            <script>
+                (async () => {
+                    const dialog = document.querySelector("#register-view");
+                    await viewSetup(dialog);
+                    await openView(dialog);
+                    dialog.querySelectorAll(".text-input").forEach((container) => {
+                        textInputSetup(container);
+                    });
+                })();
+            </script>
+        </x-insert>
+    </x-component>
+</x-component-def>

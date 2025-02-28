@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 /* clang-format off */
+#include "./app/profiler.h"
 #include "./app/shared.h"
 #include "./db.h"
 #include "./app/memory.h"
@@ -79,7 +80,7 @@ void locate_files(char **buffer, const char *base_path) {
 
 void initialise_web_server_resources(Memory *memory) {
     char *p = NULL;
-    uint8_t i;
+    u8 i;
 
     Memory *assets_memory = initialise_memory(PAGE_SIZE * 50);
     Memory *assets_scratch_memory = initialise_memory(PAGE_SIZE * 50);
@@ -100,7 +101,7 @@ void initialise_web_server_resources(Memory *memory) {
     memory_out_of_use(assets_memory, p);
     files_list.end_addr = p;
 
-    uint8_t files_list_length = get_string_array_length(files_list);
+    u8 files_list_length = get_string_array_length(files_list);
 
     Dict assets = {0};
     assets.start_addr = p = (char *)memory_in_use(assets_memory);
@@ -220,11 +221,9 @@ int main() {
         ASSERT(0);
     }
 
-    Memory *persisting_memory = initialise_memory(PAGE_SIZE * 80);
+    Memory *persisting_memory = initialise_memory(PAGE_SIZE * 200);
 
-#ifndef DEBUG
     initialise_web_server_resources(persisting_memory);
-#endif
 
     epoll_fd = epoll_create1(0);
     ASSERT(epoll_fd != -1);
@@ -282,12 +281,12 @@ int main() {
                         int client_fd_flags = fcntl(client_fd, F_GETFL, 0);
                         ASSERT(fcntl(client_fd, F_SETFL, client_fd_flags | O_NONBLOCK) != -1);
 
-#ifdef DEBUG
-                        memory_reset(persisting_memory, (uint8_t *)persisting_memory->start + sizeof(Memory));
+#if DEBUG
+                        memory_reset(persisting_memory, (u8 *)persisting_memory->start + sizeof(Memory));
                         initialise_web_server_resources(persisting_memory);
 #endif
 
-                        Memory *request_memory = initialise_memory(PAGE_SIZE * 50);
+                        Memory *request_memory = initialise_memory(PAGE_SIZE * 100);
 
                         Socket *client_socket_info = (Socket *)memory_alloc(request_memory, sizeof(Socket));
                         client_socket_info->type = CLIENT_SOCKET;
@@ -299,6 +298,7 @@ int main() {
                         request_ctx->query = query;
 
                         sqlite3 *pdb = NULL;
+
                         ASSERT(sqlite3_open(DB_NAME, &pdb) == 0);
 
                         request_ctx->db = (void *)pdb;
@@ -320,8 +320,8 @@ int main() {
                     if (events[i].events & EPOLLIN) { /** Data available for read in client socket buffer */
                         char *p = NULL;
 
-                        Memory *request_memory = (Memory *)((uint8_t *)socket_info - sizeof(Memory));
-                        RequestCtx *request_ctx = (RequestCtx *)((uint8_t *)request_memory + (sizeof(Memory) + sizeof(Socket)));
+                        Memory *request_memory = (Memory *)((u8 *)socket_info - sizeof(Memory));
+                        RequestCtx *request_ctx = (RequestCtx *)((u8 *)request_memory + (sizeof(Memory) + sizeof(Socket)));
 
                         int client_socket = socket_info->fd;
 
@@ -362,7 +362,9 @@ int main() {
                                 goto request_cleanup;
                             }
 
-                            ASSERT(data_size > 0); /** ??? */
+                            /*
+                            ASSERT(data_size > 0);
+                            */
 
                             read_stream += data_size;
 
@@ -371,7 +373,10 @@ int main() {
 
                         memory_out_of_use(request_memory, p);
 
-                        Response response = process_request_and_render_response(*request_ctx);
+                        Response response = {0};
+                        /* begin_profile(); */
+                        response = process_request_and_render_response(*request_ctx);
+                        /* end_and_print_profile(); */
 
                         if (send(client_socket, response.content, response.length, 0) == -1) {
                             /* TODO */

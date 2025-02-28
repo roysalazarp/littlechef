@@ -45,18 +45,10 @@ dialog:-internal-dialog-in-top-layer::backdrop {
 
 .layout-container {
     position: fixed;
-    top: env(safe-area-inset-top);
-    right: env(safe-area-inset-right);
-    bottom: env(safe-area-inset-bottom);
-    left: env(safe-area-inset-left);
-}
-
-.bottom-navigation-container {
-    position: fixed;
-    top: env(safe-area-inset-top);
-    right: env(safe-area-inset-right);
-    bottom: env(safe-area-inset-bottom);
-    left: env(safe-area-inset-left);
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
 }
 
 .app-bg {
@@ -107,7 +99,8 @@ dialog:-internal-dialog-in-top-layer::backdrop {
 }
 
 dialog[open] {
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 ::view-transition-group(modal-content) {
@@ -198,9 +191,10 @@ dialog[open] {
 
 .view {
     position: fixed;
-    min-width: 100vw;
-    min-height: 100lvw;
-    margin: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
     z-index: 50;
 }
 

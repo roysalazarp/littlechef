@@ -170,9 +170,9 @@ HTMLBlock find_html_block(char *text, size_t text_length, const char *tag_name) 
     char *ptr = html_block.block.start_addr;
     ptr++;
 
-    uint8_t inner = 0;
+    u8 inner = 0;
 
-    uint8_t nested = 0;
+    u8 nested = 0;
     while (*ptr != '\0') {
         if (*ptr == '"') {
             ptr++;
@@ -346,8 +346,8 @@ String find_name_attribute_value(String opening_tag) {
 }
 
 Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) {
-    uint8_t size = get_dictionary_size(assets);
-    uint8_t i;
+    u8 size = get_dictionary_size(assets);
+    u8 i;
 
     /* A Component is an HTML snippet that may include references to other HTML snippets, i.e., it is composable */
     Dict html_raw_components = {0};
@@ -386,7 +386,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
     html_raw_components.end_addr = p - 1;
     memory_out_of_use(memory, p);
 
-    uint8_t components_count = get_dictionary_size(html_raw_components);
+    u8 components_count = get_dictionary_size(html_raw_components);
 
     /* A template is essentially a Component that has been compiled with all its imports. */
     Dict templates = {0};
@@ -409,7 +409,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
 
         /** Was an import statement found in the component markup? */
         if (component_import_block.block.start_addr) {
-            uint8_t j;
+            u8 j;
 
             /** Does import statement contain any 'inline slots' html attributes? */
             Dict import__tag_attributes = get_tag_attributes(scratch_memory, component_import_block.opening_tag);
@@ -429,7 +429,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
             memcpy(component_to_be_imported_cpy, component_to_be_imported, strlen(component_to_be_imported));
 
             /** Compile 'inline slots' if any */
-            uint8_t inline_slot_count = get_dictionary_size(import__tag_attributes);
+            u8 inline_slot_count = get_dictionary_size(import__tag_attributes);
             for (j = 0; j < inline_slot_count; j++) {
                 KV kv = get_key_value(import__tag_attributes, j);
                 char *replacement_name = kv.k;
@@ -456,7 +456,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
             }
 
             /** Compile 'slots' if any */
-            uint8_t slot_count = get_dictionary_size(import__slots);
+            u8 slot_count = get_dictionary_size(import__slots);
             for (j = 0; j < slot_count; j++) {
                 KV kv = get_key_value(import__slots, j);
                 char *replacement_name = kv.k;
@@ -479,6 +479,8 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
 
                         break;
                     }
+
+                    ptr_3 += slot_reference.block.length;
                 }
             }
 
@@ -492,7 +494,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
 
             clear_leftovers(component_import_block.block.start_addr + component_import_block.block.length);
 
-            memory_reset(scratch_memory, (uint8_t *)scratch_memory->start + sizeof(Memory));
+            memory_reset(scratch_memory, (u8 *)scratch_memory->start + sizeof(Memory));
 
             goto repeat;
         }
@@ -508,7 +510,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
 
 size_t render_val(char *template, char *val_name, char *value) {
     char *ptr = template;
-    uint8_t inside = 0;
+    u8 inside = 0;
     while (*ptr != '\0') {
         if (strncmp(ptr, FOR_OPENING_TAG__START, strlen(FOR_OPENING_TAG__START)) == 0) {
             inside++;

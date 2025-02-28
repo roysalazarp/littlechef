@@ -1,0 +1,33 @@
+<x-component-def name="photo_modal">
+    <x-component name="bottom_modal" id="photo-modal">
+        <x-insert name="title"> Change profile photo </x-insert>
+        <x-insert name="content">
+            <ul>
+                <li>
+                    <button class="flex flex-row w-full py-[10px]">
+                        <x-component name="body" tw-text-classes="flex w-full text-[#9D9DAE]">
+                            <x-insert name="text">
+                                <div class="mr-2">
+                                    <x-component name="photo_icon" />
+                                </div>
+                                Photo library
+                            </x-insert>
+                        </x-component>
+                    </button>
+                </li>
+                <li>
+                    <button class="flex flex-row w-full py-[10px]">
+                        <x-component name="body" tw-text-classes="flex w-full text-[#9D9DAE]">
+                            <x-insert name="text">
+                                <div class="mr-2">
+                                    <x-component name="trash_icon" />
+                                </div>
+                                Delete profile picture
+                            </x-insert>
+                        </x-component>
+                    </button>
+                </li>
+            </ul>
+        </x-insert>
+    </x-component>
+</x-component-def>

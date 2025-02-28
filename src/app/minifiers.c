@@ -56,8 +56,14 @@ size_t html_minify(char *buffer, char *html, size_t html_length) {
 
     char *html_end = html + html_length;
 
-    uint8_t skip_whitespace = 0;
+    u8 skip_whitespace = 0;
     while (html < html_end) {
+        /** IMPORTANT: Commented the following code because it
+         * contains a bug that causes weird duplicated element
+         * in the html */
+        /** TODO: FIX, IMPORTANT */
+
+        /*
         if (strlen(start) == 0 && isspace(*html)) {
             skip_whitespace = 1;
             html++;
@@ -67,7 +73,7 @@ size_t html_minify(char *buffer, char *html, size_t html_length) {
         if (*html == '>') {
             char *temp = html - 1;
             if (isspace(*temp) && !skip_whitespace) {
-                uint8_t i = 0;
+                u8 i = 0;
                 while (*temp) {
                     if (!isspace(*temp)) {
                         skip_whitespace = 1;
@@ -89,7 +95,7 @@ size_t html_minify(char *buffer, char *html, size_t html_length) {
         if (*html == '<') {
             char *temp = html - 1;
             if (isspace(*temp) && !skip_whitespace) {
-                uint8_t i = 0;
+                u8 i = 0;
                 while (*temp) {
                     if (!isspace(*temp)) {
                         skip_whitespace = 1;
@@ -123,7 +129,9 @@ size_t html_minify(char *buffer, char *html, size_t html_length) {
             goto copy_char;
         }
 
-    copy_char:
+        copy_char:
+        */
+
         *buffer = *html;
         buffer++;
 

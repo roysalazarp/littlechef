@@ -1,0 +1,32 @@
+<x-component-def name="address_view">
+    <x-component name="view" id="address-view">
+        <x-insert name="title"> Address </x-insert>
+        <x-insert name="content">
+            <div class="px-2 pb-2 flex flex-1">
+                <div class="flex flex-1" hx-ext="response-targets">
+                    <form class="flex flex-col flex-1 justify-between" id="address-form" hx-post="/update-address" hx-swap="none" hx-select-oob="#address-validation-error,#address-type-validation-error" hx-target-error="#address-form">
+                        <div>
+                            <x-component name="text_input" id="address" type="text" input-attributes="value='%address%'">
+                                <x-insert name="label"> Address </x-insert>
+                                <x-insert name="validation_error">
+                                    <div id="address-validation-error"></div>
+                                </x-insert>
+                            </x-component>
+                            <x-component name="text_input" id="address-type" type="text" input-attributes="value='%address_type%'">
+                                <x-insert name="label"> Address type </x-insert>
+                                <x-insert name="validation_error">
+                                    <div id="address-type-validation-error"></div>
+                                </x-insert>
+                            </x-component>
+                        </div>
+                        <div>
+                            <x-component name="primary_btn">
+                                <x-insert name="button_text"> Save </x-insert>
+                            </x-component>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

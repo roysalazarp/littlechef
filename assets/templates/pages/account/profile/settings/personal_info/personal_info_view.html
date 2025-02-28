@@ -1,0 +1,65 @@
+<x-component-def name="personal_info_view">
+    <x-component name="view" id="personal-info-view">
+        <x-insert name="title"> Personal information </x-insert>
+        <x-insert name="content">
+            <div class="px-2">
+                <ul>
+                    <li class="border-b border-[#353541]">
+                        <x-component name="profile_info_item_btn" attributes="data-modal-id='photo-modal'">
+                            <x-insert name="button_text"> Photo </x-insert>
+                            <x-insert name="data">
+                                <div class="relative w-[32px]">
+                                    <div class="absolute top-1/2 -translate-y-1/2 w-[32px] h-[32px] overflow-hidden bg-gray-100 rounded-full dark:bg-gray-600">
+                                        <img src="%user_avatar%" alt="avatar" />
+                                    </div>
+                                </div>
+                            </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="photo_modal" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                    <li class="border-b border-[#353541]">
+                        <x-component name="profile_info_item_btn" attributes="data-view-id='name-view'">
+                            <x-insert name="button_text"> Name </x-insert>
+                            <x-insert name="data">
+                                <x-val name="name" />
+                                <x-val name="surname" />
+                            </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="name_view" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                    <li class="border-b border-[#353541]">
+                        <x-component name="profile_info_item_btn" attributes="data-view-id='email-view'">
+                            <x-insert name="button_text"> Email </x-insert>
+                            <x-insert name="data"> <x-val name="email" /> </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="email_view" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                    <li class="border-b border-[#353541]">
+                        <x-component name="profile_info_item_btn" attributes="data-view-id='phone-number-view'">
+                            <x-insert name="button_text"> Phone number </x-insert>
+                            <x-insert name="data"> <x-val name="phone_number" /> </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="phone_number_view" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                    <li>
+                        <x-component name="profile_info_item_btn" attributes="data-modal-id='country-modal'">
+                            <x-insert name="button_text"> Country </x-insert>
+                            <x-insert name="data"> <x-val name="country" /> </x-insert>
+                            <x-insert name="info_item_view">
+                                <x-component name="country_modal" />
+                            </x-insert>
+                        </x-component>
+                    </li>
+                </ul>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

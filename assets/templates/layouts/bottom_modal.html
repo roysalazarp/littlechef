@@ -1,0 +1,20 @@
+<x-component-def name="bottom_modal">
+    <dialog id="%id%" class="modal-dialog modal modal-bg">
+        <x-component name="drag_indicator" />
+        <div class="flex justify-between mb-[30px]">
+            <div class="flex flex-col justify-center">
+                <x-component name="title_3" tw-text-classes="font-semibold text-white">
+                    <x-insert name="text">
+                        <x-slot name="title" />
+                    </x-insert>
+                </x-component>
+            </div>
+            <div class="close-modal flex transform -rotate-90">
+                <x-component name="back_btn" />
+            </div>
+        </div>
+        <div class="pb-[env(safe-area-inset-bottom)]">
+            <x-slot name="content" />
+        </div>
+    </dialog>
+</x-component-def>

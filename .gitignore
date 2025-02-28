@@ -4,3 +4,4 @@ build-prod
 memory
 littlechef-dev
 build
+littlechef-dev.db*

@@ -1,0 +1,30 @@
+<x-component-def name="name_view">
+    <x-component name="view" id="name-view">
+        <x-insert name="title"> Name </x-insert>
+        <x-insert name="content">
+            <div class="px-2 pb-2 flex flex-1">
+                <div class="flex flex-1" hx-ext="response-targets">
+                    <form class="flex flex-col flex-1 justify-between" id="name-form" hx-post="/update-name" hx-swap="none" hx-select-oob="#firstname-validation-error,#lastname-validation-error" hx-target-error="#name-form">
+                        <div>
+                            <x-component name="text_input" id="firstname" type="text" input-attributes="value='%firstname%'">
+                                <x-insert name="label"> Name </x-insert>
+                                <x-insert name="validation_error">
+                                    <div id="firstname-validation-error"></div>
+                                </x-insert>
+                            </x-component>
+                            <x-component name="text_input" id="lastname" type="text" input-attributes="value='%lastname%'">
+                                <x-insert name="label"> Last name </x-insert>
+                                <x-insert name="validation_error">
+                                    <div id="lastname-validation-error"></div>
+                                </x-insert>
+                            </x-component>
+                        </div>
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Save </x-insert>
+                        </x-component>
+                    </form>
+                </div>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

@@ -1,0 +1,33 @@
+<x-component-def name="welcome">
+    <x-component name="app">
+        <x-insert name="content">
+            <div class="flex flex-col w-full justify-center">
+                <x-component name="sign_in_view" />
+                <div class="flex rounded-b-[30px] overflow-hidden">
+                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover min-w-full" />
+                </div>
+                <div class="flex flex-col px-2 gap-4 text-center min-h-[60%] pt-4">
+                    <div class="flex flex-col gap-1">
+                        <x-component name="large_title" tw-text-classes="text-white font-bold">
+                            <x-insert name="text">
+                                Welcome to&nbsp;
+                                <span class="font-agbalumo text-[#3EFFA2]"> Little Chef </span>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="headline" tw-text-classes="text-[#F1F1F3] font-medium">
+                            <x-insert name="text"> Exceptional Food, Exclusive Flavours </x-insert>
+                        </x-component>
+                    </div>
+                    <div class="flex justify-center">
+                        <x-component name="welcome_logo_icon" />
+                    </div>
+                    <div data-view-id="sign-in-view">
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Continue </x-insert>
+                        </x-component>
+                    </div>
+                </div>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

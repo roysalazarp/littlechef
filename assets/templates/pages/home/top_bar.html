@@ -1,0 +1,21 @@
+<x-component-def name="top_bar">
+    <div class="flex gap-2 justify-between">
+        <div data-modal-id="location-modal" class="flex flex-1 gap-2 text-left cursor-pointer">
+            <x-component name="circle_container" tw-bg-color-2="bg-[#101C1C]" tw-text-color-2="text-[#41ADFC]">
+                <x-insert name="default">
+                    <x-component name="house_icon" />
+                </x-insert>
+            </x-component>
+            <div class="flex flex-col justify-between py-[2px] flex-1">
+                <x-component name="callout" tw-text-classes="font-semibold text-[#41ADFC]">
+                    <x-insert name="text">Runeberginkatu 22</x-insert>
+                </x-component>
+                <x-component name="footnote" tw-text-classes="font-semibold text-[#41ADFC]">
+                    <x-insert name="text">Home</x-insert>
+                </x-component>
+            </div>
+        </div>
+        <x-component name="search_filter_btn" />
+        <x-component name="cart_btn" />
+    </div>
+</x-component-def>

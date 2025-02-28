@@ -1,0 +1,22 @@
+<x-component-def name="bottom_navigation">
+    <div class="flex justify-between px-10 pt-3 pb-[env(safe-area-inset-bottom)] bg-black border-t-2 border-[#0E1818]">
+        <a href="/" class="nav-link flex flex-col items-center text-[#9D9DAE]">
+            <x-component name="food_icon" />
+            <x-component name="caption_2" tw-text-classes="font-medium mt-1">
+                <x-insert name="text"> Food </x-insert>
+            </x-component>
+        </a>
+        <a href="/search" class="nav-link flex flex-col items-center text-[#9D9DAE]">
+            <x-component name="search_icon" />
+            <x-component name="caption_2" tw-text-classes="font-medium mt-1">
+                <x-insert name="text"> Search </x-insert>
+            </x-component>
+        </a>
+        <a href="/account" class="nav-link flex flex-col items-center text-[#9D9DAE]">
+            <x-component name="user_icon" />
+            <x-component name="caption_2" tw-text-classes="font-medium mt-1">
+                <x-insert name="text"> Account </x-insert>
+            </x-component>
+        </a>
+    </div>
+</x-component-def>

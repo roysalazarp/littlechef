@@ -1,0 +1,23 @@
+<x-component-def name="sign_in_view">
+    <x-component name="view" id="sign-in-view">
+        <x-insert name="title"> Sign In </x-insert>
+        <x-insert name="content">
+            <div id="next-form"></div>
+            <div hx-ext="response-targets">
+                <form id="sign-in-form" hx-post="/auth-check-email" hx-swap="innerHTML" hx-target="#next-form" hx-select-oob="#email-validation-error" hx-target-error="#sign-in-form">
+                    <div class="px-2">
+                        <x-component name="text_input" id="email" type="email">
+                            <x-insert name="label"> Email </x-insert>
+                            <x-insert name="validation_error">
+                                <div id="email-validation-error"></div>
+                            </x-insert>
+                        </x-component>
+                        <x-component name="primary_btn">
+                            <x-insert name="button_text"> Continue </x-insert>
+                        </x-component>
+                    </div>
+                </form>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

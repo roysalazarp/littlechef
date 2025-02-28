@@ -1,0 +1,76 @@
+<x-component-def name="home">
+    <x-component name="app">
+        <x-insert name="content">
+            <x-component name="bottom_modal" id="location-modal">
+                <x-insert name="title"> Location </x-insert>
+                <x-insert name="content">
+                    <div class="flex flex-1 gap-2 text-left cursor-pointer">
+                        <x-component name="circle_container" tw-bg-color-2="bg-[#3EFFA2]" tw-text-color-2="text-[#182425]">
+                            <x-insert name="default">
+                                <x-component name="house_icon" />
+                            </x-insert>
+                        </x-component>
+                        <div class="flex flex-col justify-between py-[2px] flex-1">
+                            <x-component name="callout" tw-text-classes="font-semibold text-[#3EFFA2]">
+                                <x-insert name="text">Runeberginkatu 22</x-insert>
+                            </x-component>
+                            <x-component name="footnote" tw-text-classes="font-semibold text-[#3EFFA2]">
+                                <x-insert name="text">Home</x-insert>
+                            </x-component>
+                        </div>
+                    </div>
+                </x-insert>
+            </x-component>
+            <div class="flex flex-col w-full">
+                <div class="sticky top-0 flex flex-col w-full px-2 pb-3 pt-[env(safe-area-inset-top)]">
+                    <x-component name="top_bar" />
+                </div>
+                <div class="flex-1 flex flex-col overflow-y-auto">
+                    <div class="pt-3.5 pb-4 px-2">
+                        <x-component name="large_title" tw-text-classes="text-[#3EFFA2] font-bold font-agbalumo">
+                            <x-insert name="text"> Little Chef </x-insert>
+                        </x-component>
+                    </div>
+                    <div class="flex flex-col px-2 gap-[35px]">
+                        <div id="product-container"></div>
+                        <div hx-get="/product?id=1" hx-target="#product-container" hx-swap="innerHTML">
+                            <x-component name="card">
+                                <x-insert name="image">
+                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
+                                </x-insert>
+                            </x-component>
+                        </div>
+                        <div hx-get="/product?id=2" hx-target="#product-container" hx-swap="innerHTML">
+                            <x-component name="card">
+                                <x-insert name="image">
+                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
+                                </x-insert>
+                            </x-component>
+                        </div>
+                        <div hx-get="/product?id=3" hx-target="#product-container" hx-swap="innerHTML">
+                            <x-component name="card">
+                                <x-insert name="image">
+                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
+                                </x-insert>
+                            </x-component>
+                        </div>
+                        <div hx-get="/product?id=4" hx-target="#product-container" hx-swap="innerHTML">
+                            <x-component name="card">
+                                <x-insert name="image">
+                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
+                                </x-insert>
+                            </x-component>
+                        </div>
+                        <div hx-get="/product?id=5" hx-target="#product-container" hx-swap="innerHTML">
+                            <x-component name="card">
+                                <x-insert name="image">
+                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
+                                </x-insert>
+                            </x-component>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </x-insert>
+    </x-component>
+</x-component-def>

@@ -1,0 +1,28 @@
+<x-component-def name="address_info_item_btn">
+    <div class="px-2">
+        <div %attributes% class="flex flex-1 gap-2 text-left cursor-pointer py-4">
+            <x-component name="circle_container" tw-bg-color-2="bg-[#CDCDD5]" tw-text-color-2="text-[#182425]">
+                <x-insert name="default">
+                    <x-slot name="address_type_icon" />
+                </x-insert>
+            </x-component>
+            <div class="flex flex-col justify-between py-[2px] flex-1">
+                <x-component name="callout" tw-text-classes="font-semibold text-[#CDCDD5]">
+                    <x-insert name="text">
+                        <x-slot name="address_text" />
+                    </x-insert>
+                </x-component>
+                <x-component name="footnote" tw-text-classes="font-semibold text-[#CDCDD5]">
+                    <x-insert name="text">
+                        <x-slot name="address_type_text" />
+                    </x-insert>
+                </x-component>
+            </div>
+            <span class="flex items-center rotate-180 text-[#9D9DAE]">
+                <x-component name="arrow_icon" />
+            </span>
+        </div>
+        <div class="border-b border-[#353541]"></div>
+        <x-slot name="info_item_view" />
+    </div>
+</x-component-def>

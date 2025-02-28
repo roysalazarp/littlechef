@@ -1,0 +1,32 @@
+<x-component-def name="view">
+    <dialog id="%id%" class="view-dialog view app-bg">
+        <div class="dialog-container overflow-y-auto flex flex-col flex-1">
+            <div style="visibility: hidden" class="view-sticky-header fixed z-10 top-0 left-0 right-0 backdrop-blur-sm transform -translate-y-full transition-transform duration-300">
+                <div class="modal-bg flex flex-row items-center pt-2 pb-2 px-2">
+                    <div class="close-view">
+                        <x-component name="back_btn" />
+                    </div>
+                    <x-component name="title_3" tw-text-classes="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-semibold text-white transition-opacity duration-300">
+                        <x-insert name="text"> Put title here </x-insert>
+                    </x-component>
+                </div>
+            </div>
+            <div class="view-header relative">
+                <div class="absolute flex w-full rounded-b-[30px] overflow-hidden bg-[#091011]">
+                    <x-slot name="image" />
+                </div>
+                <div class="close-view flex flex-row items-center pb-2 px-2">
+                    <x-component name="back_btn" />
+                </div>
+                <x-component name="title_1" tw-text-classes="px-2 font-bold text-white mt-[25px] mb-[35px]">
+                    <x-insert name="text">
+                        <x-slot name="title" />
+                    </x-insert>
+                </x-component>
+            </div>
+            <div class="flex flex-col flex-1">
+                <x-slot name="content" />
+            </div>
+        </div>
+    </dialog>
+</x-component-def>

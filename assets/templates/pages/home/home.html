@@ -35,37 +35,43 @@
                         <div id="product-container"></div>
                         <div hx-get="/product?id=1" hx-target="#product-container" hx-swap="innerHTML">
                             <x-component name="card">
-                                <x-insert name="image">
-                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
+                                <x-insert name="product_image">
+                                    <img src="%product_image%" class="object-cover h-56 min-w-full" />
+                                </x-insert>
+                                <x-insert name="product_name">
+                                    <x-val name="product_name" />
+                                </x-insert>
+                                <x-insert name="chef_name">
+                                    <x-val name="chef_name" />
+                                </x-insert>
+                                <x-insert name="chef_surname">
+                                    <x-val name="chef_surname" />
+                                </x-insert>
+                                <x-insert name="amount_left">
+                                    <x-val name="amount_left" />
+                                </x-insert>
+                                <x-insert name="price">
+                                    <x-val name="price" />
+                                </x-insert>
+                                <x-insert name="rating">
+                                    <x-val name="rating" />
+                                </x-insert>
+                                <x-insert name="delivery_rate">
+                                    <x-val name="delivery_rate" />
                                 </x-insert>
                             </x-component>
                         </div>
                         <div hx-get="/product?id=2" hx-target="#product-container" hx-swap="innerHTML">
                             <x-component name="card">
-                                <x-insert name="image">
+                                <x-insert name="product_image">
                                     <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
                                 </x-insert>
-                            </x-component>
-                        </div>
-                        <div hx-get="/product?id=3" hx-target="#product-container" hx-swap="innerHTML">
-                            <x-component name="card">
-                                <x-insert name="image">
-                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
-                                </x-insert>
-                            </x-component>
-                        </div>
-                        <div hx-get="/product?id=4" hx-target="#product-container" hx-swap="innerHTML">
-                            <x-component name="card">
-                                <x-insert name="image">
-                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
-                                </x-insert>
-                            </x-component>
-                        </div>
-                        <div hx-get="/product?id=5" hx-target="#product-container" hx-swap="innerHTML">
-                            <x-component name="card">
-                                <x-insert name="image">
-                                    <img src="https://images.pexels.com/photos/2641886/pexels-photo-2641886.jpeg" alt="Turkish Chicken Kebabs" class="object-cover h-56 min-w-full" />
-                                </x-insert>
+                                <x-insert name="product_name"> Turkish Chicken Kebabs </x-insert>
+                                <x-insert name="chef_name"> Jane Doe </x-insert>
+                                <x-insert name="amount_left"> 2 </x-insert>
+                                <x-insert name="price"> 7,00€ </x-insert>
+                                <x-insert name="rating"> 8.6 </x-insert>
+                                <x-insert name="delivery_rate"> 3,50 € </x-insert>
                             </x-component>
                         </div>
                     </div>

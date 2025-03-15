@@ -1,27 +1,37 @@
 <x-component-def name="card">
     <div class="relative flex flex-col">
         <div class="flex rounded-lg overflow-hidden">
-            <x-slot name="image" />
+            <x-slot name="product_image" />
         </div>
         <div class="flex justify-between items-start mt-[16px]">
             <div>
                 <x-component name="headline" tw-text-classes="font-bold text-white">
-                    <x-insert name="text"> Turkish Chicken Kebabs </x-insert>
+                    <x-insert name="text">
+                        <x-slot name="product_name" />
+                    </x-insert>
                 </x-component>
                 <x-component name="subheadline" tw-text-classes="text-[#C0BFBF] font-medium mt-[5px]">
-                    <x-insert name="text"> Jane Doe </x-insert>
+                    <x-insert name="text">
+                        <x-slot name="chef_name" />
+                        <x-slot name="chef_surname" />
+                    </x-insert>
                 </x-component>
             </div>
             <div class="text-right">
                 <x-component name="body" tw-text-classes="text-[#9D9DAE]">
-                    <x-insert name="text"> 2 Left </x-insert>
+                    <x-insert name="text">
+                        <x-slot name="amount_left" />
+                        Left
+                    </x-insert>
                 </x-component>
             </div>
         </div>
         <div class="mt-[15px] flex items-center gap-[18px] text-[#9D9DAE]">
             <div class="flex gap-1 items-center">
                 <x-component name="footnote" tw-text-classes="font-bold text-[#41ADFC] tracking-wider">
-                    <x-insert name="text"> 7,00€ </x-insert>
+                    <x-insert name="text">
+                        <x-slot name="price" />
+                    </x-insert>
                 </x-component>
             </div>
             <span>•</span>
@@ -40,7 +50,9 @@
                     </defs>
                 </svg>
                 <x-component name="footnote">
-                    <x-insert name="text"> 8.6 </x-insert>
+                    <x-insert name="text">
+                        <x-slot name="rating" />
+                    </x-insert>
                 </x-component>
             </div>
             <span>•</span>
@@ -54,7 +66,9 @@
                     />
                 </svg>
                 <x-component name="footnote">
-                    <x-insert name="text"> 3,50 € </x-insert>
+                    <x-insert name="text">
+                        <x-slot name="delivery_rate" />
+                    </x-insert>
                 </x-component>
             </div>
         </div>

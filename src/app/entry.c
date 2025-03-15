@@ -269,7 +269,45 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
 
         user = is_authenticated(request_ctx);
         if (user.user_id) {
-            /** TODO: Add some data to the "home" template that is specific to the user when logged in */
+            FindProducts helper = {0};
+            helper.header.command = _FindProducts;
+            helper.header.db = request_ctx.db;
+
+            request_ctx.query(request_ctx.request_memory, (QueryHeader *)&helper);
+
+            char *rendered_template = NULL;
+            rendered_template = p = (char *)memory_in_use(request_memory);
+            memcpy(p, template, strlen(template));
+
+            ProductListItem *next = helper.result.next;
+            while (next) {
+                replace_val(p, "product_image", next->product.photo);
+
+                render_val(p, "product_name", next->product.name);
+                render_val(p, "chef_name", next->product.chef_name);
+                render_val(p, "chef_surname", next->product.chef_surname);
+
+                char amount_left[10];
+                sprintf(amount_left, "%d", 3);
+                render_val(p, "amount_left", amount_left);
+
+                char price[10];
+                sprintf(price, "%.2f€", next->product.price);
+                render_val(p, "price", price);
+
+                char rating[10];
+                sprintf(rating, "%.1f", next->product.rating);
+                render_val(p, "rating", rating);
+
+                char delivery_rate[10];
+                sprintf(delivery_rate, "%.2f€", (double)3.33);
+                render_val(p, "delivery_rate", delivery_rate);
+
+                break; /** TODO: Remove this and render all products */
+            }
+
+            p += strlen(p) + 1;
+            memory_out_of_use(request_memory, p);
 
             rendered_response.content = p = (char *)memory_in_use(request_memory);
             sprintf(p,
@@ -277,7 +315,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
                     "Content-Length: %lu\r\n"
                     "Content-Type: text/html\r\n\r\n"
                     "%s",
-                    strlen(template), template);
+                    strlen(rendered_template), rendered_template);
 
             p += strlen(p) + 1;
             memory_out_of_use(request_memory, p);
@@ -711,7 +749,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
         StrNumber product_id;
         memset(product_id, 0, sizeof(product_id));
 
-        sprintf(product_id, "%d", helper.result.id);
+        sprintf(product_id, "%d", helper.result.product.id);
 
         char *rendered_template = NULL;
         rendered_template = p = (char *)memory_in_use(request_memory);

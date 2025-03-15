@@ -350,31 +350,86 @@ void query(Memory *memory, QueryHeader *header) {
             }
 
             int id = sqlite3_column_int(stmt, 0);
-            helper->result.id = id;
+            helper->result.product.id = id;
 
             const char *name = (const char *)sqlite3_column_text(stmt, 1);
-            helper->result.name = copy_string(memory, name);
+            helper->result.product.name = copy_string(memory, name);
 
             const char *ingredients_list = (const char *)sqlite3_column_text(stmt, 2);
-            helper->result.ingredients_list = copy_string(memory, ingredients_list);
+            helper->result.product.ingredients_list = copy_string(memory, ingredients_list);
 
             const char *photo = (const char *)sqlite3_column_text(stmt, 3);
-            helper->result.photo = copy_string(memory, photo);
+            helper->result.product.photo = copy_string(memory, photo);
 
             double price = sqlite3_column_double(stmt, 4);
-            helper->result.price = price;
+            helper->result.product.price = price;
 
             double rating = sqlite3_column_double(stmt, 5);
-            helper->result.rating = rating;
+            helper->result.product.rating = rating;
 
             int chef_id = sqlite3_column_int(stmt, 6);
-            helper->result.chef_id = chef_id;
+            helper->result.product.chef_id = chef_id;
 
             const char *chef_name = (const char *)sqlite3_column_text(stmt, 7);
-            helper->result.chef_name = copy_string(memory, chef_name);
+            helper->result.product.chef_name = copy_string(memory, chef_name);
 
             const char *chef_surname = (const char *)sqlite3_column_text(stmt, 8);
-            helper->result.chef_surname = copy_string(memory, chef_surname);
+            helper->result.product.chef_surname = copy_string(memory, chef_surname);
+
+            goto exit;
+        }
+        case _FindProducts: {
+            FindProducts *helper = (FindProducts *)header;
+
+            sql = "SELECT "
+                  "     p.id, "
+                  "     p.name, "
+                  "     p.ingredients_list, "
+                  "     p.photo, "
+                  "     p.price, "
+                  "     p.rating, "
+                  "     p.chef_id, "
+                  "     u.name AS chef_name, "
+                  "     u.surname AS chef_surname "
+                  "FROM products p "
+                  "LEFT JOIN user_info u ON p.chef_id = u.user_id;";
+
+            sqlite3_prepare_v2((sqlite3 *)db, sql, strlen(sql) + 1, &stmt, NULL);
+
+            ProductListItem **prev_next = &(helper->result.next);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                ProductListItem *current = (ProductListItem *)memory_alloc(memory, sizeof(ProductListItem));
+                (*prev_next) = current;
+
+                int id = sqlite3_column_int(stmt, 0);
+                current->product.id = id;
+
+                const char *name = (const char *)sqlite3_column_text(stmt, 1);
+                current->product.name = copy_string(memory, name);
+
+                const char *ingredients_list = (const char *)sqlite3_column_text(stmt, 2);
+                current->product.ingredients_list = copy_string(memory, ingredients_list);
+
+                const char *photo = (const char *)sqlite3_column_text(stmt, 3);
+                current->product.photo = copy_string(memory, photo);
+
+                double price = sqlite3_column_double(stmt, 4);
+                current->product.price = price;
+
+                double rating = sqlite3_column_double(stmt, 5);
+                current->product.rating = rating;
+
+                int chef_id = sqlite3_column_int(stmt, 6);
+                current->product.chef_id = chef_id;
+
+                const char *chef_name = (const char *)sqlite3_column_text(stmt, 7);
+                current->product.chef_name = copy_string(memory, chef_name);
+
+                const char *chef_surname = (const char *)sqlite3_column_text(stmt, 8);
+                current->product.chef_surname = copy_string(memory, chef_surname);
+
+                prev_next = &(current->next);
+            }
 
             goto exit;
         }

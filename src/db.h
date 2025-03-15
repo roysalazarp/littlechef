@@ -14,7 +14,8 @@ typedef enum {
     _CreateUserSession,
     _CreateUser,
     _Logout,
-    _FindProduct
+    _FindProduct,
+    _FindProducts
 } Comand;
 /* clang-format on */
 
@@ -98,22 +99,40 @@ typedef struct {
 } Logout;
 
 typedef struct {
+    int id;
+    char *name;
+    char *ingredients_list;
+    char *photo;
+    double price;
+    double rating;
+    int chef_id;
+    char *chef_name;
+    char *chef_surname;
+} Product;
+
+typedef struct {
     QueryHeader header;
     struct {
         int product_id;
     } query_params;
     struct {
-        int id;
-        char *name;
-        char *ingredients_list;
-        char *photo;
-        double price;
-        double rating;
-        int chef_id;
-        char *chef_name;
-        char *chef_surname;
+        Product product;
     } result;
 } FindProduct;
+
+typedef struct ProductListItem ProductListItem;
+
+struct ProductListItem {
+    ProductListItem *next;
+    Product product;
+};
+
+typedef struct {
+    QueryHeader header;
+    struct {
+        ProductListItem *next;
+    } result;
+} FindProducts;
 
 void query(Memory *memory, QueryHeader *header);
 typedef void (*Query)(Memory *, QueryHeader *);

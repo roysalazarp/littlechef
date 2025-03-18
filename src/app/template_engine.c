@@ -52,18 +52,6 @@ typedef struct {
     String opening_tag;
 } HTMLBlock;
 
-void clear_leftovers(char *ptr) {
-    if (*ptr == '\0') {
-        ptr++;
-    }
-
-    while (*ptr) {
-        size_t str_len = strlen(ptr);
-        memset(ptr, 0, str_len);
-        ptr += str_len + 1;
-    }
-}
-
 char *string_skip_whitespaces(char *text) {
     while (isspace(*text)) {
         text++;
@@ -376,8 +364,9 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
             char *component_content_end = (component.block.start_addr + component.block.length) - strlen(COMPONENT_DEFINITION_CLOSING_TAG);
             size_t component_content_length = component_content_end - component_content;
 
-            size_t minified_html_length = html_minify(p, component_content, component_content_length);
-            p += minified_html_length;
+            strncpy(p, component_content, component_content_length);
+            html_minify(p);
+            p += strlen(p) + 1;
 
             content++;
         }

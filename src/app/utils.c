@@ -110,3 +110,15 @@ char *find_value(const char key[], Dict dict) {
 
     return NULL;
 }
+
+void clear_leftovers(char *ptr) {
+    if (*ptr == '\0') {
+        ptr++;
+    }
+
+    while (*ptr) {
+        size_t str_len = strlen(ptr);
+        memset(ptr, 0, str_len);
+        ptr += str_len + 1;
+    }
+}

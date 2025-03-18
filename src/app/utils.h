@@ -10,5 +10,6 @@ u8 get_dictionary_size(Dict dict);
 KV get_key_value(Dict dict, u8 pos);
 char *add_string(char *buffer, String str);
 char *find_value(const char key[], Dict dict);
+void clear_leftovers(char *ptr);
 
 #endif /* UTILS_H */

@@ -2,6 +2,7 @@
 #include <string.h>
 
 /* clang-format off */
+#include "./utils.h"
 #include "./shared.h"
 /* clang-format on */
 
@@ -45,103 +46,50 @@ void js_minify(char *content) {
 
     /* Null-terminate the result */
     *dest = '\0';
+    clear_leftovers(content + strlen(content));
 }
 
-/**
- * A simple HTML minifier that compresses the given HTML content and stores the
- * minified result in the provided buffer. It returns the size of the minified HTML.
- */
-size_t html_minify(char *buffer, char *html, size_t html_length) {
-    char *start = buffer;
+void html_minify(char *content) {
+    char *dest = content;
+    char *src = content;
+    boolean inside_tag = false;
+    boolean last_was_space = false;
 
-    char *html_end = html + html_length;
-
-    u8 skip_whitespace = 0;
-    while (html < html_end) {
-        /** IMPORTANT: Commented the following code because it
-         * contains a bug that causes weird duplicated element
-         * in the html */
-        /** TODO: FIX, IMPORTANT */
-
-        /*
-        if (strlen(start) == 0 && isspace(*html)) {
-            skip_whitespace = 1;
-            html++;
-            continue;
-        }
-
-        if (*html == '>') {
-            char *temp = html - 1;
-            if (isspace(*temp) && !skip_whitespace) {
-                u8 i = 0;
-                while (*temp) {
-                    if (!isspace(*temp)) {
-                        skip_whitespace = 1;
-                        buffer -= i - 1;
-                        break;
-                    }
-
-                    temp -= 1;
-                    i++;
+    while (*src != '\0') {
+        if (*src == '<') {
+            inside_tag = true;
+            *dest++ = *src;
+            last_was_space = false; /* Reset space tracking at tag start */
+        } else if (*src == '>') {
+            inside_tag = false;
+            *dest++ = *src;
+            last_was_space = false; /* Reset space tracking at tag end */
+        } else if (inside_tag) {
+            /* Inside tags, keep spaces, but reduce multiple to one. */
+            if (isspace(*src)) {
+                if (!last_was_space) {
+                    *dest++ = ' ';
+                    last_was_space = true;
                 }
-
-                continue;
+            } else {
+                *dest++ = *src;
+                last_was_space = false;
             }
-
-            skip_whitespace = 1;
-            goto copy_char;
-        }
-
-        if (*html == '<') {
-            char *temp = html - 1;
-            if (isspace(*temp) && !skip_whitespace) {
-                u8 i = 0;
-                while (*temp) {
-                    if (!isspace(*temp)) {
-                        skip_whitespace = 1;
-                        buffer -= i - 1;
-                        break;
-                    }
-
-                    temp -= 1;
-                    i++;
+        } else {
+            /* Outside of tags, remove unnecessary spaces and newlines */
+            if (isspace(*src)) {
+                if (!last_was_space) {
+                    *dest++ = ' ';
+                    last_was_space = true;
                 }
-
-                continue;
+            } else {
+                *dest++ = *src;
+                last_was_space = false;
             }
-
-            skip_whitespace = 0;
-            goto copy_char;
         }
-
-        if (!skip_whitespace && *html == '\n') {
-            html++;
-            continue;
-        }
-
-        if (skip_whitespace && isspace(*html)) {
-            html++;
-            continue;
-        }
-
-        if (skip_whitespace && !isspace(*html)) {
-            skip_whitespace = 0;
-            goto copy_char;
-        }
-
-        copy_char:
-        */
-
-        *buffer = *html;
-        buffer++;
-
-        html++;
+        src++;
     }
 
-    buffer[0] = '\0';
-    buffer++;
-
-    size_t length = buffer - start;
-
-    return length;
+    *dest = '\0';
+    clear_leftovers(content + strlen(content));
 }

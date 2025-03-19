@@ -275,6 +275,8 @@ Dict get_tag_attributes(Memory *memory, String opening_tag) {
         memcpy(p, value_start, value_length);
         p += strlen(p) + 1;
 
+        attributes.count++;
+
         opening_tag.start_addr = attribute.start_addr + attribute.length;
         opening_tag.length = end - opening_tag.start_addr;
     }
@@ -309,6 +311,8 @@ Dict get_slots(Memory *memory, HTMLBlock component_import) {
         memcpy(p, value.start_addr, value.length);
         p += strlen(p) + 1;
 
+        slots.count++;
+
         component_import.block.start_addr = insert.block.start_addr + insert.block.length;
         component_import.block.length = end - component_import.block.start_addr;
     }
@@ -333,25 +337,24 @@ String find_name_attribute_value(String opening_tag) {
     return name;
 }
 
-Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) {
-    u8 size = get_dictionary_size(assets);
+KeyValueArray *build_html_components(Memory *memory, Memory *scratch_memory, KeyValueArray *asset_array) {
     u8 i;
+    char *p = NULL;
 
     /* A Component is an HTML snippet that may include references to other HTML snippets, i.e., it is composable */
     Dict html_raw_components = {0};
-    char *p = NULL;
+    html_raw_components.start_addr = p = (char *)memory_in_use(scratch_memory);
 
-    html_raw_components.start_addr = p = (char *)memory_in_use(memory);
-    for (i = 0; i < size; i++) {
-        KV asset = get_key_value(assets, i);
-
+    i = 0;
+    KeyValue *item = &asset_array->items[0];
+    while (i < asset_array->count) {
         /* ONLY interested in html files */
-        if (strncmp(asset.k + strlen(asset.k) - strlen(".html"), ".html", strlen(".html")) != 0) {
-            continue;
+        if (strncmp(item->key + item->key_length - strlen(".html"), ".html", strlen(".html")) != 0) {
+            goto next;
         }
 
         /** A .html file may contain multiple Components */
-        char *content = asset.v;
+        char *content = item->value;
         while ((content = find_component_declaration(content)) != NULL) { /** Process Components inside .html file. */
             /** Found component in file content */
             HTMLBlock component = find_html_block(content, strlen(content), "x-component-def");
@@ -368,22 +371,28 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
             html_minify(p);
             p += strlen(p) + 1;
 
+            html_raw_components.count++;
+
             content++;
         }
+
+    next:;
+        // in memory we have a (KeyValue item) followed by a string that is the (KeyValue item.key)
+        item = (KeyValue *)((u8 *)item + sizeof(KeyValue) + item->key_length + 1);
+        i++;
     }
 
     html_raw_components.end_addr = p - 1;
-    memory_out_of_use(memory, p);
-
-    u8 components_count = get_dictionary_size(html_raw_components);
+    memory_out_of_use(scratch_memory, p);
 
     /* A template is essentially a Component that has been compiled with all its imports. */
     Dict templates = {0};
+    templates.count = html_raw_components.count; // this should be the same
     char *ptr_1 = NULL;
 
     templates.start_addr = ptr_1 = (char *)memory_in_use(memory);
 
-    for (i = 0; i < components_count; i++) { /** Compile Components. */
+    for (i = 0; i < html_raw_components.count; i++) { /** Compile Components. */
         KV raw_component = get_key_value(html_raw_components, i);
 
         strncpy(ptr_1, raw_component.k, strlen(raw_component.k) + 1);
@@ -399,6 +408,8 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
         /** Was an import statement found in the component markup? */
         if (component_import_block.block.start_addr) {
             u8 j;
+
+            u8 *x = (u8 *)scratch_memory->current;
 
             /** Does import statement contain any 'inline slots' html attributes? */
             Dict import__tag_attributes = get_tag_attributes(scratch_memory, component_import_block.opening_tag);
@@ -418,8 +429,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
             memcpy(component_to_be_imported_cpy, component_to_be_imported, strlen(component_to_be_imported));
 
             /** Compile 'inline slots' if any */
-            u8 inline_slot_count = get_dictionary_size(import__tag_attributes);
-            for (j = 0; j < inline_slot_count; j++) {
+            for (j = 0; j < import__tag_attributes.count; j++) {
                 KV kv = get_key_value(import__tag_attributes, j);
                 char *replacement_name = kv.k;
                 char *replacement = kv.v;
@@ -445,8 +455,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
             }
 
             /** Compile 'slots' if any */
-            u8 slot_count = get_dictionary_size(import__slots);
-            for (j = 0; j < slot_count; j++) {
+            for (j = 0; j < import__slots.count; j++) {
                 KV kv = get_key_value(import__slots, j);
                 char *replacement_name = kv.k;
                 char *replacement = kv.v;
@@ -483,7 +492,7 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
 
             clear_leftovers(component_import_block.block.start_addr + component_import_block.block.length);
 
-            memory_reset(scratch_memory, (u8 *)scratch_memory->start + sizeof(Memory));
+            memory_reset(scratch_memory, x);
 
             goto repeat;
         }
@@ -494,7 +503,23 @@ Dict build_html_components(Memory *memory, Memory *scratch_memory, Dict assets) 
     templates.end_addr = ptr_1 - 1;
     memory_out_of_use(memory, ptr_1);
 
-    return templates;
+    KeyValueArray *templates_array = (KeyValueArray *)memory_alloc(memory, sizeof(KeyValueArray));
+    KeyValue **templates_array_items = memory_alloc(memory, sizeof(KeyValue *) * templates.count);
+    for (i = 0; i < templates.count; i++) {
+        KV template = get_key_value(templates, i);
+
+        templates_array_items[i] = (KeyValue *)memory_alloc(memory, sizeof(KeyValue));
+        templates_array_items[i]->key = copy_string(memory, template.k);
+        templates_array_items[i]->key_length = strlen(templates_array_items[i]->key);
+        templates_array_items[i]->value = template.v;
+        templates_array_items[i]->value_length = strlen(template.v);
+
+        templates_array->count++;
+    }
+
+    templates_array->items = templates_array_items[0];
+
+    return templates_array;
 }
 
 size_t render_val(char *template, char *val_name, char *value) {
@@ -592,6 +617,30 @@ size_t replace_val(char *template, char *val_name, char *value) {
         }
 
         ptr++;
+    }
+
+    return strlen(template);
+}
+
+size_t render_for(char *template, char *block_name, ...) {
+    char *p = template;
+    while (true) {
+        HTMLBlock for_block = find_html_block(p, strlen(p), "x-for");
+        if (!for_block.block.start_addr) {
+            break;
+        }
+
+        String name_attribute_value = find_name_attribute_value(for_block.opening_tag);
+        if (strncmp(block_name, name_attribute_value.start_addr, name_attribute_value.length) == 0 && strlen(block_name) == name_attribute_value.length) {
+            va_list args;
+            va_start(args, block_name);
+
+            KV key_value = va_arg(args, KV);
+
+            break;
+        }
+
+        p += for_block.block.length;
     }
 
     return strlen(template);

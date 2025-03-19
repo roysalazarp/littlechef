@@ -46,33 +46,18 @@ char *add_string(char *buffer, String str) {
     return buffer + strlen(buffer) + 1;
 }
 
-u8 get_dictionary_size(Dict dict) {
-    size_t size = 0;
-
-    char *ptr = dict.start_addr;
-    while (ptr < dict.end_addr) {
-        ptr += strlen(ptr) + 1; /* Advance past key */
-        ptr += strlen(ptr) + 1; /* Advance past value */
-        size++;
-    }
-
-    return size;
-}
-
 KV get_key_value(Dict dict, u8 pos) {
     KV kv = {0};
 
-    u8 size = get_dictionary_size(dict);
-
-    if (pos > size) {
-        printf("You requested to get key-value at pos %d, but dict only contains %d elements", pos, size);
+    if (pos > dict.count - 1) {
+        printf("You requested to get key-value at pos %d, but dict only contains %d elements", pos, dict.count);
         ASSERT(0);
     }
 
     char *ptr = dict.start_addr;
 
     u8 i;
-    for (i = 0; i < size; i++) {
+    for (i = 0; i < dict.count; i++) {
         if (i == pos) {
             char *key = ptr;
             ptr += strlen(ptr) + 1; /* pass key */
@@ -121,4 +106,11 @@ void clear_leftovers(char *ptr) {
         memset(ptr, 0, str_len);
         ptr += str_len + 1;
     }
+}
+
+char *copy_string(Memory *memory, const char *str) {
+    char *buffer = (char *)memory_alloc(memory, strlen(str) + 1);
+    memcpy(buffer, str, strlen(str));
+
+    return buffer;
 }

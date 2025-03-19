@@ -6,7 +6,7 @@ APP_FILES=$(find ./src/app -name "*.c")
 SRC_FILES="$APP_FILES ./src/linux.c ./src/db.c"
 
 if [ "$BUILD_ENV" == "dev" ]; then
-    CFLAGS="-std=c89 -g -DDEBUG=1 -Wall -Wextra -Werror -pedantic -Wno-declaration-after-statement -Wno-unused-variable -Wno-unused-parameter -Wno-long-long" 
+    CFLAGS="-g -DDEBUG=1 -Wall -Wextra -Werror -pedantic -Wno-declaration-after-statement -Wno-unused-variable -Wno-unused-parameter -Wno-long-long" 
 
     gcc $CFLAGS \
         $SRC_FILES \
@@ -24,7 +24,7 @@ elif [ "$BUILD_ENV" == "prod" ]; then
     rm -rf "./$BUILD_DIR_NAME"
     mkdir -p "./$BUILD_DIR_NAME"
     
-    CFLAGS="-std=c89 -O3 -DDEBUG=0"
+    CFLAGS="-O3 -DDEBUG=0"
 
     gcc $CFLAGS \
         $SRC_FILES \

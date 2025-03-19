@@ -39,11 +39,6 @@ typedef struct {
     int fd;
 } Socket;
 
-int epoll_fd;
-int nfds;
-struct epoll_event events[MAX_QUEUED];
-struct epoll_event event;
-
 volatile sig_atomic_t keep_running = true;
 
 Memory *initialise_memory(size_t size) {
@@ -79,14 +74,22 @@ void locate_files(char **buffer, const char *base_path) {
 }
 
 void initialise_web_server_resources(Memory *memory) {
+    // All asset files (e.g., HTML, JS, etc.) located at ASSETS_PATH
+    // are provided in a temporary buffer to the application through
+    // the setup_web_server_resources function. This function typicall,
+    // processes these files into a global memory block that persists
+    // throughout the web server's lifetime.
+
     char *p = NULL;
     u8 i;
 
+    // Temporary memory buffer from which the application will retrieve
+    // the assets from.
     Memory *assets_memory = initialise_memory(PAGE_SIZE * 50);
-    Memory *assets_scratch_memory = initialise_memory(PAGE_SIZE * 50);
 
-    char *base_path = NULL;
-    base_path = p = (char *)memory_in_use(assets_memory);
+    // construct assets folder full path.
+    char *assets_full_path = NULL;
+    assets_full_path = p = (char *)memory_in_use(assets_memory);
     ASSERT(getcwd(p, PATH_MAX) != NULL);
     p += strlen(p);
     *p = '/';
@@ -95,19 +98,22 @@ void initialise_web_server_resources(Memory *memory) {
     p += strlen(p) + 1;
     memory_out_of_use(assets_memory, p);
 
-    StringArray files_list = {0};
-    files_list.start_addr = p = (char *)memory_in_use(assets_memory);
-    locate_files(&p, base_path);
+    // get the paths of all assets in the assets folder.
+    StringArray file_paths = {0};
+    file_paths.start_addr = p = (char *)memory_in_use(assets_memory);
+    locate_files(&p, assets_full_path);
     memory_out_of_use(assets_memory, p);
-    files_list.end_addr = p;
+    file_paths.end_addr = p;
 
-    u8 files_list_length = get_string_array_length(files_list);
+    file_paths.count = get_string_array_length(file_paths);
 
+    // load all assets to the temporary memory buffer in a Dict form.
     Dict assets = {0};
     assets.start_addr = p = (char *)memory_in_use(assets_memory);
-    for (i = 0; i < files_list_length; i++) {
-        char *path = get_string_at(files_list, i);
+    for (i = 0; i < file_paths.count; i++) {
+        char *path = get_string_at(file_paths, i);
 
+        // path as the key
         memcpy(p, path, strlen(path));
         p += strlen(p) + 1;
 
@@ -120,20 +126,40 @@ void initialise_web_server_resources(Memory *memory) {
         ASSERT(file_size != -1);
         rewind(file);
 
+        // file content as the value
         size_t read_size = fread(p, sizeof(char), file_size, file);
         ASSERT(read_size == (size_t)file_size);
 
         fclose(file);
 
         p += strlen(p) + 1;
+        assets.count++;
     }
     assets.end_addr = p;
     memory_out_of_use(assets_memory, p);
 
-    setup_web_server_resources(memory, assets_scratch_memory, assets);
+    // some structures to help with asset lookups.
+    KeyValueArray *assets_array = memory_alloc(assets_memory, sizeof(KeyValueArray));
+    KeyValue **assets_array_items = memory_alloc(assets_memory, sizeof(KeyValue *) * assets.count);
+    for (i = 0; i < assets.count; i++) {
+        KV asset = get_key_value(assets, i);
+
+        assets_array_items[i] = (KeyValue *)memory_alloc(assets_memory, sizeof(KeyValue));
+        assets_array_items[i]->key = copy_string(assets_memory, asset.k);
+        assets_array_items[i]->key_length = strlen(assets_array_items[i]->key);
+        assets_array_items[i]->value = asset.v;
+        assets_array_items[i]->value_length = strlen(asset.v);
+
+        assets_array->count++;
+    }
+
+    assets_array->items = assets_array_items[0];
+
+    Memory *scratch_memory = initialise_memory(PAGE_SIZE * 50);
+    setup_web_server_resources(memory, scratch_memory, assets_array);
 
     munmap(assets_memory->start, assets_memory->size);
-    munmap(assets_scratch_memory->start, assets_scratch_memory->size);
+    munmap(scratch_memory->start, scratch_memory->size);
 }
 
 void sigint_handler(int signo) {
@@ -214,6 +240,11 @@ int generate_salt(void *salt, size_t salt_size) {
 
 int main() {
     int i;
+
+    int epoll_fd;
+    int nfds;
+    struct epoll_event events[MAX_QUEUED];
+    struct epoll_event event;
 
     /* Registers a signal handler to ensure the program exits gracefully */
     if (signal(SIGINT, sigint_handler) == SIG_ERR) {

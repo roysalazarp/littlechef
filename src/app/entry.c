@@ -30,42 +30,81 @@ typedef char StrNumber[10];
 
 typedef char *ValidationError;
 
-void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, Dict assets) {
+void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, KeyValueArray *asset_array) {
+    char *p = NULL;
+    u8 i;
+
+    // To access data stored in the web server persisted memory block.
     PersistingData *persisting_data = (PersistingData *)memory_alloc(persisting_memory, sizeof(PersistingData));
 
-    Dict templates = build_html_components(persisting_memory, scratch_memory, assets);
-    persisting_data->templates = templates;
-
-    u8 size = get_dictionary_size(assets);
-
     Dict public_assets = {0};
-    char *p = NULL;
-
     public_assets.start_addr = p = (char *)memory_in_use(persisting_memory);
-    u8 i;
-    for (i = 0; i < size; i++) {
-        KV asset = get_key_value(assets, i);
 
+    i = 0;
+    KeyValue *item = &asset_array->items[0];
+    while (i < asset_array->count) {
         /* NOT interested in html files */
-        if (strncmp(asset.k + strlen(asset.k) - strlen(".html"), ".html", strlen(".html")) == 0) {
-            continue;
+        if (strncmp(item->key + item->key_length - strlen(".html"), ".html", strlen(".html")) == 0) {
+            goto next;
         }
 
-        strncpy(p, asset.k, strlen(asset.k) + 1);
+        strncpy(p, item->key, item->key_length + 1);
         p += strlen(p) + 1;
 
-        strncpy(p, asset.v, strlen(asset.v) + 1);
-        if (strncmp(asset.k + strlen(asset.k) - strlen(".js"), ".js", strlen(".js")) == 0) {
+        strncpy(p, item->value, item->value_length + 1);
+        if (strncmp(item->key + item->key_length - strlen(".js"), ".js", strlen(".js")) == 0) {
             js_minify(p);
         }
 
         p += strlen(p) + 1;
+
+        public_assets.count++;
+
+    next:;
+        // in memory we have a (KeyValue item) followed by a string that is the (KeyValue item.key)
+        item = (KeyValue *)((u8 *)item + sizeof(KeyValue) + item->key_length + 1);
+        i++;
     }
 
     public_assets.end_addr = p - 1;
     memory_out_of_use(persisting_memory, p);
 
-    persisting_data->public_assets = public_assets;
+    // some structures to help with asset lookups.
+    persisting_data->public_assets_array = (KeyValueArray *)memory_alloc(persisting_memory, sizeof(KeyValueArray));
+    KeyValue **public_assets_array_items = memory_alloc(persisting_memory, sizeof(KeyValue *) * public_assets.count);
+    for (i = 0; i < public_assets.count; i++) {
+        KV public_asset = get_key_value(public_assets, i);
+
+        public_assets_array_items[i] = (KeyValue *)memory_alloc(persisting_memory, sizeof(KeyValue));
+        public_assets_array_items[i]->key = copy_string(persisting_memory, public_asset.k);
+        public_assets_array_items[i]->key_length = strlen(public_assets_array_items[i]->key);
+        public_assets_array_items[i]->value = public_asset.v;
+        public_assets_array_items[i]->value_length = strlen(public_asset.v);
+
+        persisting_data->public_assets_array->count++;
+    }
+
+    persisting_data->public_assets_array->items = public_assets_array_items[0];
+
+    // Process all HTML files that request handlers will use to render client responses.
+    persisting_data->templates_array = build_html_components(persisting_memory, scratch_memory, asset_array);
+}
+
+char *find_asset(const char *name, KeyValueArray *asset_array) {
+    u8 i = 0;
+
+    KeyValue *item = &asset_array->items[0];
+    while (i < asset_array->count) {
+        if (strncmp(name, item->key, item->key_length) == 0) {
+            return item->value;
+        }
+
+        // in memory we have a (KeyValue item) followed by a string that is the (KeyValue item.key)
+        item = (KeyValue *)((u8 *)item + sizeof(KeyValue) + item->key_length + 1);
+        i++;
+    }
+
+    return NULL;
 }
 
 User is_authenticated(RequestCtx request_ctx) {
@@ -139,7 +178,7 @@ ValidationError validate_repeat_password(Memory *memory, const char *password, c
     return NULL;
 }
 
-Response public_get(RequestCtx request_ctx, Dict public_assets, String url) {
+Response public_get(RequestCtx request_ctx, KeyValueArray *public_assets_array, String url) {
     Memory *request_memory = request_ctx.request_memory;
 
     char *full_path = NULL;
@@ -155,7 +194,7 @@ Response public_get(RequestCtx request_ctx, Dict public_assets, String url) {
     memory_out_of_use(request_memory, p);
 
     char *content_type = file_content_type(request_memory, full_path);
-    char *content = find_value(full_path, public_assets);
+    char *content = find_asset(full_path, public_assets_array);
 
     Response rendered_response = {0};
     rendered_response.content = p = (char *)memory_in_use(request_memory);
@@ -178,11 +217,11 @@ Response public_get(RequestCtx request_ctx, Dict public_assets, String url) {
 
 Response view_get(RequestCtx request_ctx, char *view) {
     PersistingData *persisting_data = (PersistingData *)((u8 *)request_ctx.persisting_memory->start + sizeof(Memory));
-    Dict templates = persisting_data->templates;
+    KeyValueArray *templates_array = persisting_data->templates_array;
 
     Memory *request_memory = request_ctx.request_memory;
 
-    char *template = find_value(view, templates);
+    char *template = find_asset(view, templates_array);
 
     Response rendered_response = {0};
     char *p = NULL;
@@ -229,8 +268,8 @@ boolean match(const char *request, const char *target, HTTPMethods method) {
 
 Response process_request_and_render_response(RequestCtx request_ctx) {
     PersistingData *persisting_data = (PersistingData *)((u8 *)request_ctx.persisting_memory->start + sizeof(Memory));
-    Dict templates = persisting_data->templates;
-    Dict public_assets = persisting_data->public_assets;
+    KeyValueArray *templates_array = persisting_data->templates_array;
+    KeyValueArray *public_assets_array = persisting_data->public_assets_array;
 
     Memory *request_memory = request_ctx.request_memory;
     Response rendered_response = {0};
@@ -252,7 +291,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
         path.start_addr = str;
         path.length = strlen(str);
 
-        rendered_response = public_get(request_ctx, public_assets, path);
+        rendered_response = public_get(request_ctx, public_assets_array, path);
         return rendered_response;
     }
 
@@ -260,12 +299,12 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
     String url = find_http_request_value("URL", request);
 
     if (strncmp(url.start_addr, "/assets/public", strlen("/assets/public")) == 0 && strncmp(method.start_addr, "GET", method.length) == 0) {
-        rendered_response = public_get(request_ctx, public_assets, url);
+        rendered_response = public_get(request_ctx, public_assets_array, url);
         return rendered_response;
     }
 
     if (match(request, "/", GET)) {
-        char *template = find_value("home", templates);
+        char *template = find_asset("home", templates_array);
 
         user = is_authenticated(request_ctx);
         if (user.user_id) {
@@ -344,7 +383,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
     if (match(request, "/account", GET)) {
         user = is_authenticated(request_ctx);
         if (user.user_id) {
-            char *template = find_value("profile", templates);
+            char *template = find_asset("profile", templates_array);
 
             char *rendered_template = NULL;
 
@@ -400,7 +439,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
             return rendered_response;
         }
 
-        char *template = find_value("welcome", templates);
+        char *template = find_asset("welcome", templates_array);
 
         rendered_response.content = p = (char *)memory_in_use(request_memory);
         sprintf(p,
@@ -425,7 +464,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
         char *email = find_value("email", params);
         ValidationError bad_email = validate_email(request_memory, email);
         if (bad_email) {
-            char *template = find_value("input_validation_error", templates);
+            char *template = find_asset("input_validation_error", templates_array);
 
             char *rendered_template = NULL;
             rendered_template = p = (char *)memory_in_use(request_memory);
@@ -462,9 +501,9 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
 
         char *template = NULL;
         if (helper.result.is_registered) {
-            template = find_value("login_view", templates);
+            template = find_asset("login_view", templates_array);
         } else {
-            template = find_value("register_view", templates);
+            template = find_asset("register_view", templates_array);
         }
 
         char *rendered_template = NULL;
@@ -499,7 +538,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
         char *password = find_value("password", params);
         ValidationError bad_password = validate_password(request_memory, password);
         if (bad_password) {
-            char *template = find_value("input_validation_error", templates);
+            char *template = find_asset("input_validation_error", templates_array);
 
             char *rendered_template = NULL;
             rendered_template = p = (char *)memory_in_use(request_memory);
@@ -537,7 +576,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
         request_ctx.query(request_ctx.request_memory, (QueryHeader *)&helper);
 
         if (argon2i_verify(helper.result.hashed_password, password, strlen(password)) != ARGON2_OK) {
-            char *template = find_value("input_validation_error", templates);
+            char *template = find_asset("input_validation_error", templates_array);
 
             char *rendered_template = NULL;
             rendered_template = p = (char *)memory_in_use(request_memory);
@@ -600,7 +639,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
         ValidationError bad_password = validate_password(request_memory, password);
         ValidationError bad_repeat_password = validate_repeat_password(request_memory, password, repeat_password);
         if (bad_email || bad_password || bad_repeat_password) {
-            char *template = find_value("input_validation_error", templates);
+            char *template = find_asset("input_validation_error", templates_array);
 
             char *rendered_template = NULL;
             rendered_template = p = (char *)memory_in_use(request_memory);
@@ -744,7 +783,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
 
         request_ctx.query(request_ctx.request_memory, (QueryHeader *)&helper);
 
-        char *template = find_value("product_view", templates);
+        char *template = find_asset("product_view", templates_array);
 
         StrNumber product_id;
         memset(product_id, 0, sizeof(product_id));
@@ -777,7 +816,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
     }
 
     if (match(request, "/test", GET)) {
-        char *template = find_value("test", templates);
+        char *template = find_asset("test", templates_array);
 
         rendered_response.content = p = (char *)memory_in_use(request_memory);
         sprintf(p,

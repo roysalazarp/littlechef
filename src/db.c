@@ -11,13 +11,6 @@
 #include "./db.h"
 /* clang-format on */
 
-char *copy_string(Memory *memory, const char *str) {
-    char *buffer = (char *)memory_alloc(memory, strlen(str) + 1);
-    memcpy(buffer, str, strlen(str));
-
-    return buffer;
-}
-
 enum DayOfWeek { MONDAY = 1, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY };
 enum Month { JANUARY = 1, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER };
 

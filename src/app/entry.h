@@ -13,11 +13,11 @@ typedef struct {
 } RequestCtx;
 
 typedef struct {
-    Dict public_assets;
-    Dict templates;
+    KeyValueArray *templates_array;
+    KeyValueArray *public_assets_array;
 } PersistingData;
 
-void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, Dict assets);
+void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, KeyValueArray *asset_array);
 Response process_request_and_render_response(RequestCtx request_ctx);
 
 #endif /* ENTRY_H */

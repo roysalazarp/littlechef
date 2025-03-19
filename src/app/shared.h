@@ -23,6 +23,7 @@ typedef u8 boolean;
 typedef struct {
     char *start_addr;
     char *end_addr;
+    u8 count;
 } CharsBlock;
 
 typedef CharsBlock Dict;        /** { 'k', 'e', 'y', '\0', 'v', 'a', 'l', 'u', 'e', '\0' ... } */
@@ -47,6 +48,18 @@ typedef struct {
     char *k;
     char *v;
 } KV;
+
+typedef struct {
+    char *key;
+    size_t key_length;
+    char *value;
+    size_t value_length;
+} KeyValue;
+
+typedef struct {
+    KeyValue *items;
+    u8 count;
+} KeyValueArray;
 
 /* clang-format off */
 #ifdef DEBUG

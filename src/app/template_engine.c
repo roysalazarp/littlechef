@@ -21,6 +21,7 @@ typedef enum {
     TOKEN_SLOT_DEFINITION,      // x-slot
     TOKEN_SLOT_INSERT,          // x-insert
     TOKEN_VAL,                  // x-val
+    TOKEN_FOR,                  // x-for
 
     TOKEN_ATTRIBUTE_NAME,  // for example "name" in <x-component-def name"layout" />
     TOKEN_ATTRIBUTE_VALUE, // for example "layout" in <x-component-def name"layout" />
@@ -59,9 +60,87 @@ TokenType get_token_type(String str) {
         return TOKEN_SLOT_INSERT;
     } else if (strncmp("val", str.data, str.length) == 0) {
         return TOKEN_VAL;
+    } else if (strncmp("for", str.data, str.length) == 0) {
+        return TOKEN_FOR;
     } else {
         return TOKEN_INVALID;
     }
+}
+
+typedef struct {
+    String name;
+    String value;
+} Attribute;
+
+Attribute get_next_attribute(Lexer *lexer) {
+    Attribute attribute = {0};
+
+    char *c = peek(lexer);
+
+    while (isspace(*c)) {
+        lexer->cursor += 1;
+        c = peek(lexer);
+    }
+
+    if (*c == '>') {
+        return attribute;
+    }
+
+    while (*c != '>' && isspace(*c)) {
+        lexer->cursor += 1;
+        c = peek(lexer);
+    }
+
+    attribute.name.data = c;
+
+    while (*c != '>' && !isspace(*c) && *c != '=') {
+        attribute.name.length += 1;
+
+        lexer->cursor += 1;
+        c = peek(lexer);
+    }
+
+    while (*c != '>' && isspace(*c)) {
+        lexer->cursor += 1;
+        c = peek(lexer);
+    }
+
+    ASSERT(*c == '=');
+    lexer->cursor += 1; // skip '='
+    c = peek(lexer);
+
+    while (*c != '>' && isspace(*c)) {
+        lexer->cursor += 1;
+        c = peek(lexer);
+    }
+
+    ASSERT(*c == '"');
+    lexer->cursor += 1; // skip '"'
+    c = peek(lexer);
+
+    while (*c != '>' && isspace(*c)) {
+        lexer->cursor += 1;
+        c = peek(lexer);
+    }
+
+    attribute.value.data = c;
+
+    while (*c != '>' && *c != '"') {
+        attribute.value.length += 1;
+
+        lexer->cursor += 1;
+        c = peek(lexer);
+    }
+
+    while (*c != '>' && isspace(*c)) {
+        lexer->cursor += 1;
+        c = peek(lexer);
+    }
+
+    ASSERT(*c == '"');
+    lexer->cursor += 1; // skip '"'
+
+    return attribute;
 }
 
 Token get_next_token(Lexer *lexer) {
@@ -203,6 +282,11 @@ void print_invalid_token_error(Lexer *lexer, Token token) {
     }
 }
 
+typedef struct {
+    String name;
+    String content;
+} Component;
+
 void build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
     size_t i;
     for (i = 0; i < asset_list.count; i++) {
@@ -214,10 +298,15 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
         lexer.bol = lexer.content.data;
         lexer.line_number = 1;
 
+        u32 invalid_tokens_count = 0;
+
+        Component component = {0};
+
         Token token = get_next_token(&lexer);
         while (token.token_type != TOKEN_EOF) {
             if (token.tag_type == TAG_SELFCLOSING) {
                 if (token.token_type == TOKEN_INVALID) {
+                    invalid_tokens_count += 1;
                     print_invalid_token_error(&lexer, token);
                 }
 
@@ -226,7 +315,15 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
 
             if (token.tag_type == TAG_OPENING) {
                 if (token.token_type == TOKEN_INVALID) {
+                    invalid_tokens_count += 1;
                     print_invalid_token_error(&lexer, token);
+                }
+
+                Attribute attribute = get_next_attribute(&lexer);
+                while (attribute.name.data != NULL) {
+                    printf("%.*s: %.*s\n", (int)attribute.name.length, attribute.name.data, (int)attribute.value.length, attribute.value.data);
+
+                    attribute = get_next_attribute(&lexer);
                 }
 
                 printf("%.*s(opening)\n", (int)token.string.length, token.string.data);
@@ -234,6 +331,7 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
 
             if (token.tag_type == TAG_CLOSING) {
                 if (token.token_type == TOKEN_INVALID) {
+                    invalid_tokens_count += 1;
                     print_invalid_token_error(&lexer, token);
                 }
 
@@ -241,6 +339,10 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
             }
 
             token = get_next_token(&lexer);
+        }
+
+        if (invalid_tokens_count > 0) {
+            ASSERT(0);
         }
     }
 

@@ -23,8 +23,6 @@ typedef struct {
     u64 end_tsc;
 } Profiler;
 
-#define array_count(array) (sizeof(array) / sizeof((array)[0]))
-
 void begin_profile();
 void end_and_print_profile();
 

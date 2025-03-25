@@ -11,14 +11,14 @@ String find_http_request_value(const char key[], char *request) {
     String value = {0};
 
     if (strncmp(key, "METHOD", strlen(key)) == 0) {
-        value.start_addr = request;
+        value.data = request;
 
         char *end = request;
         while (*end != ' ') {
             end++;
         }
 
-        value.length = end - value.start_addr;
+        value.length = end - value.data;
 
         return value;
     }
@@ -32,7 +32,7 @@ String find_http_request_value(const char key[], char *request) {
 
         ptr++;
 
-        value.start_addr = ptr;
+        value.data = ptr;
 
         char *end = ptr;
         while (*end != '?') {
@@ -43,7 +43,7 @@ String find_http_request_value(const char key[], char *request) {
             end++;
         }
 
-        value.length = end - value.start_addr;
+        value.length = end - value.data;
 
         return value;
     }
@@ -53,7 +53,7 @@ String find_http_request_value(const char key[], char *request) {
 
         while (*ptr != '\n') {
             if (*ptr == '?') {
-                value.start_addr = ptr;
+                value.data = ptr;
 
                 break;
             }
@@ -61,18 +61,18 @@ String find_http_request_value(const char key[], char *request) {
             ptr++;
         }
 
-        if (!value.start_addr) {
+        if (!value.data) {
             return value;
         }
 
         ptr++;
 
-        char *end = value.start_addr;
+        char *end = value.data;
         while (*end != ' ') {
             end++;
         }
 
-        value.length = end - value.start_addr;
+        value.length = end - value.data;
 
         return value;
     }
@@ -95,7 +95,7 @@ String find_http_request_value(const char key[], char *request) {
 
         ptr++;
 
-        value.start_addr = ptr;
+        value.data = ptr;
 
         char *end_sign = "\r\n";
 
@@ -107,7 +107,7 @@ String find_http_request_value(const char key[], char *request) {
             end++;
         }
 
-        value.length = end - value.start_addr;
+        value.length = end - value.data;
 
         return value;
     }
@@ -120,7 +120,7 @@ String find_http_request_value(const char key[], char *request) {
 
             if (strncmp(ptr, str, strlen(str)) == 0) {
                 char *start = ptr + strlen(str);
-                value.start_addr = start;
+                value.data = start;
 
                 char *end_sign = "\r\n";
                 char *end = start;

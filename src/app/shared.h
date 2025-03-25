@@ -11,6 +11,8 @@
 
 #define NULL ((void *)0)
 
+#define array_count(array) (sizeof(array) / sizeof((array)[0]))
+
 typedef unsigned char u8;
 typedef unsigned int u32;
 typedef unsigned long long u64;
@@ -35,7 +37,7 @@ typedef struct {
 } DictArray;
 
 typedef struct {
-    char *start_addr;
+    char *data;
     size_t length;
 } String;
 
@@ -60,6 +62,17 @@ typedef struct {
     KeyValue *items;
     u8 count;
 } KeyValueArray;
+
+typedef struct {
+    char *start;
+    void *end;
+} Assets;
+
+typedef struct {
+    String *asset_list;
+    String *asset_list_content;
+    size_t count;
+} AssetList;
 
 /* clang-format off */
 #ifdef DEBUG

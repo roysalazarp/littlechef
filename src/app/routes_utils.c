@@ -46,12 +46,12 @@ char *file_content_type(Memory *memory, const char *path) {
 String find_http_cookie_value(const char *key, String cookies) {
     String value = {0};
 
-    if (!cookies.start_addr && cookies.length == 0) {
+    if (!cookies.data && cookies.length == 0) {
         return value;
     }
 
-    char *ptr = cookies.start_addr;
-    char *cookies_end = cookies.start_addr + cookies.length;
+    char *ptr = cookies.data;
+    char *cookies_end = cookies.data + cookies.length;
 
     while (ptr < cookies_end) {
         if (strncmp(key, ptr, strlen(key)) == 0) {
@@ -76,13 +76,13 @@ String find_http_cookie_value(const char *key, String cookies) {
                 ptr++;
             }
 
-            value.start_addr = ptr;
+            value.data = ptr;
 
             while (*ptr != '\0' && !isspace(*ptr) && *ptr != ';' && strncmp(ptr, "\r\n", strlen("\r\n")) != 0) {
                 ptr++;
             }
 
-            value.length = ptr - value.start_addr;
+            value.length = ptr - value.data;
 
             return value;
         }
@@ -109,7 +109,7 @@ String find_body(const char *request) {
         if (strncmp(ptr, request_headers_end, strlen(request_headers_end)) == 0) {
             ptr += strlen(request_headers_end);
 
-            body.start_addr = ptr;
+            body.data = ptr;
             body.length = strlen(ptr);
 
             return body;
@@ -176,8 +176,8 @@ Dict parse_and_decode_params(Memory *memory, String raw_params) {
         return key_value;
     }
 
-    char *tmp = raw_params.start_addr;
-    char *raw_params_end = raw_params.start_addr + raw_params.length;
+    char *tmp = raw_params.data;
+    char *raw_params_end = raw_params.data + raw_params.length;
 
     if (*tmp == '?') {
         /** skip '?' at the beginning of query params string */

@@ -30,64 +30,77 @@ typedef char StrNumber[10];
 
 typedef char *ValidationError;
 
-void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, KeyValueArray *asset_array) {
-    char *p = NULL;
-    u8 i;
+boolean is_html(String filepath) {
+    if (strncmp(filepath.data + filepath.length - strlen(".html"), ".html", strlen(".html")) == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, AssetList asset_list) {
+    size_t i;
+    size_t j;
 
     // To access data stored in the web server persisted memory block.
     PersistingData *persisting_data = (PersistingData *)memory_alloc(persisting_memory, sizeof(PersistingData));
 
-    Dict public_assets = {0};
-    public_assets.start_addr = p = (char *)memory_in_use(persisting_memory);
+    AssetList public_asset_list = {0};
+    for (i = 0; i < asset_list.count; i++) {
+        String filepath_reference = asset_list.asset_list[i];
 
-    i = 0;
-    KeyValue *item = &asset_array->items[0];
-    while (i < asset_array->count) {
-        /* NOT interested in html files */
-        if (strncmp(item->key + item->key_length - strlen(".html"), ".html", strlen(".html")) == 0) {
-            goto next;
+        if (is_html(filepath_reference)) {
+            continue;
         }
 
-        strncpy(p, item->key, item->key_length + 1);
-        p += strlen(p) + 1;
+        public_asset_list.count++;
+    }
 
-        strncpy(p, item->value, item->value_length + 1);
-        if (strncmp(item->key + item->key_length - strlen(".js"), ".js", strlen(".js")) == 0) {
-            js_minify(p);
+    j = 0;
+    public_asset_list.asset_list = memory_alloc(persisting_memory, sizeof(char *) * public_asset_list.count);
+    for (i = 0; i < asset_list.count; i++) {
+        String filepath_reference = asset_list.asset_list[i];
+
+        if (is_html(filepath_reference)) {
+            continue;
         }
 
-        p += strlen(p) + 1;
+        String filepath = {0};
+        filepath.data = memory_alloc(persisting_memory, sizeof(char) * filepath_reference.length);
+        filepath.length = filepath_reference.length;
 
-        public_assets.count++;
+        memcpy(filepath.data, filepath_reference.data, filepath_reference.length);
 
-    next:;
-        // in memory we have a (KeyValue item) followed by a string that is the (KeyValue item.key)
-        item = (KeyValue *)((u8 *)item + sizeof(KeyValue) + item->key_length + 1);
-        i++;
+        public_asset_list.asset_list[j] = filepath;
+        j++;
     }
 
-    public_assets.end_addr = p - 1;
-    memory_out_of_use(persisting_memory, p);
+    j = 0;
+    public_asset_list.asset_list_content = memory_alloc(persisting_memory, sizeof(char *) * public_asset_list.count);
+    for (i = 0; i < asset_list.count; i++) {
+        String filepath_reference = asset_list.asset_list[i];
 
-    // some structures to help with asset lookups.
-    persisting_data->public_assets_array = (KeyValueArray *)memory_alloc(persisting_memory, sizeof(KeyValueArray));
-    KeyValue **public_assets_array_items = memory_alloc(persisting_memory, sizeof(KeyValue *) * public_assets.count);
-    for (i = 0; i < public_assets.count; i++) {
-        KV public_asset = get_key_value(public_assets, i);
+        if (is_html(filepath_reference)) {
+            continue;
+        }
 
-        public_assets_array_items[i] = (KeyValue *)memory_alloc(persisting_memory, sizeof(KeyValue));
-        public_assets_array_items[i]->key = copy_string(persisting_memory, public_asset.k);
-        public_assets_array_items[i]->key_length = strlen(public_assets_array_items[i]->key);
-        public_assets_array_items[i]->value = public_asset.v;
-        public_assets_array_items[i]->value_length = strlen(public_asset.v);
+        String content_reference = asset_list.asset_list_content[i];
 
-        persisting_data->public_assets_array->count++;
+        String content = {0};
+        content.data = memory_alloc(persisting_memory, sizeof(char) * content_reference.length);
+        content.length = content_reference.length;
+
+        memcpy(content.data, content_reference.data, content_reference.length);
+
+        public_asset_list.asset_list_content[j] = content;
+        j++;
     }
 
-    persisting_data->public_assets_array->items = public_assets_array_items[0];
+    persisting_data->public_asset_list = public_asset_list;
 
-    // Process all HTML files that request handlers will use to render client responses.
-    persisting_data->templates_array = build_html_components(persisting_memory, scratch_memory, asset_array);
+    build_html_components(persisting_memory, scratch_memory, asset_list);
+
+    printf("\n");
 }
 
 char *find_asset(const char *name, KeyValueArray *asset_array) {
@@ -111,12 +124,12 @@ User is_authenticated(RequestCtx request_ctx) {
     char *request = request_ctx.request;
 
     String cookie = find_http_request_value("Cookie", request);
-    if (cookie.start_addr && cookie.length) {
+    if (cookie.data && cookie.length) {
         String sid = find_http_cookie_value("session_id", cookie);
-        if (sid.start_addr && sid.length) {
+        if (sid.data && sid.length) {
             char sid_str[21];
             memset(sid_str, 0, sizeof(sid_str));
-            strncpy(sid_str, sid.start_addr, sid.length);
+            strncpy(sid_str, sid.data, sid.length);
 
             Memory *request_memory = request_ctx.request_memory;
 
@@ -188,7 +201,7 @@ Response public_get(RequestCtx request_ctx, KeyValueArray *public_assets_array, 
 
     ASSERT(getcwd(full_path, PATH_MAX) != NULL);
     p += strlen(p);
-    memcpy(p, url.start_addr, url.length);
+    memcpy(p, url.data, url.length);
     p += strlen(p) + 1;
 
     memory_out_of_use(request_memory, p);
@@ -217,7 +230,7 @@ Response public_get(RequestCtx request_ctx, KeyValueArray *public_assets_array, 
 
 Response view_get(RequestCtx request_ctx, char *view) {
     PersistingData *persisting_data = (PersistingData *)((u8 *)request_ctx.persisting_memory->start + sizeof(Memory));
-    KeyValueArray *templates_array = persisting_data->templates_array;
+    KeyValueArray *templates_array = (KeyValueArray *)persisting_data->templates_array;
 
     Memory *request_memory = request_ctx.request_memory;
 
@@ -268,7 +281,7 @@ boolean match(const char *request, const char *target, HTTPMethods method) {
 
 Response process_request_and_render_response(RequestCtx request_ctx) {
     PersistingData *persisting_data = (PersistingData *)((u8 *)request_ctx.persisting_memory->start + sizeof(Memory));
-    KeyValueArray *templates_array = persisting_data->templates_array;
+    KeyValueArray *templates_array = (KeyValueArray *)persisting_data->templates_array;
     KeyValueArray *public_assets_array = persisting_data->public_assets_array;
 
     Memory *request_memory = request_ctx.request_memory;
@@ -288,7 +301,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
         char *str = "/assets/public/android/assetlinks.json";
 #endif
 
-        path.start_addr = str;
+        path.data = str;
         path.length = strlen(str);
 
         rendered_response = public_get(request_ctx, public_assets_array, path);
@@ -298,7 +311,7 @@ Response process_request_and_render_response(RequestCtx request_ctx) {
     String method = find_http_request_value("METHOD", request);
     String url = find_http_request_value("URL", request);
 
-    if (strncmp(url.start_addr, "/assets/public", strlen("/assets/public")) == 0 && strncmp(method.start_addr, "GET", method.length) == 0) {
+    if (strncmp(url.data, "/assets/public", strlen("/assets/public")) == 0 && strncmp(method.data, "GET", method.length) == 0) {
         rendered_response = public_get(request_ctx, public_assets_array, url);
         return rendered_response;
     }

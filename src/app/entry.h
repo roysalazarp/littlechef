@@ -15,9 +15,10 @@ typedef struct {
 typedef struct {
     KeyValueArray *templates_array;
     KeyValueArray *public_assets_array;
+    AssetList public_asset_list;
 } PersistingData;
 
-void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, KeyValueArray *asset_array);
+void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, AssetList asset_list);
 Response process_request_and_render_response(RequestCtx request_ctx);
 
 #endif /* ENTRY_H */

@@ -21,7 +21,7 @@
 #include "./app/utils.h"
 /* clang-format on */
 
-#define ASSETS_PATH "assets" /** From project root dir */
+#define ASSETS_FULLPATH "/workspaces/littlechef/assets"
 #define PORT 8080
 #define DB_NAME "littlechef-dev.db"
 
@@ -30,7 +30,7 @@
 #endif
 
 #define MAX_QUEUED 50 /** ?? */
-#define MAX_PATH_LENGTH 300
+#define MAX_PATH_LENGTH 512
 
 #define BLOCK_EXECUTION -1 /* In the context of epoll this puts the process to sleep. */
 
@@ -48,25 +48,53 @@ Memory *initialise_memory(size_t size) {
     return memory;
 }
 
-void locate_files(char **buffer, const char *base_path) {
+typedef struct {
+    char *str;
+    u64 count;
+} StrArray;
+
+#define MAX_ASSET_FILES 72
+void locate_files(Memory *memory, String *asset_paths, char base_path[], u64 *count) {
     DIR *dir = opendir(base_path);
     ASSERT(dir != NULL);
 
     struct dirent *entry = {0};
     struct stat statbuf = {0};
-    char path[MAX_PATH_LENGTH];
-    memset(path, 0, MAX_PATH_LENGTH);
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-            sprintf(path, "%s/%s", base_path, entry->d_name);
+    char path_buffer[MAX_PATH_LENGTH];
+    memset(path_buffer, 0, MAX_PATH_LENGTH);
 
-            if (stat(path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-                locate_files(buffer, path);
-            } else {
-                size_t path_len = strlen(path);
-                strcpy(*buffer, path);
-                *buffer += strlen(*buffer) + 1;
+    while ((entry = readdir(dir)) != NULL) {
+        boolean dot_dir = (boolean)(strcmp(entry->d_name, ".") == 0);
+        boolean dot_dot_dir = (boolean)(strcmp(entry->d_name, "..") == 0);
+
+        if (dot_dir || dot_dot_dir) {
+            continue;
+        }
+
+        sprintf(path_buffer, "%s/%s", base_path, entry->d_name);
+
+        boolean is_dir = (boolean)(stat(path_buffer, &statbuf) == 0 && S_ISDIR(statbuf.st_mode));
+
+        if (is_dir) {
+            locate_files(memory, asset_paths, path_buffer, count);
+        } else {
+            if (*count >= MAX_ASSET_FILES) {
+                printf("%s dir contains more than %d (MAX_ASSET_FILES)\n", ASSETS_FULLPATH, MAX_ASSET_FILES);
+                ASSERT(0);
             }
+
+            size_t filepath_length = strlen(path_buffer);
+
+            // NOTE: Although the filepath is of type String, it must be null-terminated.
+            // This is because it will be passed to fopen, which requires a null-terminated
+            // character array.
+            char *filepath = memory_alloc(memory, filepath_length /* +1 for null terminator */ + 1);
+            memcpy(filepath, path_buffer, filepath_length);
+
+            asset_paths[*count].data = filepath;
+            asset_paths[*count].length = filepath_length;
+
+            (*count)++;
         }
     }
 
@@ -74,89 +102,51 @@ void locate_files(char **buffer, const char *base_path) {
 }
 
 void initialise_web_server_resources(Memory *memory) {
-    // All asset files (e.g., HTML, JS, etc.) located at ASSETS_PATH
+    // All asset files (e.g., HTML, JS, etc.) located at ASSETS_FULLPATH
     // are provided in a temporary buffer to the application through
     // the setup_web_server_resources function. This function typicall,
     // processes these files into a global memory block that persists
     // throughout the web server's lifetime.
 
-    char *p = NULL;
-    u8 i;
-
     // Temporary memory buffer from which the application will retrieve
     // the assets from.
     Memory *assets_memory = initialise_memory(PAGE_SIZE * 50);
 
-    // construct assets folder full path.
-    char *assets_full_path = NULL;
-    assets_full_path = p = (char *)memory_in_use(assets_memory);
-    ASSERT(getcwd(p, PATH_MAX) != NULL);
-    p += strlen(p);
-    *p = '/';
-    p++;
-    memcpy(p, ASSETS_PATH, strlen(ASSETS_PATH));
-    p += strlen(p) + 1;
-    memory_out_of_use(assets_memory, p);
+    String *asset_paths = memory_alloc(assets_memory, sizeof(String) * MAX_ASSET_FILES);
+    u64 count = 0;
+    locate_files(assets_memory, asset_paths, ASSETS_FULLPATH, &count);
 
-    // get the paths of all assets in the assets folder.
-    StringArray file_paths = {0};
-    file_paths.start_addr = p = (char *)memory_in_use(assets_memory);
-    locate_files(&p, assets_full_path);
-    memory_out_of_use(assets_memory, p);
-    file_paths.end_addr = p;
+    String *assets_content = memory_alloc(assets_memory, sizeof(String) * count);
 
-    file_paths.count = get_string_array_length(file_paths);
-
-    // load all assets to the temporary memory buffer in a Dict form.
-    Dict assets = {0};
-    assets.start_addr = p = (char *)memory_in_use(assets_memory);
-    for (i = 0; i < file_paths.count; i++) {
-        char *path = get_string_at(file_paths, i);
-
-        // path as the key
-        memcpy(p, path, strlen(path));
-        p += strlen(p) + 1;
-
+    u8 i = 0;
+    while (i < count) {
         long file_size = 0;
 
-        FILE *file = fopen(path, "r");
+        FILE *file = fopen(asset_paths[i].data, "r");
         ASSERT(file != NULL);
         ASSERT(fseek(file, 0, SEEK_END) != -1);
         file_size = ftell(file);
         ASSERT(file_size != -1);
         rewind(file);
 
-        // file content as the value
-        size_t read_size = fread(p, sizeof(char), file_size, file);
+        char *asset_file_content = memory_alloc(assets_memory, file_size);
+        size_t read_size = fread(asset_file_content, sizeof(char), file_size, file);
         ASSERT(read_size == (size_t)file_size);
-
         fclose(file);
 
-        p += strlen(p) + 1;
-        assets.count++;
-    }
-    assets.end_addr = p;
-    memory_out_of_use(assets_memory, p);
+        assets_content[i].data = asset_file_content;
+        assets_content[i].length = file_size;
 
-    // some structures to help with asset lookups.
-    KeyValueArray *assets_array = memory_alloc(assets_memory, sizeof(KeyValueArray));
-    KeyValue **assets_array_items = memory_alloc(assets_memory, sizeof(KeyValue *) * assets.count);
-    for (i = 0; i < assets.count; i++) {
-        KV asset = get_key_value(assets, i);
-
-        assets_array_items[i] = (KeyValue *)memory_alloc(assets_memory, sizeof(KeyValue));
-        assets_array_items[i]->key = copy_string(assets_memory, asset.k);
-        assets_array_items[i]->key_length = strlen(assets_array_items[i]->key);
-        assets_array_items[i]->value = asset.v;
-        assets_array_items[i]->value_length = strlen(asset.v);
-
-        assets_array->count++;
+        i++;
     }
 
-    assets_array->items = assets_array_items[0];
+    AssetList asset_list = {0};
+    asset_list.asset_list = asset_paths;
+    asset_list.asset_list_content = assets_content;
+    asset_list.count = count;
 
     Memory *scratch_memory = initialise_memory(PAGE_SIZE * 50);
-    setup_web_server_resources(memory, scratch_memory, assets_array);
+    setup_web_server_resources(memory, scratch_memory, asset_list);
 
     munmap(assets_memory->start, assets_memory->size);
     munmap(scratch_memory->start, scratch_memory->size);

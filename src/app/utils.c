@@ -42,7 +42,7 @@ char *get_string_at(StringArray array, u8 pos) {
 }
 
 char *add_string(char *buffer, String str) {
-    strncpy(buffer, str.start_addr, str.length + 1);
+    strncpy(buffer, str.data, str.length + 1);
     return buffer + strlen(buffer) + 1;
 }
 

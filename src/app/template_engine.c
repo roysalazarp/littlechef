@@ -35,6 +35,7 @@ typedef struct {
     String string; // this is usefull in case the token is invalid to tell the user what is the invalid token
     TokenType token_type;
     TagType tag_type;
+    String tag; // do I REALLY need this ???
 } Token;
 
 typedef struct {
@@ -207,6 +208,8 @@ Token get_next_token(Lexer *lexer) {
 
         if (*c == 'x' && *(c + 1) == '-') {
             if (*(c - 1) == '<') { // opening tag
+                token.tag.data = c - 1;
+
                 char *tag_type = c + 2;
 
                 String html_tag_type = {0};
@@ -221,16 +224,20 @@ Token get_next_token(Lexer *lexer) {
                 while (*p != '\0') {
                     if (*p == '>') {
                         token.tag_type = TAG_OPENING;
+                        p += 1;
                         break;
                     }
 
                     if (*p == '/' && *(p + 1) == '>') {
                         token.tag_type = TAG_SELFCLOSING;
+                        p += 2;
                         break;
                     }
 
                     p++;
                 }
+
+                token.tag.length = p - token.tag.data;
 
                 token.token_type = get_token_type(html_tag_type);
                 token.string = html_tag_type;
@@ -391,65 +398,12 @@ void print_not_allowed_attrs(Lexer *lexer, Token token, AttributeArray attribute
     }
 }
 
-// typedef struct {
-//     String *name;  // all attribute names
-//     String *value; // all attribute names
-//     u32 count;
-// } _Attribute;
+#define STACK_CAPACITY 64
 
-// typedef struct {
-//     TagIdentifier *tag; // tags for all decendants of a tree
-//     String *component_name;
-//     _Attribute *attribute;
-//     u32 count; // how many items in arrays above (number of tree descendants)
-// } TreeData;
-
-// typedef struct ComponentNode ComponentNode;
-
-// struct ComponentNode {
-//     ComponentNode *child;
-//     ComponentNode *sibling;
-//     String *component_name;
-//     TagIdentifier tag;
-//     u32 index_access;
-// };
-
-// typedef struct {
-//     String *name;  // all attribute names
-//     String *value; // all attribute names
-//     u32 count;
-// } _Attribute;
-
-// typedef struct {
-//     TagIdentifier *tag; // tags for all decendants of a tree
-//     String *component_name;
-//     _Attribute *attribute;
-//     u32 count; // how many items in arrays above (number of tree descendants)
-// } TreeData;
-
-// typedef struct ComponentNode ComponentNode;
-
-// struct ComponentNode {
-//     ComponentNode *child;
-//     ComponentNode *sibling;
-//     u32 index_access;
-// };
-
-// struct AttributeNode {
-//     String name;
-//     String value;
-//     AttributeNode *next;
-// };
-
-// typedef struct ComponentNode ComponentNode;
-
-// struct ComponentNode {
-//     TagIdentifier tag;
-//     String name;
-//     Attribute *attributes;
-//     ComponentNode *child;
-//     ComponentNode *sibling;
-// };
+typedef struct {
+    u8 data[STACK_CAPACITY];
+    u8 top;
+} Stack;
 
 void build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
     size_t i;
@@ -462,6 +416,8 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
         lexer.line_number = 1;
 
         u32 errors_count = 0;
+
+        Stack tags = {0};
 
         Token token = get_next_token(&lexer);
         while (token.token_type != TOKEN_EOF) {
@@ -500,11 +456,12 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                     slot (+ name attr)
             */
 
-            // NOTE: Parser, trees.
-            // Create the component trees, then traverse them to verify their
-            // relationships. For example, if the first child of the current
-            // tree is a component import with 3 attributes, check the corresponding
-            // component tree to ensure that the attributes are properly declared.
+            if (token.token_type == TOKEN_INVALID) {
+                errors_count += 1;
+                print_invalid_token_error(&lexer, token);
+
+                ASSERT(0);
+            }
 
             AttributeArray attributes = {0};
 
@@ -513,66 +470,163 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
             attributes.attribute = attribute;
             while (attribute->name.data != NULL) {
                 attributes.count += 1;
-                // printf("%.*s: %.*s\n", (int)attribute->name.length, attribute->name.data, (int)attribute->value.length, attribute->value.data);
 
                 attribute = memory_alloc(memory, sizeof(Attribute));
                 *attribute = get_next_attribute(&lexer);
             }
 
-            boolean has_name_attr = false;
+            Attribute name_attribute = {0};
             if (attributes.count > 0) {
                 u32 i;
                 for (i = 0; i < attributes.count; i++) {
                     if (strncmp("name", attributes.attribute[i].name.data, attributes.attribute[i].name.length) == 0) {
-                        has_name_attr = true;
+                        name_attribute = attributes.attribute[i];
                         break;
                     }
                 }
             }
 
+            // Only component import opening tags can have other attributes other than the 'name' attribute
+
+            if (attributes.count > 1 && token.token_type != TOKEN_COMPONENT_IMPORT && (token.tag_type == TAG_OPENING || token.tag_type == TAG_SELFCLOSING)) {
+                u32 invalid_attributes_count = attributes.count - /* minus the name attribute */ 1;
+                errors_count += invalid_attributes_count;
+                print_not_allowed_attrs(&lexer, token, attributes);
+            }
+
+            // All opening or self-closing tags must have a 'name' attribute
+
+            if (token.tag_type == TAG_SELFCLOSING || token.tag_type == TAG_OPENING) {
+                if (name_attribute.name.data == NULL) {
+                    u32 i;
+
+                    printf("Missing name attribute for");
+                    printf(" x-%.*s tag:\n", (int)token.string.length, token.string.data);
+                    printf("    \033[90m(Hint) All opening or self-closing tags must have a name attribute.\033[0m\n");
+                    print_error_location(&lexer, token);
+                    print_previous_line(&lexer, token);
+                    printf("    %d|  ", lexer.line_number);
+
+                    u32 highlight_index = lexer.cursor;
+                    u32 next_boli = next_line_index(lexer.boli, lexer.content);
+                    for (i = lexer.boli; i < next_boli; i++) {
+                        if (i == highlight_index) {
+                            printf("\033[41m \033[0m");
+                            i -= 1;
+                            highlight_index = 0;
+                        } else {
+                            printf("%c", lexer.content.data[i]);
+                        }
+                    }
+                    print_next_line(&lexer, token);
+                }
+            }
+
+            // Closing tags can NOT have any attributes
+
+            if (token.tag_type == TAG_CLOSING) {
+                if (attributes.count > 0) {
+                    ASSERT(0);
+                }
+            }
+
+            // Check for wrong tag types. For example, a TOKEN_COMPONENT_DEFINITION can not be
+            // self-closed or a TOKEN_SLOT can't have an opening tag as it should be self-closed.
+
+            if (token.tag_type == TAG_SELFCLOSING) {
+                if (token.token_type == TOKEN_COMPONENT_DEFINITION || token.token_type == TOKEN_INSERT) {
+                    u32 i;
+
+                    printf("Invalid self-closing tag for");
+                    printf(" x-%.*s:\n", (int)token.string.length, token.string.data);
+                    printf("    \033[90m(Hint) All opening or self-closing tags must have a name attribute.\033[0m\n");
+                    print_error_location(&lexer, token);
+                    print_previous_line(&lexer, token);
+                    printf("    %d|  ", lexer.line_number);
+
+                    u32 highlight_start = lexer.cursor;
+                    u32 highlight_end = highlight_start + 2;
+                    u32 next_boli = next_line_index(lexer.boli, lexer.content);
+                    for (i = lexer.boli; i < next_boli; i++) {
+                        if (i >= highlight_start && i < highlight_end) {
+                            // ANSI escape codes for highlighting (red background)
+                            printf("\033[41m%c\033[0m", lexer.content.data[i]);
+                        } else {
+                            printf("%c", lexer.content.data[i]);
+                        }
+                    }
+                    print_next_line(&lexer, token);
+                }
+            }
+
             if (token.tag_type == TAG_OPENING) {
-                if (token.token_type == TOKEN_INVALID) {
-                    errors_count += 1;
-                    print_invalid_token_error(&lexer, token);
+                if (token.token_type == TOKEN_SLOT) {
+                    ASSERT(0);
                 }
-
-                ASSERT(token.token_type != TOKEN_SLOT); // Slots MUST be self-closing tags
-                ASSERT(has_name_attr == true);          // All opening tags MUST have a name attribute
-
-                if (token.token_type != TOKEN_COMPONENT_IMPORT && attributes.count > 1) {
-                    // highlight the attribute that is not supposed to be there
-                    errors_count += attributes.count - 1 /* minus the name attribute */;
-                    print_not_allowed_attrs(&lexer, token, attributes);
-                }
-
-                // printf("%.*s(opening)\n", (int)token.string.length, token.string.data);
             }
 
             if (token.tag_type == TAG_CLOSING) {
-                if (token.token_type == TOKEN_INVALID) {
-                    errors_count += 1;
-                    print_invalid_token_error(&lexer, token);
+                if (token.token_type == TOKEN_SLOT) {
+                    ASSERT(0);
                 }
-
-                ASSERT(token.token_type != TOKEN_SLOT); // Slots MUST be self-closing tags
-                ASSERT(attributes.count == 0);          // Closing tags can NOT have attributes
-
-                // printf("%.*s(closing)\n", (int)token.string.length, token.string.data);
             }
 
-            if (token.tag_type == TAG_SELFCLOSING) {
-                if (token.token_type == TOKEN_INVALID) {
-                    errors_count += 1;
-                    print_invalid_token_error(&lexer, token);
-                }
+            // Check tag relationship is valid. For example, there can't be a INSERT inside a SLOT
+            // as slots are self-closing tags and INSERT parent should only be TOKEN_COMPONENT_IMPORT.
 
-                ASSERT(token.token_type != TOKEN_COMPONENT_DEFINITION); // Component definitions can NOT be self-closing tags
-                ASSERT(token.token_type != TOKEN_INSERT);               // Inserts can NOT be self-closing tags
-                ASSERT(has_name_attr == true);                          // All opening tags MUST have a name attribute
+            if (token.token_type == TOKEN_COMPONENT_DEFINITION && token.tag_type == TAG_OPENING) {
+                tags.data[tags.top] = TOKEN_COMPONENT_DEFINITION;
+                tags.top += 1;
 
-                // printf("%.*s(selfclosing)\n", (int)token.string.length, token.string.data);
+                goto advance;
             }
 
+            if (token.token_type == TOKEN_COMPONENT_IMPORT && (token.tag_type == TAG_OPENING || token.tag_type == TAG_SELFCLOSING)) {
+                TokenType parent = tags.data[tags.top - 1];
+                if (parent != TOKEN_COMPONENT_DEFINITION && parent != TOKEN_INSERT) {
+                    ASSERT(0);
+                }
+
+                if (token.tag_type == TAG_OPENING) {
+                    tags.data[tags.top] = TOKEN_COMPONENT_IMPORT;
+                    tags.top += 1;
+                }
+
+                goto advance;
+            }
+
+            if (token.token_type == TOKEN_SLOT && token.tag_type == TAG_SELFCLOSING) {
+                TokenType parent = tags.data[tags.top - 1];
+                if (parent != TOKEN_COMPONENT_DEFINITION && parent != TOKEN_COMPONENT_IMPORT && parent != TOKEN_INSERT) {
+                    ASSERT(0);
+                }
+
+                goto advance;
+            }
+
+            if (token.token_type == TOKEN_INSERT && token.tag_type == TAG_OPENING) {
+                TokenType parent = tags.data[tags.top - 1];
+                if (parent != TOKEN_COMPONENT_IMPORT) {
+                    ASSERT(0);
+                }
+
+                tags.data[tags.top] = TOKEN_INSERT;
+                tags.top += 1;
+
+                goto advance;
+            }
+
+            if (token.tag_type == TAG_CLOSING) {
+                TokenType last_open = tags.data[tags.top - 1];
+                if (token.token_type != last_open) {
+                    ASSERT(0);
+                }
+
+                tags.data[tags.top - 1] = 0;
+                tags.top -= 1;
+            }
+
+        advance:;
             token = get_next_token(&lexer);
         }
 

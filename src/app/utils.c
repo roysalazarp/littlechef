@@ -114,3 +114,11 @@ char *copy_string(Memory *memory, const char *str) {
 
     return buffer;
 }
+
+boolean is_html_path(String path) {
+    if (strncmp(path.data + path.length - strlen(".html"), ".html", strlen(".html")) == 0) {
+        return true;
+    }
+
+    return false;
+}

@@ -30,14 +30,6 @@ typedef char StrNumber[10];
 
 typedef char *ValidationError;
 
-boolean is_html(String filepath) {
-    if (strncmp(filepath.data + filepath.length - strlen(".html"), ".html", strlen(".html")) == 0) {
-        return true;
-    }
-
-    return false;
-}
-
 void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, AssetList asset_list) {
     size_t i;
     size_t j;
@@ -49,7 +41,7 @@ void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memor
     for (i = 0; i < asset_list.count; i++) {
         String filepath_reference = asset_list.asset_list[i];
 
-        if (is_html(filepath_reference)) {
+        if (is_html_path(filepath_reference)) {
             continue;
         }
 
@@ -57,11 +49,11 @@ void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memor
     }
 
     j = 0;
-    public_asset_list.asset_list = memory_alloc(persisting_memory, sizeof(char *) * public_asset_list.count);
+    public_asset_list.asset_list = memory_alloc(persisting_memory, sizeof(String) * public_asset_list.count);
     for (i = 0; i < asset_list.count; i++) {
         String filepath_reference = asset_list.asset_list[i];
 
-        if (is_html(filepath_reference)) {
+        if (is_html_path(filepath_reference)) {
             continue;
         }
 
@@ -76,11 +68,11 @@ void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memor
     }
 
     j = 0;
-    public_asset_list.asset_list_content = memory_alloc(persisting_memory, sizeof(char *) * public_asset_list.count);
+    public_asset_list.asset_list_content = memory_alloc(persisting_memory, sizeof(String) * public_asset_list.count);
     for (i = 0; i < asset_list.count; i++) {
         String filepath_reference = asset_list.asset_list[i];
 
-        if (is_html(filepath_reference)) {
+        if (is_html_path(filepath_reference)) {
             continue;
         }
 

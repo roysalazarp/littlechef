@@ -1,3 +1,14 @@
+<x-component-def name="test">
+    <x-component name="test_1" foo="foo_1">
+        <x-insert name="insert_1">
+            <x-val name="val_2" />
+        </x-insert>
+        <x-insert name="insert_2">
+            <x-val name="val_3" />
+        </x-insert>
+    </x-component>
+</x-component-def>
+
 <x-component-def name="text_input">
     <div class="text-input relative mb-[25px]" data-input-group="%id%">
         <input id="%id%" name="%id%" type="%type%" %input-attributes% class="w-full h-14 px-4 pt-2 bg-[#141E1F]/80 text-[17px] text-white rounded-lg border border-[#353541] focus:outline-none caret-[#FFFFFF] %input-tw-classes%" placeholder=" " autocomplete="on" />

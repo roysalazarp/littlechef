@@ -12,5 +12,6 @@ char *add_string(char *buffer, String str);
 char *find_value(const char key[], Dict dict);
 void clear_leftovers(char *ptr);
 char *copy_string(Memory *memory, const char *str);
+boolean is_html_path(String path);
 
 #endif /* UTILS_H */

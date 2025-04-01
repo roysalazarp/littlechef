@@ -11,6 +11,8 @@
 #include "./template_engine.h"
 /* clang-format on */
 
+#define STACK_CAPACITY 64
+
 typedef enum { TAG_OPENING, TAG_CLOSING, TAG_SELFCLOSING } TagType;
 
 typedef enum {
@@ -29,7 +31,6 @@ typedef enum {
 } TokenType;
 
 typedef struct {
-    String string; // this is usefull in case the token is invalid to tell the user what is the invalid token
     TokenType token_type;
     TagType tag_type;
     String tag_identifier;
@@ -37,13 +38,54 @@ typedef struct {
 
 typedef struct {
     String file_path;
-
     String content;
     u32 cursor;
-
     u32 line_number;
-    u32 boli; // beginning of lile (index)
 } Lexer;
+
+typedef struct {
+    String name;
+    String value;
+} Attribute;
+
+typedef struct {
+    Attribute *attribute;
+    u32 count;
+} AttributeArray;
+
+typedef struct ParentPointerNode ParentPointerNode;
+struct ParentPointerNode {
+    TokenType token_type;
+    String tag_identifier;
+    u32 line_number;
+    AttributeArray attributes;
+    ParentPointerNode *parent;
+};
+
+typedef struct ChildSiblingNode ChildSiblingNode;
+struct ChildSiblingNode {
+    TokenType token_type;
+    String tag_identifier;
+    u32 line_number;
+    AttributeArray attributes;
+    ChildSiblingNode *first_child;
+    ChildSiblingNode *next_sibling;
+};
+
+typedef struct {
+    u32 count;
+    ParentPointerNode *items[STACK_CAPACITY];
+} ParentPointerNodes;
+
+typedef struct {
+    ParentPointerNode *node;
+    TokenType token_type;
+} StackElement;
+
+typedef struct {
+    StackElement data[STACK_CAPACITY];
+    u8 top;
+} Stack;
 
 char *peek(Lexer *lexer) { return &lexer->content.data[lexer->cursor]; }
 
@@ -71,16 +113,6 @@ TokenType get_token_type(String str) {
         return TOKEN_INVALID;
     }
 }
-
-typedef struct {
-    String name;
-    String value;
-} Attribute;
-
-typedef struct {
-    Attribute *attribute;
-    u32 count;
-} AttributeArray;
 
 Attribute get_next_attribute(Lexer *lexer) {
     // Typically, we encounter HTML attributes in a format like this:
@@ -205,17 +237,18 @@ Token get_next_token(Lexer *lexer) {
 
         if (*c == 'x' && *(c + 1) == '-') {
             if (*(c - 1) == '<') { // opening tag
-                char *tag_type = c;
+                char *p = NULL;
 
-                String html_tag_type = {0};
-                html_tag_type.data = tag_type;
-                while (*tag_type != '\0' && !isspace(*tag_type) && *tag_type != '>') {
-                    html_tag_type.length += 1;
-                    tag_type += 1;
+                p = c;
+                String token_string = {0};
+                token_string.data = p;
+                while (*p != '\0' && !isspace(*p) && *p != '>') {
+                    token_string.length += 1;
+                    p += 1;
                 }
 
                 // check if tag is self closing
-                char *p = html_tag_type.data;
+                p = token_string.data;
                 while (*p != '\0') {
                     if (*p == '>') {
                         token.tag_type = TAG_OPENING;
@@ -232,30 +265,29 @@ Token get_next_token(Lexer *lexer) {
                     p++;
                 }
 
-                token.tag_identifier = html_tag_type;
+                token.tag_identifier = token_string;
                 token.token_type = get_token_type(token.tag_identifier);
-                token.string = html_tag_type;
 
-                lexer->cursor = (token.string.data + token.string.length) - lexer->content.data;
+                lexer->cursor = (token_string.data + token_string.length) - lexer->content.data;
 
                 return token;
             }
 
             if (*(c - 1) == '/' && *(c - 2) == '<') { // closing tag
-                char *tag_type = c;
+                char *p = NULL;
 
-                String html_tag_type = {0};
-                html_tag_type.data = tag_type;
-                while (*tag_type != '\0' && !isspace(*tag_type) && *tag_type != '>') {
-                    html_tag_type.length += 1;
-                    tag_type += 1;
+                p = c;
+                String token_string = {0};
+                token_string.data = p;
+                while (*p != '\0' && !isspace(*p) && *p != '>') {
+                    token_string.length += 1;
+                    p += 1;
                 }
 
                 token.tag_type = TAG_CLOSING;
-                token.token_type = get_token_type(html_tag_type);
-                token.string = html_tag_type;
+                token.token_type = get_token_type(token_string);
 
-                lexer->cursor = (token.string.data + token.string.length) - lexer->content.data;
+                lexer->cursor = (token_string.data + token_string.length) - lexer->content.data;
 
                 return token;
             }
@@ -263,25 +295,12 @@ Token get_next_token(Lexer *lexer) {
 
         if (*c == '\n') {
             lexer->line_number += 1;
-            lexer->boli = lexer->cursor + 1;
         }
 
         lexer->cursor += 1;
     }
 
     return token;
-}
-
-u32 next_line_index(u32 boli, String text) {
-    while (boli < text.length) {
-        if (text.data[boli] == '\n') {
-            return boli + 1;
-        }
-
-        boli += 1;
-    }
-
-    return text.length;
 }
 
 char *find_eol(char *p, char *text_end) {
@@ -309,91 +328,6 @@ char *find_bol(char *p, char *text_start) {
     return text_start;
 }
 
-u32 previous_line_index(u32 boli, char *text) {
-    boli -= 1;
-    while (boli > 0) {
-        if (text[boli] == '\n') {
-            return boli + 1;
-        }
-
-        boli -= 1;
-    }
-
-    return 0;
-}
-
-void print_token_tag_type(Token token) {
-    switch (token.tag_type) {
-        case TAG_OPENING:
-            printf("opening");
-            break;
-        case TAG_CLOSING:
-            printf("closing");
-            break;
-        case TAG_SELFCLOSING:
-            printf("self-closing");
-            break;
-        default:
-            ASSERT(0);
-            break;
-    }
-}
-
-void print_invalid_token_error(Lexer *lexer, Token token) {
-    // TODO: refactor this function
-    u32 i;
-
-    u32 highlight_start = token.string.data - lexer->content.data;
-    u32 highlight_end = (token.string.data + token.string.length) - lexer->content.data;
-    printf("Invalid ");
-    print_token_tag_type(token);
-    printf(" tag at:\n");
-    printf("    file: %.*s\n", (int)lexer->file_path.length, lexer->file_path.data);
-    printf("    line: %d\n", lexer->line_number);
-    printf("\n");
-    if (lexer->line_number > 1) {
-        u32 prev_boli = previous_line_index(lexer->boli - 1, lexer->content.data);
-        u32 line_length = (lexer->boli - 1) - prev_boli;
-        printf("    %d|  %.*s\n", lexer->line_number - 1, line_length, &lexer->content.data[prev_boli]);
-    }
-    printf("    %d|  ", lexer->line_number);
-    u32 next_boli = next_line_index(lexer->boli, lexer->content);
-    for (i = lexer->boli; i < next_boli; i++) {
-        if (i >= highlight_start && i < highlight_end) {
-            // ANSI escape codes for highlighting (red background)
-            printf("\033[41m%c\033[0m", lexer->content.data[i]);
-        } else {
-            printf("%c", lexer->content.data[i]);
-        }
-    }
-    if (next_boli < lexer->content.length) {
-        u32 next_eoli = next_line_index(next_boli, lexer->content);
-        u32 next_line_length = next_eoli - next_boli;
-        printf("    %d|  %.*s\n", lexer->line_number + 1, next_line_length, &lexer->content.data[next_boli]);
-    }
-}
-
-typedef struct ParentPointerNode ParentPointerNode;
-struct ParentPointerNode {
-    TokenType token_type;
-    String tag_identifier;
-    String file_path;
-    u32 line_number;
-    AttributeArray attributes;
-    ParentPointerNode *parent;
-};
-
-typedef struct ChildSiblingNode ChildSiblingNode;
-struct ChildSiblingNode {
-    TokenType token_type;
-    String tag_identifier;
-    String file_path;
-    u32 line_number;
-    AttributeArray attributes;
-    ChildSiblingNode *first_child;
-    ChildSiblingNode *next_sibling;
-};
-
 ParentPointerNode *create_parent_pointer_node(Memory *memory, TokenType token_type, String tag_identifier, String file_path, u32 line_number, AttributeArray attributes, ParentPointerNode *parent) {
     ParentPointerNode *new_node = memory_alloc(memory, sizeof(ParentPointerNode));
     if (new_node == NULL) {
@@ -402,14 +336,13 @@ ParentPointerNode *create_parent_pointer_node(Memory *memory, TokenType token_ty
     }
     new_node->token_type = token_type;
     new_node->tag_identifier = tag_identifier;
-    new_node->file_path = file_path;
     new_node->line_number = line_number;
     new_node->attributes = attributes;
     new_node->parent = parent;
     return new_node;
 }
 
-ChildSiblingNode *create_child_sibling_node(Memory *memory, TokenType token_type, String tag_identifier, String file_path, u32 line_number, AttributeArray attributes) {
+ChildSiblingNode *create_child_sibling_node(Memory *memory, TokenType token_type, String tag_identifier, u32 line_number, AttributeArray attributes) {
     ChildSiblingNode *new_node = memory_alloc(memory, sizeof(ChildSiblingNode));
     if (new_node == NULL) {
         printf("Memory allocation failed\n");
@@ -417,7 +350,6 @@ ChildSiblingNode *create_child_sibling_node(Memory *memory, TokenType token_type
     }
     new_node->token_type = token_type;
     new_node->tag_identifier = tag_identifier;
-    new_node->file_path = file_path;
     new_node->line_number = line_number;
     new_node->attributes = attributes;
     new_node->first_child = NULL;
@@ -434,16 +366,12 @@ ParentPointerNode *find_parent_tree_root(ParentPointerNode *node) {
 
 ChildSiblingNode *convert_to_child_sibling(Memory *memory, ParentPointerNode **nodes, u32 count) {
     ChildSiblingNode **cs_nodes = memory_alloc(memory, count * sizeof(ChildSiblingNode *));
-    if (cs_nodes == NULL) {
-        printf("Memory allocation failed\n");
-        return NULL;
-    }
 
     u32 i;
 
     // Create corresponding ChildSiblingNodes
     for (i = 0; i < count; i++) {
-        cs_nodes[i] = create_child_sibling_node(memory, nodes[i]->token_type, nodes[i]->tag_identifier, nodes[i]->file_path, nodes[i]->line_number, nodes[i]->attributes);
+        cs_nodes[i] = create_child_sibling_node(memory, nodes[i]->token_type, nodes[i]->tag_identifier, nodes[i]->line_number, nodes[i]->attributes);
     }
 
     // Arrange first_child and next_sibling pointers
@@ -505,8 +433,9 @@ const char *token_to_string(TokenType token) {
 }
 
 void print_child_sibling_tree(ChildSiblingNode *node, int depth) {
-    if (node == NULL)
+    if (node == NULL) {
         return;
+    }
 
     // Print node with indentation
     for (int i = 0; i < depth; i++) {
@@ -524,23 +453,6 @@ void print_child_sibling_tree(ChildSiblingNode *node, int depth) {
     print_child_sibling_tree(node->first_child, depth + 1);
     print_child_sibling_tree(node->next_sibling, depth);
 }
-
-#define STACK_CAPACITY 64
-
-typedef struct {
-    u32 count;
-    ParentPointerNode *items[STACK_CAPACITY];
-} ParentPointerNodes;
-
-typedef struct {
-    ParentPointerNode *node;
-    TokenType token_type;
-} StackElement;
-
-typedef struct {
-    StackElement data[STACK_CAPACITY];
-    u8 top;
-} Stack;
 
 void print_tag_error(String content, char error[], String file_path, String tag_identifier, u32 line_number) {
     char *content_end = content.data + content.length;
@@ -581,7 +493,7 @@ void print_tag_error(String content, char error[], String file_path, String tag_
     printf("\n");
 }
 
-void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *error_count) {
+void tree_traverse_error_checking(String content, String file_path, ChildSiblingNode *node, u32 *error_count) {
     u32 i;
 
     boolean has_name_attr = false;
@@ -598,7 +510,7 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
         char *content_end = content.data + content.length;
         printf("Invalid attribute(s) for %.*s tag:\n", (int)node->tag_identifier.length, node->tag_identifier.data);
         printf("    \033[90m(Hint) Only x-component tag can have attributes other than the name attribute.\033[0m\n");
-        printf("    file: %.*s\n", (int)node->file_path.length, node->file_path.data);
+        printf("    file: %.*s\n", (int)file_path.length, file_path.data);
         printf("    line: %d\n", node->line_number);
         printf("\n");
         u32 i;
@@ -644,7 +556,7 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
     if (!has_name_attr) {
         char error[] = "All tags must contain a name attribute";
 
-        print_tag_error(content, error, node->file_path, node->tag_identifier, node->line_number);
+        print_tag_error(content, error, file_path, node->tag_identifier, node->line_number);
         *error_count += 1;
     }
 
@@ -655,7 +567,7 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
                 if (child->token_type == TOKEN_INSERT) {
                     char error[] = "x-insert can not be direct child of x-component-def, it can only be direct child of x-component";
 
-                    print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                    print_tag_error(content, error, file_path, child->tag_identifier, child->line_number);
                     *error_count += 1;
                 }
 
@@ -670,7 +582,7 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
                 if (child->token_type != TOKEN_INSERT) {
                     char error[] = "x-component can only have direct child x-insert";
 
-                    print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                    print_tag_error(content, error, file_path, child->tag_identifier, child->line_number);
                     *error_count += 1;
                 }
 
@@ -684,7 +596,7 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
             if (child) {
                 char error[] = "x-slot can't have any children";
 
-                print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                print_tag_error(content, error, file_path, node->tag_identifier, node->line_number);
                 *error_count += 1;
             }
 
@@ -696,7 +608,7 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
                 if (child->token_type == TOKEN_INSERT) {
                     char error[] = "x-insert can not be direct child of x-insert, it can only be direct child of x-component";
 
-                    print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                    print_tag_error(content, error, file_path, child->tag_identifier, child->line_number);
                     *error_count += 1;
                 }
 
@@ -710,7 +622,7 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
             if (child) {
                 char error[] = "x-val can't have any children";
 
-                print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                print_tag_error(content, error, file_path, node->tag_identifier, node->line_number);
                 *error_count += 1;
             }
 
@@ -722,7 +634,7 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
                 if (child->token_type == TOKEN_INSERT) {
                     char error[] = "x-insert can not be direct child of x-for, it can only be direct child of x-component";
 
-                    print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                    print_tag_error(content, error, file_path, child->tag_identifier, child->line_number);
                     *error_count += 1;
                 }
 
@@ -738,11 +650,11 @@ void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *e
     }
 
     if (node->next_sibling) {
-        tree_traverse_error_checking(content, node->next_sibling, error_count);
+        tree_traverse_error_checking(content, file_path, node->next_sibling, error_count);
     }
 
     if (node->first_child) {
-        tree_traverse_error_checking(content, node->first_child, error_count);
+        tree_traverse_error_checking(content, file_path, node->first_child, error_count);
     }
 }
 
@@ -770,7 +682,9 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
             // printf("\033[90m%s\033[0m\n", token_to_string(token.token_type));
 
             if (token.token_type == TOKEN_INVALID) {
-                print_invalid_token_error(&lexer, token);
+                char error[] = "Invalid token";
+
+                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
 
                 return;
             }
@@ -810,7 +724,7 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                         // print_child_sibling_tree(cs_root, 0);
 
                         u32 error_count = 0;
-                        tree_traverse_error_checking(lexer.content, cs_root, &error_count);
+                        tree_traverse_error_checking(lexer.content, lexer.file_path, cs_root, &error_count);
 
                         // TODO
                         //  - component imports must refer to a component that actually exists

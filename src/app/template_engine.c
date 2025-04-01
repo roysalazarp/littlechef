@@ -33,7 +33,6 @@ typedef struct {
     TokenType token_type;
     TagType tag_type;
     String tag_identifier;
-    String tag; // do I REALLY need this ???
 } Token;
 
 typedef struct {
@@ -206,8 +205,6 @@ Token get_next_token(Lexer *lexer) {
 
         if (*c == 'x' && *(c + 1) == '-') {
             if (*(c - 1) == '<') { // opening tag
-                token.tag.data = c - 1;
-
                 char *tag_type = c;
 
                 String html_tag_type = {0};
@@ -234,8 +231,6 @@ Token get_next_token(Lexer *lexer) {
 
                     p++;
                 }
-
-                token.tag.length = p - token.tag.data;
 
                 token.tag_identifier = html_tag_type;
                 token.token_type = get_token_type(token.tag_identifier);
@@ -345,6 +340,7 @@ void print_token_tag_type(Token token) {
 }
 
 void print_invalid_token_error(Lexer *lexer, Token token) {
+    // TODO: refactor this function
     u32 i;
 
     u32 highlight_start = token.string.data - lexer->content.data;
@@ -546,37 +542,25 @@ typedef struct {
     u8 top;
 } Stack;
 
-boolean is_self_closing_tag(TokenType token_type) {
-    switch (token_type) {
-        case TOKEN_SLOT:
-            return true;
-        case TOKEN_VAL:
-            return true;
-        default:
-            return false;
-    }
-}
-
-void print_tag_error(Lexer *lexer, char error[], char hint[], ChildSiblingNode *parent) {
-    char *content_end = lexer->content.data + lexer->content.length;
+void print_tag_error(String content, char error[], String file_path, String tag_identifier, u32 line_number) {
+    char *content_end = content.data + content.length;
 
     printf("%s:\n", error);
-    printf("    \033[90m(Hint) %s.\033[0m\n", hint);
-    printf("    file: %.*s\n", (int)parent->file_path.length, parent->file_path.data);
-    printf("    line: %d\n", parent->line_number);
+    printf("    file: %.*s\n", (int)file_path.length, file_path.data);
+    printf("    line: %d\n", line_number);
     printf("\n");
-    char *bol = find_bol(parent->tag_identifier.data, lexer->content.data);
-    if (parent->line_number > 1) {
-        char *prev_bol = find_bol(bol - 2, lexer->content.data);
+    char *bol = find_bol(tag_identifier.data, content.data);
+    if (line_number > 1) {
+        char *prev_bol = find_bol(bol - 2, content.data);
         u32 prev_line_length = (bol - 1) - prev_bol;
-        printf("    %d|  %.*s\n", parent->line_number - 1, prev_line_length, prev_bol);
+        printf("    %d|  %.*s\n", line_number - 1, prev_line_length, prev_bol);
     }
     char *eol = find_eol(bol, content_end);
 
-    printf("    %d|  ", parent->line_number);
+    printf("    %d|  ", line_number);
     char *p = bol;
     while (p < eol) {
-        if (p >= parent->tag_identifier.data && p < parent->tag_identifier.data + parent->tag_identifier.length) {
+        if (p >= tag_identifier.data && p < tag_identifier.data + tag_identifier.length) {
             // ANSI escape codes for highlighting (red background)
             printf("\033[41m%c\033[0m", *p);
         } else {
@@ -589,18 +573,15 @@ void print_tag_error(Lexer *lexer, char error[], char hint[], ChildSiblingNode *
 
     if (eol < content_end) {
         char *next_bol = eol + 1;
-        char *next_eol = find_eol(next_bol, lexer->content.data + lexer->content.length);
+        char *next_eol = find_eol(next_bol, content.data + content.length);
         u32 next_line_length = next_eol - next_bol;
-        printf("    %d|  %.*s\n", parent->line_number + 1, next_line_length, next_bol);
+        printf("    %d|  %.*s\n", line_number + 1, next_line_length, next_bol);
     }
 
     printf("\n");
 }
 
-#define ERR_MSG_MAX 128
-typedef char ErrorMsg[ERR_MSG_MAX];
-
-void tree_traverse_error_checking(Lexer *lexer, ChildSiblingNode *node, ChildSiblingNode *parent, u32 *error_count) {
+void tree_traverse_error_checking(String content, ChildSiblingNode *node, u32 *error_count) {
     u32 i;
 
     boolean has_name_attr = false;
@@ -614,10 +595,7 @@ void tree_traverse_error_checking(Lexer *lexer, ChildSiblingNode *node, ChildSib
     }
 
     if (node->token_type != TOKEN_COMPONENT_IMPORT && other_attrs_count) {
-        // only TOKEN_COMPONENT_IMPORT may contain other attrs than the name attr
-
-        char *content_end = lexer->content.data + lexer->content.length;
-
+        char *content_end = content.data + content.length;
         printf("Invalid attribute(s) for %.*s tag:\n", (int)node->tag_identifier.length, node->tag_identifier.data);
         printf("    \033[90m(Hint) Only x-component tag can have attributes other than the name attribute.\033[0m\n");
         printf("    file: %.*s\n", (int)node->file_path.length, node->file_path.data);
@@ -630,9 +608,9 @@ void tree_traverse_error_checking(Lexer *lexer, ChildSiblingNode *node, ChildSib
                 continue;
             }
 
-            char *bol = find_bol(node->tag_identifier.data, lexer->content.data);
+            char *bol = find_bol(node->tag_identifier.data, content.data);
             if (node->line_number > 1) {
-                char *prev_bol = find_bol(bol - 2, lexer->content.data);
+                char *prev_bol = find_bol(bol - 2, content.data);
                 u32 prev_line_length = (bol - 1) - prev_bol;
                 printf("    %d|  %.*s\n", node->line_number - 1, prev_line_length, prev_bol);
             }
@@ -642,7 +620,6 @@ void tree_traverse_error_checking(Lexer *lexer, ChildSiblingNode *node, ChildSib
             char *p = bol;
             while (p < eol) {
                 if (p >= attribute->name.data && p < attribute->value.data + attribute->value.length + 1) {
-                    // ANSI escape codes for highlighting (red background)
                     printf("\033[41m%c\033[0m", *p);
                 } else {
                     printf("%c", *p);
@@ -654,7 +631,7 @@ void tree_traverse_error_checking(Lexer *lexer, ChildSiblingNode *node, ChildSib
 
             if (eol < content_end) {
                 char *next_bol = eol + 1;
-                char *next_eol = find_eol(next_bol, lexer->content.data + lexer->content.length);
+                char *next_eol = find_eol(next_bol, content.data + content.length);
                 u32 next_line_length = next_eol - next_bol;
                 printf("    %d|  %.*s\n", node->line_number + 1, next_line_length, next_bol);
             }
@@ -662,82 +639,110 @@ void tree_traverse_error_checking(Lexer *lexer, ChildSiblingNode *node, ChildSib
             printf("\n");
             *error_count += 1;
         }
-
-        // ASSERT(0);
     }
 
     if (!has_name_attr) {
-        ErrorMsg error = {0};
-        sprintf(error, "Invalid %.*s tag", (int)node->tag_identifier.length, node->tag_identifier.data);
+        char error[] = "All tags must contain a name attribute";
 
-        ErrorMsg hint = {0};
-        sprintf(hint, "All tags must contain a name attribute");
-
-        print_tag_error(lexer, error, hint, node);
-
+        print_tag_error(content, error, node->file_path, node->tag_identifier, node->line_number);
         *error_count += 1;
-        // ASSERT(0);
     }
 
-    if (parent) {
-        if (node->token_type == TOKEN_INSERT) {
-            if (parent->token_type != TOKEN_COMPONENT_IMPORT) {
-                ErrorMsg error = {0};
-                sprintf(error, "Invalid x-insert tag");
+    switch (node->token_type) {
+        case TOKEN_COMPONENT_DEFINITION: {
+            ChildSiblingNode *child = node->first_child;
+            while (child) {
+                if (child->token_type == TOKEN_INSERT) {
+                    char error[] = "x-insert can not be direct child of x-component-def, it can only be direct child of x-component";
 
-                ErrorMsg hint = {0};
-                sprintf(hint, "x-insert tags must be placed as direct chidren to x-component tags");
-
-                print_tag_error(lexer, error, hint, node);
-
-                *error_count += 1;
-                // ASSERT(0);
-            }
-
-            ChildSiblingNode *next_sibling = parent->first_child;
-            while (next_sibling) {
-                if (next_sibling != node) {
-                    if (next_sibling->token_type != TOKEN_INSERT) {
-                        ErrorMsg error = {0};
-                        sprintf(error, "Invalid %.*s tag", (int)next_sibling->tag_identifier.length, next_sibling->tag_identifier.data);
-
-                        ErrorMsg hint = {0};
-                        sprintf(hint, "Only x-insert tags can be direct children to x-component tags");
-
-                        print_tag_error(lexer, error, hint, next_sibling);
-
-                        *error_count += 1;
-                        // ASSERT(0);
-                    }
+                    print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                    *error_count += 1;
                 }
 
-                next_sibling = next_sibling->next_sibling;
+                child = child->next_sibling;
             }
 
-        } else {
-            if (is_self_closing_tag(parent->token_type)) {
-                // tag parent->tag_identifier can not have children, must be self-closed
+            break;
+        }
+        case TOKEN_COMPONENT_IMPORT: {
+            ChildSiblingNode *child = node->first_child;
+            while (child) {
+                if (child->token_type != TOKEN_INSERT) {
+                    char error[] = "x-component can only have direct child x-insert";
 
-                ErrorMsg error = {0};
-                sprintf(error, "Invalid opening tag for %.*s", (int)parent->tag_identifier.length, parent->tag_identifier.data);
+                    print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                    *error_count += 1;
+                }
 
-                ErrorMsg hint = {0};
-                sprintf(hint, "%.*s tags must be self-closing", (int)parent->tag_identifier.length, parent->tag_identifier.data);
+                child = child->next_sibling;
+            }
 
-                print_tag_error(lexer, error, hint, parent);
+            break;
+        }
+        case TOKEN_SLOT: {
+            ChildSiblingNode *child = node->first_child;
+            if (child) {
+                char error[] = "x-slot can't have any children";
 
+                print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
                 *error_count += 1;
-                // ASSERT(0);
             }
+
+            break;
+        }
+        case TOKEN_INSERT: {
+            ChildSiblingNode *child = node->first_child;
+            while (child) {
+                if (child->token_type == TOKEN_INSERT) {
+                    char error[] = "x-insert can not be direct child of x-insert, it can only be direct child of x-component";
+
+                    print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                    *error_count += 1;
+                }
+
+                child = child->next_sibling;
+            }
+
+            break;
+        }
+        case TOKEN_VAL: {
+            ChildSiblingNode *child = node->first_child;
+            if (child) {
+                char error[] = "x-val can't have any children";
+
+                print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                *error_count += 1;
+            }
+
+            break;
+        }
+        case TOKEN_FOR: {
+            ChildSiblingNode *child = node->first_child;
+            while (child) {
+                if (child->token_type == TOKEN_INSERT) {
+                    char error[] = "x-insert can not be direct child of x-for, it can only be direct child of x-component";
+
+                    print_tag_error(content, error, child->file_path, child->tag_identifier, child->line_number);
+                    *error_count += 1;
+                }
+
+                child = child->next_sibling;
+            }
+
+            break;
+        }
+        default: {
+            ASSERT(0);
+            break;
         }
     }
 
     if (node->next_sibling) {
-        tree_traverse_error_checking(lexer, node->next_sibling, parent, error_count);
+        tree_traverse_error_checking(content, node->next_sibling, error_count);
     }
 
     if (node->first_child) {
-        tree_traverse_error_checking(lexer, node->first_child, node, error_count);
+        tree_traverse_error_checking(content, node->first_child, error_count);
     }
 }
 
@@ -762,12 +767,12 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
 
         Token token = get_next_token(&lexer);
         while (token.token_type != TOKEN_EOF) {
-            printf("\033[90m%s\033[0m\n", token_to_string(token.token_type));
+            // printf("\033[90m%s\033[0m\n", token_to_string(token.token_type));
 
             if (token.token_type == TOKEN_INVALID) {
                 print_invalid_token_error(&lexer, token);
 
-                ASSERT(0);
+                return;
             }
 
             AttributeArray attributes = {0};
@@ -785,8 +790,13 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
             if (token.token_type == TOKEN_COMPONENT_DEFINITION) {
                 if (token.tag_type == TAG_OPENING) {
                     if (processing_component) {
-                        printf("Can't define a component inside a component\n");
-                        ASSERT(0);
+                        char error[] = "x-component-def can't ever be a child tag, it must always be placed at the top level. "
+                                       "If you think you already placed x-component-def at the top level, check that you did't "
+                                       "leave open a x-component-def earlier in the file";
+
+                        print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+
+                        return;
                     }
 
                     processing_component = true;
@@ -796,27 +806,18 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                     processing_component = false;
 
                     if (parent_pointer_nodes.count) {
-                        // Convert to child-sibling tree
                         ChildSiblingNode *cs_root = convert_to_child_sibling(memory, parent_pointer_nodes.items, parent_pointer_nodes.count);
-                        print_child_sibling_tree(cs_root, 0);
+                        // print_child_sibling_tree(cs_root, 0);
 
-                        // Check for tree errors here by traversing the tree from the top down
                         u32 error_count = 0;
-                        // NOTE: instead of using the parent to check whether the tag is valid, check whether the
-                        //       tag contain any invalid children, this would solve the problem of printing multiple
-                        //       times at line 707 of this code.
-                        tree_traverse_error_checking(&lexer, cs_root, NULL, &error_count);
+                        tree_traverse_error_checking(lexer.content, cs_root, &error_count);
 
-                        // TO DO: enforce
+                        // TODO
                         //  - component imports must refer to a component that actually exists
                         //  - all component import inserts must exist inside the imported component as slots
                         //  - all component import attributes must exist inside the imported component as %replasables%
                         //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
-
-                        printf("\n");
                     }
-
-                    printf("\n");
                 }
             }
 
@@ -856,11 +857,15 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
         }
 
         if (processing_component) {
-            printf("Forgot to close component definition at: %.*s\n", (int)lexer.file_path.length, lexer.file_path.data);
-            ASSERT(0);
-        }
+            char error[] = "Forgot to close x-component-def";
 
-        printf("\n");
+            printf("%s:\n", error);
+            printf("    file: %.*s\n", (int)lexer.file_path.length, lexer.file_path.data);
+            printf("    line: %d\n", lexer.line_number);
+            printf("\n");
+
+            return;
+        }
     }
 
     return;

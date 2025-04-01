@@ -1,17 +1,26 @@
 <x-component-def name="test">
-    <x-component name="ccom">
-        <x-val name="val_2" />
-        <x-val name="val_1" />
-        <x-insert name="insert_1">
-            <x-val name="val_2" />
+    <x-val name="cfffffcom">
+        <x-insert name="fijfj">
+            <x-component name="ccom">
+                <x-val name="val_2" />
+                <x-val name="val_1" />
+                <x-insert name="insert_1">
+                    <x-val name="val_2">
+                        <x-val name="val_5" />
+                    </x-val>
+                    <x-slot name="val_2">
+                        <x-val name="val_56" />
+                    </x-slot>
+                </x-insert>
+                <x-insert name="insert_2">
+                    <x-val name="val_3" />
+                </x-insert>
+                <x-insert name="insert_2">
+                    <x-val name="val_3" />
+                </x-insert>
+            </x-component>
         </x-insert>
-        <x-insert name="insert_2">
-            <x-val name="val_3" />
-        </x-insert>
-        <x-insert name="insert_2">
-            <x-val name="val_3" />
-        </x-insert>
-    </x-component>
+    </x-val>
 </x-component-def>
 
 <x-component-def name="text_input">

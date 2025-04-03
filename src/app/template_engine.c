@@ -67,6 +67,7 @@ struct ChildSiblingNode {
     TokenType token_type;
     String tag_identifier;
     u32 line_number;
+    u32 name_attr_index;
     AttributeArray attributes;
     ChildSiblingNode *first_child;
     ChildSiblingNode *next_sibling;
@@ -86,6 +87,35 @@ typedef struct {
     StackElement data[STACK_CAPACITY];
     u8 top;
 } Stack;
+
+#define MAX_COMPONENTS_COUNT 128
+
+#define MAX_TAG_NAME_LENGTH 32
+typedef char TagName[MAX_TAG_NAME_LENGTH]; // 2 of these fit nicely in a 64 bytes cache line
+
+typedef struct {
+    TagName *names;
+    u32 count;
+} LookupSlots;
+
+typedef struct {
+    TagName *names;
+    u32 count;
+} LookupInserts;
+
+typedef struct {
+    TagName *names;
+    LookupInserts *inserts;
+    u32 count;
+} LookupImports;
+
+typedef struct {
+    TagName names[MAX_COMPONENTS_COUNT];
+    ChildSiblingNode *nodes[MAX_COMPONENTS_COUNT];
+    LookupImports *imports[MAX_COMPONENTS_COUNT];
+    LookupSlots *slots[MAX_COMPONENTS_COUNT];
+    u32 count;
+} LookupComponents;
 
 char *peek(Lexer *lexer) { return &lexer->content.data[lexer->cursor]; }
 
@@ -493,7 +523,7 @@ void print_tag_error(String content, char error[], String file_path, String tag_
     printf("\n");
 }
 
-void tree_traverse_error_checking(String content, String file_path, ChildSiblingNode *node, u32 *error_count) {
+void tree_traverse_error_checking(String content, String file_path, ChildSiblingNode *node, u32 *import_count, u32 *slot_count, u32 *error_count) {
     u32 i;
 
     boolean has_name_attr = false;
@@ -501,6 +531,11 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
     for (i = 0; i < node->attributes.count; i++) {
         if (strncmp("name", node->attributes.attribute[i].name.data, node->attributes.attribute[i].name.length) == 0) {
             has_name_attr = true;
+            node->name_attr_index = i;
+            if (node->attributes.attribute[i].name.length >= MAX_TAG_NAME_LENGTH) {
+                printf("value for name attribute (aka tag name) should be max MAX_TAG_NAME_LENGTH(%d)\n", MAX_TAG_NAME_LENGTH);
+                ASSERT(0);
+            }
         } else {
             other_attrs_count += 1;
         }
@@ -589,6 +624,8 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
                 child = child->next_sibling;
             }
 
+            *import_count += 1;
+
             break;
         }
         case TOKEN_SLOT: {
@@ -599,6 +636,8 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
                 print_tag_error(content, error, file_path, node->tag_identifier, node->line_number);
                 *error_count += 1;
             }
+
+            *slot_count += 1;
 
             break;
         }
@@ -650,15 +689,58 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
     }
 
     if (node->next_sibling) {
-        tree_traverse_error_checking(content, file_path, node->next_sibling, error_count);
+        tree_traverse_error_checking(content, file_path, node->next_sibling, import_count, slot_count, error_count);
     }
 
     if (node->first_child) {
-        tree_traverse_error_checking(content, file_path, node->first_child, error_count);
+        tree_traverse_error_checking(content, file_path, node->first_child, import_count, slot_count, error_count);
+    }
+}
+
+void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupImports *imports, LookupSlots *slots) {
+    if (node->token_type == TOKEN_SLOT) {
+        memcpy(slots->names[slots->count], node->attributes.attribute[node->name_attr_index].value.data, node->attributes.attribute[node->name_attr_index].value.length);
+        slots->count += 1;
+    }
+
+    if (node->token_type == TOKEN_COMPONENT_IMPORT) {
+        memcpy(imports->names[imports->count], node->attributes.attribute[node->name_attr_index].value.data, node->attributes.attribute[node->name_attr_index].value.length);
+
+        u32 child_count = 0;
+        ChildSiblingNode *child = node->first_child;
+        while (child) {
+            child_count += 1;
+            child = child->next_sibling;
+        }
+
+        if (child_count) {
+            imports->inserts = memory_alloc(memory, sizeof(LookupInserts));
+            imports->inserts[imports->inserts->count].names = memory_alloc(memory, sizeof(TagName) * child_count);
+
+            child = node->first_child;
+            while (child) {
+                memcpy(imports->inserts[imports->inserts->count].names[imports->inserts[imports->inserts->count].count], child->attributes.attribute[child->name_attr_index].value.data, child->attributes.attribute[child->name_attr_index].value.length);
+                imports->inserts[imports->inserts->count].count += 1;
+
+                child = child->next_sibling;
+            }
+        }
+
+        imports->count += 1;
+    }
+
+    if (node->next_sibling) {
+        tree_traverse_make_lookup(memory, node->next_sibling, imports, slots);
+    }
+
+    if (node->first_child) {
+        tree_traverse_make_lookup(memory, node->first_child, imports, slots);
     }
 }
 
 void build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
+    LookupComponents lookup_components = {0};
+
     size_t i;
     for (i = 0; i < asset_list.count; i++) {
         if (!is_html_path(asset_list.asset_list[i])) {
@@ -724,13 +806,70 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                         // print_child_sibling_tree(cs_root, 0);
 
                         u32 error_count = 0;
-                        tree_traverse_error_checking(lexer.content, lexer.file_path, cs_root, &error_count);
 
-                        // TODO
-                        //  - component imports must refer to a component that actually exists
-                        //  - all component import inserts must exist inside the imported component as slots
-                        //  - all component import attributes must exist inside the imported component as %replasables%
-                        //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
+                        u32 import_count = 0;
+                        u32 slot_count = 0;
+
+                        tree_traverse_error_checking(lexer.content, lexer.file_path, cs_root, &import_count, &slot_count, &error_count);
+
+                        if (error_count) {
+                            printf("%d errors.\n", error_count);
+                            // return;
+                        }
+
+                        if (lookup_components.count > MAX_COMPONENTS_COUNT) {
+                            printf("no more space for components");
+                            ASSERT(0);
+                        }
+
+                        memcpy(lookup_components.names[lookup_components.count], cs_root->attributes.attribute[cs_root->name_attr_index].value.data, cs_root->attributes.attribute[cs_root->name_attr_index].value.length);
+                        lookup_components.nodes[lookup_components.count] = cs_root;
+
+                        if (import_count) {
+                            lookup_components.imports[lookup_components.count] = memory_alloc(memory, sizeof(LookupImports));
+                            lookup_components.imports[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * import_count);
+                        }
+
+                        if (slot_count) {
+                            lookup_components.slots[lookup_components.count] = memory_alloc(memory, sizeof(LookupImports));
+                            lookup_components.slots[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * import_count);
+                        }
+
+                        tree_traverse_make_lookup(memory, cs_root, lookup_components.imports[lookup_components.count], lookup_components.slots[lookup_components.count]);
+
+                        u32 num = lookup_components.count;
+                        printf("Component %s:\n", lookup_components.names[num]);
+                        if (lookup_components.slots[num]) {
+                            printf("    has %d slots: ", lookup_components.slots[num]->count);
+                            u32 j;
+                            for (j = 0; j < lookup_components.slots[num]->count; j++) {
+                                printf("%s", lookup_components.slots[num]->names[j]);
+
+                                if ((j + 1) != lookup_components.slots[num]->count) {
+                                    printf(", ");
+                                }
+                            }
+                            printf("\n");
+                        }
+
+                        if (lookup_components.imports[num]) {
+                            printf("    has %d imports: ", lookup_components.imports[num]->count);
+                            u32 j;
+                            for (j = 0; j < lookup_components.imports[num]->count; j++) {
+                                printf("%s", lookup_components.imports[num]->names[j]);
+
+                                if ((j + 1) != lookup_components.imports[num]->count) {
+                                    printf(", ");
+                                }
+                            }
+                            printf("\n");
+                        }
+
+                        printf("\n");
+
+                        lookup_components.count += 1;
+
+                        printf("\n");
                     }
                 }
             }
@@ -781,6 +920,11 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
             return;
         }
     }
+
+    //  - component imports must refer to a component that actually exists
+    //  - all component import inserts must exist inside the imported component as slots
+    //  - all component import attributes must exist inside the imported component as %replasables%
+    //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
 
     return;
 }

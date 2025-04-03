@@ -5,6 +5,7 @@
 
 typedef struct {
     size_t size;
+    size_t used;
     void *start;
     void *current;
     boolean in_use;

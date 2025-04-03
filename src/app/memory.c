@@ -12,7 +12,8 @@ Memory *memory_setup(void *raw_memory, size_t size) {
 
     memory->size = size;
     memory->start = memory;
-    memory->current = (char *)memory + sizeof(Memory);
+    memory->current = (u8 *)memory + sizeof(Memory);
+    memory->used = (u8 *)memory->current - (u8 *)memory->start;
 
     return memory;
 }
@@ -26,6 +27,7 @@ void *memory_alloc(Memory *memory, size_t size) {
 
     void *ptr = memory->current;
     memory->current = (u8 *)memory->current + size;
+    memory->used += size;
 
     return ptr;
 }
@@ -47,4 +49,5 @@ void memory_reset(Memory *memory, u8 *ptr) {
     memset(ptr, 0, set_bytes);
 
     memory->current = ptr;
+    memory->used = (u8 *)memory->current - (u8 *)memory->start;
 }

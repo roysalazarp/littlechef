@@ -71,7 +71,7 @@ typedef struct {
 typedef struct {
     String *asset_list;
     String *asset_list_content;
-    size_t count;
+    u32 count;
 } AssetList;
 
 /* clang-format off */

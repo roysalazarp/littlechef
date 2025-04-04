@@ -809,7 +809,7 @@ u32 find_component_index(TagName component_names[], u32 count, char *name) {
 void build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
     LookupComponents lookup_components = {0};
 
-    size_t i;
+    u32 i;
     for (i = 0; i < asset_list.count; i++) {
         if (!is_html_path(asset_list.asset_list[i])) {
             continue;
@@ -963,17 +963,16 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
     //  - all component import attributes must exist inside the imported component as %replasables%
     //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
 
-    u32 j;
-    for (j = 0; j < lookup_components.count; j++) {
-        print_component_lookup(&lookup_components, j);
-        char *component_name = lookup_components.names[j];
+    for (i = 0; i < lookup_components.count; i++) {
+        print_component_lookup(&lookup_components, i);
+        char *component_name = lookup_components.names[i];
 
-        if (lookup_components.imports[j]) {
-            u32 num_imports = lookup_components.imports[j]->count;
+        if (lookup_components.imports[i]) {
+            u32 num_imports = lookup_components.imports[i]->count;
 
-            u32 k;
-            for (k = 0; k < num_imports; k++) {
-                char *import = lookup_components.imports[j]->names[k];
+            u32 j;
+            for (j = 0; j < num_imports; j++) {
+                char *import = lookup_components.imports[i]->names[j];
                 if (strncmp(component_name, import, strlen(import)) == 0) {
                     printf("Error: Component %s is importing itself\n", import);
                     ASSERT(0);
@@ -983,19 +982,19 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                 u32 imported_component_index = find_component_index(lookup_components.names, lookup_components.count, import);
 
                 // check that imported components do contain inserts as slots
-                u32 insert_count = lookup_components.imports[j]->inserts[k].count;
-                LookupInserts *inserts = &lookup_components.imports[j]->inserts[k];
-                u32 h;
-                for (h = 0; h < insert_count; h++) {
-                    char *insert = inserts->names[h];
+                u32 insert_count = lookup_components.imports[i]->inserts[j].count;
+                LookupInserts *inserts = &lookup_components.imports[i]->inserts[j];
+                u32 k;
+                for (k = 0; k < insert_count; k++) {
+                    char *insert = inserts->names[k];
 
                     u32 imported_component_slot_index = 9999;
 
                     if (lookup_components.slots[imported_component_index]) {
-                        u32 f;
-                        for (f = 0; f < lookup_components.slots[imported_component_index]->count; f++) {
-                            if (strncmp(lookup_components.slots[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
-                                imported_component_slot_index = f;
+                        u32 h;
+                        for (h = 0; h < lookup_components.slots[imported_component_index]->count; h++) {
+                            if (strncmp(lookup_components.slots[imported_component_index]->names[h], insert, strlen(insert)) == 0) {
+                                imported_component_slot_index = h;
                                 break;
                             }
                         }

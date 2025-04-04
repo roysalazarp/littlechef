@@ -48,13 +48,8 @@ Memory *initialise_memory(size_t size) {
     return memory;
 }
 
-typedef struct {
-    char *str;
-    u64 count;
-} StrArray;
-
 #define MAX_ASSET_FILES 72
-void locate_files(Memory *memory, String *asset_paths, char base_path[], u64 *count) {
+void locate_files(Memory *memory, String *asset_paths, char base_path[], u32 *count) {
     DIR *dir = opendir(base_path);
     ASSERT(dir != NULL);
 
@@ -113,7 +108,7 @@ void initialise_web_server_resources(Memory *memory) {
     Memory *assets_memory = initialise_memory(PAGE_SIZE * 50);
 
     String *asset_paths = memory_alloc(assets_memory, sizeof(String) * MAX_ASSET_FILES);
-    u64 count = 0;
+    u32 count = 0;
     locate_files(assets_memory, asset_paths, ASSETS_FULLPATH, &count);
 
     String *assets_content = memory_alloc(assets_memory, sizeof(String) * count);

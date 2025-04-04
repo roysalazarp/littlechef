@@ -31,7 +31,7 @@ typedef char StrNumber[10];
 typedef char *ValidationError;
 
 void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, AssetList asset_list) {
-    size_t i;
+    u32 i;
     size_t j;
 
     // To access data stored in the web server persisted memory block.

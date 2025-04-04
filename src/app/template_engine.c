@@ -747,7 +747,8 @@ void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupCom
 }
 
 void print_component_lookup(LookupComponents *lookup_components, u32 i) {
-    printf("Component %s:\n", lookup_components->names[i]);
+    printf("Component %s\n", lookup_components->names[i]);
+
     if (lookup_components->slots[i]) {
         LookupSlots *slots = lookup_components->slots[i];
         printf("    has %d slots: ", slots->count);
@@ -770,10 +771,10 @@ void print_component_lookup(LookupComponents *lookup_components, u32 i) {
             printf("%s", imports->names[j]);
             if (imports->inserts[j].count) {
                 LookupInserts *inserts = &(imports->inserts[j]);
-                printf("( ");
+                printf("(");
                 u32 k;
                 for (k = 0; k < inserts->count; k++) {
-                    printf("%s ", inserts->names[k]);
+                    printf("%s", inserts->names[k]);
 
                     if ((k + 1) != inserts->count) {
                         printf(", ");

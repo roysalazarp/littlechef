@@ -697,13 +697,19 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
     }
 }
 
-void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupImports *imports, LookupSlots *slots) {
+void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupComponents *lookup_components) {
+    u32 current_component_index = lookup_components->count;
+
     if (node->token_type == TOKEN_SLOT) {
+        LookupSlots *slots = lookup_components->slots[current_component_index];
+
         memcpy(slots->names[slots->count], node->attributes.attribute[node->name_attr_index].value.data, node->attributes.attribute[node->name_attr_index].value.length);
         slots->count += 1;
     }
 
     if (node->token_type == TOKEN_COMPONENT_IMPORT) {
+        LookupImports *imports = lookup_components->imports[current_component_index];
+
         memcpy(imports->names[imports->count], node->attributes.attribute[node->name_attr_index].value.data, node->attributes.attribute[node->name_attr_index].value.length);
 
         u32 child_count = 0;
@@ -713,14 +719,16 @@ void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupImp
             child = child->next_sibling;
         }
 
+        LookupInserts *inserts = &(imports->inserts[imports->count]);
+
         if (child_count) {
-            imports->inserts = memory_alloc(memory, sizeof(LookupInserts));
-            imports->inserts[imports->inserts->count].names = memory_alloc(memory, sizeof(TagName) * child_count);
+            inserts->names = memory_alloc(memory, sizeof(TagName) * child_count);
 
             child = node->first_child;
             while (child) {
-                memcpy(imports->inserts[imports->inserts->count].names[imports->inserts[imports->inserts->count].count], child->attributes.attribute[child->name_attr_index].value.data, child->attributes.attribute[child->name_attr_index].value.length);
-                imports->inserts[imports->inserts->count].count += 1;
+
+                memcpy(inserts->names[inserts->count], child->attributes.attribute[child->name_attr_index].value.data, child->attributes.attribute[child->name_attr_index].value.length);
+                inserts->count += 1;
 
                 child = child->next_sibling;
             }
@@ -730,12 +738,72 @@ void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupImp
     }
 
     if (node->next_sibling) {
-        tree_traverse_make_lookup(memory, node->next_sibling, imports, slots);
+        tree_traverse_make_lookup(memory, node->next_sibling, lookup_components);
     }
 
     if (node->first_child) {
-        tree_traverse_make_lookup(memory, node->first_child, imports, slots);
+        tree_traverse_make_lookup(memory, node->first_child, lookup_components);
     }
+}
+
+void print_component_lookup(LookupComponents *lookup_components, u32 i) {
+    printf("Component %s:\n", lookup_components->names[i]);
+    if (lookup_components->slots[i]) {
+        LookupSlots *slots = lookup_components->slots[i];
+        printf("    has %d slots: ", slots->count);
+        u32 j;
+        for (j = 0; j < slots->count; j++) {
+            printf("%s", slots->names[j]);
+
+            if ((j + 1) != slots->count) {
+                printf(", ");
+            }
+        }
+        printf("\n");
+    }
+
+    if (lookup_components->imports[i]) {
+        LookupImports *imports = lookup_components->imports[i];
+        printf("    has %d imports: ", imports->count);
+        u32 j;
+        for (j = 0; j < imports->count; j++) {
+            printf("%s", imports->names[j]);
+            if (imports->inserts[j].count) {
+                LookupInserts *inserts = &(imports->inserts[j]);
+                printf("( ");
+                u32 k;
+                for (k = 0; k < inserts->count; k++) {
+                    printf("%s ", inserts->names[k]);
+
+                    if ((k + 1) != inserts->count) {
+                        printf(", ");
+                    }
+                }
+                printf(")");
+            }
+
+            if ((j + 1) != imports->count) {
+                printf(", ");
+            }
+        }
+        printf("\n");
+    }
+
+    printf("\n");
+}
+
+u32 find_component_index(TagName component_names[], u32 count, char *name) {
+    u32 i;
+    for (i = 0; i < count; i++) {
+        if (strncmp(component_names[i], name, strlen(name)) == 0) {
+            return i;
+        }
+    }
+
+    printf("Component %s not found\n", name);
+    ASSERT(0);
+
+    return 9999;
 }
 
 void build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
@@ -773,7 +841,7 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
 
             AttributeArray attributes = {0};
 
-            Attribute *attribute = memory_alloc(memory, sizeof(Attribute));
+            Attribute *attribute = memory_alloc(memory, sizeof(Attribute)); //
             *attribute = get_next_attribute(&lexer);
             attributes.attribute = attribute;
             while (attribute->name.data != NULL) {
@@ -828,48 +896,17 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                         if (import_count) {
                             lookup_components.imports[lookup_components.count] = memory_alloc(memory, sizeof(LookupImports));
                             lookup_components.imports[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * import_count);
+                            lookup_components.imports[lookup_components.count]->inserts = memory_alloc(memory, sizeof(LookupInserts) * import_count);
                         }
 
                         if (slot_count) {
                             lookup_components.slots[lookup_components.count] = memory_alloc(memory, sizeof(LookupImports));
-                            lookup_components.slots[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * import_count);
+                            lookup_components.slots[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * slot_count);
                         }
 
-                        tree_traverse_make_lookup(memory, cs_root, lookup_components.imports[lookup_components.count], lookup_components.slots[lookup_components.count]);
-
-                        u32 num = lookup_components.count;
-                        printf("Component %s:\n", lookup_components.names[num]);
-                        if (lookup_components.slots[num]) {
-                            printf("    has %d slots: ", lookup_components.slots[num]->count);
-                            u32 j;
-                            for (j = 0; j < lookup_components.slots[num]->count; j++) {
-                                printf("%s", lookup_components.slots[num]->names[j]);
-
-                                if ((j + 1) != lookup_components.slots[num]->count) {
-                                    printf(", ");
-                                }
-                            }
-                            printf("\n");
-                        }
-
-                        if (lookup_components.imports[num]) {
-                            printf("    has %d imports: ", lookup_components.imports[num]->count);
-                            u32 j;
-                            for (j = 0; j < lookup_components.imports[num]->count; j++) {
-                                printf("%s", lookup_components.imports[num]->names[j]);
-
-                                if ((j + 1) != lookup_components.imports[num]->count) {
-                                    printf(", ");
-                                }
-                            }
-                            printf("\n");
-                        }
-
-                        printf("\n");
+                        tree_traverse_make_lookup(memory, cs_root, &lookup_components);
 
                         lookup_components.count += 1;
-
-                        printf("\n");
                     }
                 }
             }
@@ -925,6 +962,52 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
     //  - all component import inserts must exist inside the imported component as slots
     //  - all component import attributes must exist inside the imported component as %replasables%
     //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
+
+    u32 j;
+    for (j = 0; j < lookup_components.count; j++) {
+        print_component_lookup(&lookup_components, j);
+        char *component_name = lookup_components.names[j];
+
+        if (lookup_components.imports[j]) {
+            u32 num_imports = lookup_components.imports[j]->count;
+
+            u32 k;
+            for (k = 0; k < num_imports; k++) {
+                char *import = lookup_components.imports[j]->names[k];
+                if (strncmp(component_name, import, strlen(import)) == 0) {
+                    printf("Error: Component %s is importing itself\n", import);
+                    ASSERT(0);
+                }
+
+                // check that imported components actually exist
+                u32 imported_component_index = find_component_index(lookup_components.names, lookup_components.count, import);
+
+                // check that imported components do contain inserts as slots
+                u32 insert_count = lookup_components.imports[j]->inserts[k].count;
+                LookupInserts *inserts = &lookup_components.imports[j]->inserts[k];
+                u32 h;
+                for (h = 0; h < insert_count; h++) {
+                    char *insert = inserts->names[h];
+
+                    u32 imported_component_slot_index = 9999;
+
+                    if (lookup_components.slots[imported_component_index]) {
+                        u32 f;
+                        for (f = 0; f < lookup_components.slots[imported_component_index]->count; f++) {
+                            if (strncmp(lookup_components.slots[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
+                                imported_component_slot_index = f;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (imported_component_slot_index == 9999) {
+                        ASSERT(0);
+                    }
+                }
+            }
+        }
+    }
 
     return;
 }

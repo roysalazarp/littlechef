@@ -793,20 +793,6 @@ void print_component_lookup(LookupComponents *lookup_components, u32 i) {
     printf("\n");
 }
 
-u32 find_component_index(TagName component_names[], u32 count, char *name) {
-    u32 i;
-    for (i = 0; i < count; i++) {
-        if (strncmp(component_names[i], name, strlen(name)) == 0) {
-            return i;
-        }
-    }
-
-    printf("Component %s not found\n", name);
-    ASSERT(0);
-
-    return 9999;
-}
-
 void build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
     LookupComponents lookup_components = {0};
 
@@ -980,22 +966,34 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                 }
 
                 // check that imported components actually exist
-                u32 imported_component_index = find_component_index(lookup_components.names, lookup_components.count, import);
+                u32 imported_component_index = 9999;
+
+                u32 k;
+                for (k = 0; k < lookup_components.count; k++) {
+                    if (strncmp(lookup_components.names[k], import, strlen(import)) == 0) {
+                        imported_component_index = k;
+                        break;
+                    }
+                }
+
+                if (imported_component_index == 9999) {
+                    ASSERT(0);
+                }
 
                 // check that imported components do contain inserts as slots
                 u32 insert_count = lookup_components.imports[i]->inserts[j].count;
                 LookupInserts *inserts = &lookup_components.imports[i]->inserts[j];
-                u32 k;
-                for (k = 0; k < insert_count; k++) {
-                    char *insert = inserts->names[k];
+                u32 h;
+                for (h = 0; h < insert_count; h++) {
+                    char *insert = inserts->names[h];
 
                     u32 imported_component_slot_index = 9999;
 
                     if (lookup_components.slots[imported_component_index]) {
-                        u32 h;
-                        for (h = 0; h < lookup_components.slots[imported_component_index]->count; h++) {
-                            if (strncmp(lookup_components.slots[imported_component_index]->names[h], insert, strlen(insert)) == 0) {
-                                imported_component_slot_index = h;
+                        u32 f;
+                        for (f = 0; f < lookup_components.slots[imported_component_index]->count; f++) {
+                            if (strncmp(lookup_components.slots[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
+                                imported_component_slot_index = f;
                                 break;
                             }
                         }

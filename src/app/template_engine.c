@@ -95,25 +95,29 @@ typedef char TagName[MAX_TAG_NAME_LENGTH]; // 2 of these fit nicely in a 64 byte
 
 typedef struct {
     TagName *names;
+    ChildSiblingNode **nodes;
     u32 count;
 } LookupSlots;
 
 typedef struct {
     TagName *names;
+    ChildSiblingNode **nodes;
     u32 count;
 } LookupInserts;
 
 typedef struct {
     TagName *names;
+    ChildSiblingNode **nodes;
     LookupInserts *inserts;
     u32 count;
 } LookupImports;
 
 typedef struct {
     TagName names[MAX_COMPONENTS_COUNT];
-    ChildSiblingNode *nodes[MAX_COMPONENTS_COUNT];
     LookupImports *imports[MAX_COMPONENTS_COUNT];
     LookupSlots *slots[MAX_COMPONENTS_COUNT];
+    String file_paths[MAX_COMPONENTS_COUNT];
+    String contents[MAX_COMPONENTS_COUNT];
     u32 count;
 } LookupComponents;
 
@@ -523,6 +527,40 @@ void print_tag_error(String content, char error[], String file_path, String tag_
     printf("\n");
 }
 
+void print_tag_attr_error(String content, ChildSiblingNode *node, Attribute attribute) {
+    char *content_end = content.data + content.length;
+
+    char *bol = find_bol(node->tag_identifier.data, content.data);
+    if (node->line_number > 1) {
+        char *prev_bol = find_bol(bol - 2, content.data);
+        u32 prev_line_length = (bol - 1) - prev_bol;
+        printf("    %d|  %.*s\n", node->line_number - 1, prev_line_length, prev_bol);
+    }
+    char *eol = find_eol(bol, content_end);
+
+    printf("    %d|  ", node->line_number);
+    char *p = bol;
+    while (p < eol) {
+        if (p >= attribute.name.data && p < attribute.value.data + attribute.value.length + 1) {
+            printf("\033[41m%c\033[0m", *p);
+        } else {
+            printf("%c", *p);
+        }
+        p += 1;
+    }
+
+    printf("\n");
+
+    if (eol < content_end) {
+        char *next_bol = eol + 1;
+        char *next_eol = find_eol(next_bol, content.data + content.length);
+        u32 next_line_length = next_eol - next_bol;
+        printf("    %d|  %.*s\n", node->line_number + 1, next_line_length, next_bol);
+    }
+
+    printf("\n");
+}
+
 void tree_traverse_error_checking(String content, String file_path, ChildSiblingNode *node, u32 *import_count, u32 *slot_count, u32 *error_count) {
     u32 i;
 
@@ -543,47 +581,19 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
 
     if (node->token_type != TOKEN_COMPONENT_IMPORT && other_attrs_count) {
         char *content_end = content.data + content.length;
-        printf("Invalid attribute(s) for %.*s tag:\n", (int)node->tag_identifier.length, node->tag_identifier.data);
-        printf("    \033[90m(Hint) Only x-component tag can have attributes other than the name attribute.\033[0m\n");
+        printf("Invalid attribute(s) for %.*s tag, only x-component tag can have attributes other than the name attribute:\n", (int)node->tag_identifier.length, node->tag_identifier.data);
         printf("    file: %.*s\n", (int)file_path.length, file_path.data);
         printf("    line: %d\n", node->line_number);
         printf("\n");
         u32 i;
         for (i = 0; i < node->attributes.count; i++) {
-            Attribute *attribute = &node->attributes.attribute[i];
-            if (strncmp("name", attribute->name.data, attribute->name.length) == 0 && strlen("name") == node->attributes.attribute[i].name.length) {
+            Attribute attribute = node->attributes.attribute[i];
+            if (strncmp("name", attribute.name.data, attribute.name.length) == 0 && strlen("name") == node->attributes.attribute[i].name.length) {
                 continue;
             }
 
-            char *bol = find_bol(node->tag_identifier.data, content.data);
-            if (node->line_number > 1) {
-                char *prev_bol = find_bol(bol - 2, content.data);
-                u32 prev_line_length = (bol - 1) - prev_bol;
-                printf("    %d|  %.*s\n", node->line_number - 1, prev_line_length, prev_bol);
-            }
-            char *eol = find_eol(bol, content_end);
+            print_tag_attr_error(content, node, attribute);
 
-            printf("    %d|  ", node->line_number);
-            char *p = bol;
-            while (p < eol) {
-                if (p >= attribute->name.data && p < attribute->value.data + attribute->value.length + 1) {
-                    printf("\033[41m%c\033[0m", *p);
-                } else {
-                    printf("%c", *p);
-                }
-                p += 1;
-            }
-
-            printf("\n");
-
-            if (eol < content_end) {
-                char *next_bol = eol + 1;
-                char *next_eol = find_eol(next_bol, content.data + content.length);
-                u32 next_line_length = next_eol - next_bol;
-                printf("    %d|  %.*s\n", node->line_number + 1, next_line_length, next_bol);
-            }
-
-            printf("\n");
             *error_count += 1;
         }
     }
@@ -704,6 +714,8 @@ void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupCom
         LookupSlots *slots = lookup_components->slots[current_component_index];
 
         memcpy(slots->names[slots->count], node->attributes.attribute[node->name_attr_index].value.data, node->attributes.attribute[node->name_attr_index].value.length);
+        slots->nodes[slots->count] = node;
+
         slots->count += 1;
     }
 
@@ -711,6 +723,7 @@ void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupCom
         LookupImports *imports = lookup_components->imports[current_component_index];
 
         memcpy(imports->names[imports->count], node->attributes.attribute[node->name_attr_index].value.data, node->attributes.attribute[node->name_attr_index].value.length);
+        imports->nodes[imports->count] = node;
 
         u32 child_count = 0;
         ChildSiblingNode *child = node->first_child;
@@ -723,11 +736,13 @@ void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupCom
 
         if (child_count) {
             inserts->names = memory_alloc(memory, sizeof(TagName) * child_count);
+            inserts->nodes = memory_alloc(memory, sizeof(ChildSiblingNode *) * child_count);
 
             child = node->first_child;
             while (child) {
 
                 memcpy(inserts->names[inserts->count], child->attributes.attribute[child->name_attr_index].value.data, child->attributes.attribute[child->name_attr_index].value.length);
+                inserts->nodes[inserts->count] = child;
                 inserts->count += 1;
 
                 child = child->next_sibling;
@@ -878,17 +893,20 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                         }
 
                         memcpy(lookup_components.names[lookup_components.count], cs_root->attributes.attribute[cs_root->name_attr_index].value.data, cs_root->attributes.attribute[cs_root->name_attr_index].value.length);
-                        lookup_components.nodes[lookup_components.count] = cs_root;
+                        lookup_components.file_paths[lookup_components.count] = lexer.file_path;
+                        lookup_components.contents[lookup_components.count] = lexer.content;
 
                         if (import_count) {
                             lookup_components.imports[lookup_components.count] = memory_alloc(memory, sizeof(LookupImports));
                             lookup_components.imports[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * import_count);
+                            lookup_components.imports[lookup_components.count]->nodes = memory_alloc(memory, sizeof(ChildSiblingNode *) * import_count);
                             lookup_components.imports[lookup_components.count]->inserts = memory_alloc(memory, sizeof(LookupInserts) * import_count);
                         }
 
                         if (slot_count) {
                             lookup_components.slots[lookup_components.count] = memory_alloc(memory, sizeof(LookupImports));
                             lookup_components.slots[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * slot_count);
+                            lookup_components.slots[lookup_components.count]->nodes = memory_alloc(memory, sizeof(ChildSiblingNode *) * slot_count);
                         }
 
                         tree_traverse_make_lookup(memory, cs_root, &lookup_components);
@@ -945,8 +963,6 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
         }
     }
 
-    //  - component imports must refer to a component that actually exists
-    //  - all component import inserts must exist inside the imported component as slots
     //  - all component import attributes must exist inside the imported component as %replasables%
     //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
 
@@ -961,7 +977,13 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
             for (j = 0; j < num_imports; j++) {
                 char *import = lookup_components.imports[i]->names[j];
                 if (strncmp(component_name, import, strlen(import)) == 0) {
-                    printf("Error: Component %s is importing itself\n", import);
+                    char error[] = "Recursive import. Component is importing itself";
+                    printf("%s:\n", error);
+                    printf("    file: %.*s\n", (int)lookup_components.file_paths[i].length, lookup_components.file_paths[i].data);
+                    printf("    line: %d\n", lookup_components.imports[i]->nodes[j]->line_number);
+                    printf("\n");
+                    print_tag_attr_error(lookup_components.contents[i], lookup_components.imports[i]->nodes[j], lookup_components.imports[i]->nodes[j]->attributes.attribute[lookup_components.imports[i]->nodes[j]->name_attr_index]);
+
                     ASSERT(0);
                 }
 
@@ -977,6 +999,13 @@ void build_html_components(Memory *memory, Memory *scratch_memory, AssetList ass
                 }
 
                 if (imported_component_index == 9999) {
+                    char error[] = "Component you are trying to import does not exist";
+                    printf("%s:\n", error);
+                    printf("    file: %.*s\n", (int)lookup_components.file_paths[i].length, lookup_components.file_paths[i].data);
+                    printf("    line: %d\n", lookup_components.imports[i]->nodes[j]->line_number);
+                    printf("\n");
+                    print_tag_attr_error(lookup_components.contents[i], lookup_components.imports[i]->nodes[j], lookup_components.imports[i]->nodes[j]->attributes.attribute[lookup_components.imports[i]->nodes[j]->name_attr_index]);
+
                     ASSERT(0);
                 }
 

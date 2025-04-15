@@ -11,8 +11,6 @@
 #include "./template_engine.h"
 /* clang-format on */
 
-#define STACK_CAPACITY 64
-
 typedef enum { TAG_OPENING, TAG_CLOSING, TAG_SELFCLOSING } TagType;
 
 typedef enum {
@@ -74,7 +72,7 @@ struct ChildSiblingNode {
 };
 
 typedef struct {
-    ParentPointerNode *data[STACK_CAPACITY];
+    ParentPointerNode **data;
     u8 count;
 } NodesStack;
 
@@ -84,11 +82,9 @@ typedef struct {
 } TagStackElement;
 
 typedef struct {
-    TagStackElement data[STACK_CAPACITY];
+    TagStackElement *data;
     u8 count;
 } TagsStack;
-
-#define MAX_COMPONENTS_COUNT 128
 
 #define MAX_TAG_NAME_LENGTH 32
 typedef char TagName[MAX_TAG_NAME_LENGTH]; // 2 of these fit nicely in a 64 bytes cache line
@@ -113,15 +109,16 @@ typedef struct {
 } LookupImports;
 
 typedef struct {
-    TagName names[MAX_COMPONENTS_COUNT];
-    LookupImports *imports[MAX_COMPONENTS_COUNT];
-    LookupSlots *slots[MAX_COMPONENTS_COUNT];
-    String file_paths[MAX_COMPONENTS_COUNT];
-    String contents[MAX_COMPONENTS_COUNT];
+    TagName *names;
+    LookupImports **imports;
+    LookupSlots **slots;
+    String *file_paths;
+    String *contents;
     u32 count;
 } LookupComponents;
 
 char *peek(Lexer *lexer) { return &lexer->content.data[lexer->cursor]; }
+void advance_cursor(Lexer *lexer) { lexer->cursor += 1; }
 
 TokenType get_token_type(String str) {
     char COMPONENT_DEFINITION[] = "x-component-def";
@@ -179,7 +176,7 @@ Attribute get_next_attribute(Lexer *lexer) {
     // <x-foo  name  = " value   " ...
     // ______^^______________________
     while (isspace(*c)) {
-        lexer->cursor += 1;
+        advance_cursor(lexer);
         c = peek(lexer);
     }
 
@@ -209,7 +206,7 @@ Attribute get_next_attribute(Lexer *lexer) {
     while (*c != '>' && !isspace(*c) && *c != '=') {
         attribute.name.length += 1;
 
-        lexer->cursor += 1;
+        advance_cursor(lexer);
         c = peek(lexer);
     }
 
@@ -217,7 +214,7 @@ Attribute get_next_attribute(Lexer *lexer) {
     // <x-foo  name  = " value   " ...
     // ____________^^_________________
     while (*c != '>' && isspace(*c)) {
-        lexer->cursor += 1;
+        advance_cursor(lexer);
         c = peek(lexer);
     }
 
@@ -225,22 +222,22 @@ Attribute get_next_attribute(Lexer *lexer) {
     // <x-foo  name  = " value   " ...
     // ______________^________________
     ASSERT(*c == '=');
-    lexer->cursor += 1; // skip '='
+    advance_cursor(lexer); // skip '='
     c = peek(lexer);
 
     // you get the point by now, same logic applies in the code bellow
 
     while (*c != '>' && isspace(*c)) {
-        lexer->cursor += 1;
+        advance_cursor(lexer);
         c = peek(lexer);
     }
 
     ASSERT(*c == '"');
-    lexer->cursor += 1; // skip double quotes (")
+    advance_cursor(lexer); // skip double quotes (")
     c = peek(lexer);
 
     while (*c != '>' && isspace(*c)) {
-        lexer->cursor += 1;
+        advance_cursor(lexer);
         c = peek(lexer);
     }
 
@@ -249,17 +246,17 @@ Attribute get_next_attribute(Lexer *lexer) {
     while (*c != '>' && *c != '"') {
         attribute.value.length += 1;
 
-        lexer->cursor += 1;
+        advance_cursor(lexer);
         c = peek(lexer);
     }
 
     while (*c != '>' && isspace(*c)) {
-        lexer->cursor += 1;
+        advance_cursor(lexer);
         c = peek(lexer);
     }
 
     ASSERT(*c == '"');
-    lexer->cursor += 1; // skip double quotes (")
+    advance_cursor(lexer); // skip double quotes (")
 
     return attribute;
 }
@@ -359,7 +356,7 @@ Token get_next_token(Lexer *lexer) {
             lexer->line_number += 1;
         }
 
-        lexer->cursor += 1;
+        advance_cursor(lexer);
     }
 
     return token;
@@ -833,9 +830,12 @@ void print_no_attribute_allowed_error(String content, char *error, String file_p
 }
 
 int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
+    u32 i;
+
     LookupComponents lookup_components = {0};
 
-    u32 i;
+    u32 components_count = 0;
+    u32 tags_stack_max = 0;
     for (i = 0; i < asset_list.count; i++) {
         if (!is_html_path(asset_list.asset_list[i])) {
             continue;
@@ -848,12 +848,88 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
         lexer.content = asset_list.asset_list_content[i];
         lexer.line_number = 1;
 
-        TagsStack tags_stack = {0};
-        NodesStack nodes_stack = {0};
+        while (lexer.cursor < lexer.content.length) {
+            char *c = peek(&lexer);
+            if (strncmp("<x-component-def ", c, strlen("<x-component-def ")) == 0) {
+                advance_cursor(&lexer);
 
-        boolean processing_component = false;
+                components_count += 1;
 
-        ParentPointerNode *root = NULL;
+                u32 tags_stack = 0;
+                while (lexer.cursor < lexer.content.length) {
+                    c = peek(&lexer);
+
+                    if (strncmp("</x-component-def>", c, strlen("</x-component-def>")) == 0) {
+                        break;
+                    }
+
+                    if (strncmp("<x-component-def ", c, strlen("<x-component-def ")) == 0) {
+                        advance_cursor(&lexer);
+
+                        String tag_identifier = {0};
+                        tag_identifier.data = peek(&lexer);
+                        tag_identifier.length = strlen("x-component-def");
+
+                        char error[] = "x-component-def can't ever be a child tag, it must always be placed at the top level. "
+                                       "If you think you already placed x-component-def at the top level, check that you did't "
+                                       "leave open a x-component-def earlier in the file";
+                        print_tag_error(lexer.content, error, lexer.file_path, tag_identifier, lexer.line_number);
+
+                        ASSERT(0); // TODO: remove
+                        return -1;
+                    }
+
+                    if (strncmp("<x-", c, strlen("<x-")) == 0) {
+                        tags_stack += 1;
+                    }
+
+                    if (strncmp("</x-", c, strlen("</x-")) == 0) {
+                        tags_stack += 1;
+                    }
+
+                    if (*c == '\n') {
+                        lexer.line_number += 1;
+                    }
+
+                    advance_cursor(&lexer);
+                }
+
+                if (tags_stack > tags_stack_max) {
+                    tags_stack_max = tags_stack;
+                }
+            }
+
+            if (*c == '\n') {
+                lexer.line_number += 1;
+            }
+
+            advance_cursor(&lexer);
+        }
+    }
+
+    lookup_components.names = memory_alloc(memory, sizeof(TagName) * components_count);
+    lookup_components.imports = memory_alloc(memory, sizeof(LookupImports *) * components_count);
+    lookup_components.slots = memory_alloc(memory, sizeof(LookupSlots *) * components_count);
+    lookup_components.file_paths = memory_alloc(memory, sizeof(String) * components_count);
+    lookup_components.contents = memory_alloc(memory, sizeof(String) * components_count);
+
+    TagsStack tags_stack = {0};
+    tags_stack.data = memory_alloc(memory, sizeof(TagStackElement) * tags_stack_max);
+
+    NodesStack nodes_stack = {0};
+    nodes_stack.data = memory_alloc(memory, sizeof(ParentPointerNode *) * tags_stack_max);
+
+    for (i = 0; i < asset_list.count; i++) {
+        if (!is_html_path(asset_list.asset_list[i])) {
+            continue;
+        }
+
+        Lexer lexer = {0};
+
+        // init lexer
+        lexer.file_path = asset_list.asset_list[i];
+        lexer.content = asset_list.asset_list_content[i];
+        lexer.line_number = 1;
 
         Token token = get_next_token(&lexer);
         while (token.token_type != TOKEN_EOF) {
@@ -894,17 +970,6 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                             return -1;
                         }
                         case TAG_OPENING: {
-                            if (root) {
-                                char error[] = "x-component-def can't ever be a child tag, it must always be placed at the top level. "
-                                               "If you think you already placed x-component-def at the top level, check that you did't "
-                                               "leave open a x-component-def earlier in the file";
-
-                                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
-
-                                ASSERT(0); // TODO: remove
-                                return -1;
-                            }
-
                             if (!has_name_attr) {
                                 char error[] = "All tags must contain a name attribute";
                                 print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
@@ -924,7 +989,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                                 return -1;
                             }
 
-                            root = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, NULL);
+                            ParentPointerNode *root = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, NULL);
 
                             tags_stack.data[tags_stack.count].token_type = token.token_type;
                             tags_stack.data[tags_stack.count].node = root;
@@ -961,11 +1026,6 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                                     return -1;
                                 }
 
-                                if (lookup_components.count > MAX_COMPONENTS_COUNT) {
-                                    printf("no more space for components");
-                                    ASSERT(0);
-                                }
-
                                 memcpy(lookup_components.names[lookup_components.count], cs_root->attributes.attribute[cs_root->name_attr_index].value.data, cs_root->attributes.attribute[cs_root->name_attr_index].value.length);
                                 lookup_components.file_paths[lookup_components.count] = lexer.file_path;
                                 lookup_components.contents[lookup_components.count] = lexer.content;
@@ -988,9 +1048,11 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                                 lookup_components.count += 1;
                             }
 
-                            root = NULL;
-                            memset(&tags_stack, 0, sizeof(TagsStack));
-                            memset(&nodes_stack, 0, sizeof(NodesStack));
+                            tags_stack.count = 0;
+                            memset(tags_stack.data, 0, sizeof(TagStackElement) * tags_stack_max);
+
+                            nodes_stack.count = 0;
+                            memset(nodes_stack.data, 0, sizeof(ParentPointerNode *) * tags_stack_max);
 
                             goto proceed_to_next_token;
                         }
@@ -1340,18 +1402,6 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
 
         proceed_to_next_token:;
             token = get_next_token(&lexer);
-        }
-
-        if (root) {
-            char error[] = "Forgot to close x-component-def";
-
-            printf("%s:\n", error);
-            printf("    file: %.*s\n", (int)lexer.file_path.length, lexer.file_path.data);
-            printf("    line: %d\n", lexer.line_number);
-            printf("\n");
-
-            ASSERT(0); // TODO: remove
-            return -1;
         }
     }
 

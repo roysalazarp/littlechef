@@ -90,7 +90,8 @@ void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memor
 
     persisting_data->public_asset_list = public_asset_list;
 
-    build_html_components(persisting_memory, scratch_memory, asset_list);
+    int res = build_html_components(persisting_memory, scratch_memory, asset_list);
+    ASSERT(res != -1);
 
     printf("\n");
 }

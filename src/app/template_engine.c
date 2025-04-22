@@ -97,6 +97,11 @@ typedef struct {
 
 typedef struct {
     TagName *names;
+    u32 count;
+} LookupPlaceholders;
+
+typedef struct {
+    TagName *names;
     ChildSiblingNode **nodes;
     u32 count;
 } LookupInserts;
@@ -106,10 +111,12 @@ typedef struct {
     ChildSiblingNode **nodes;
     LookupInserts *inserts;
     u32 count;
+    // NOTE: probably here goes an array of attributes
 } LookupImports;
 
 typedef struct {
     TagName *names;
+    LookupPlaceholders **placeholders;
     LookupImports **imports;
     LookupSlots **slots;
     String *file_paths;
@@ -835,7 +842,69 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
     LookupComponents lookup_components = {0};
 
     u32 components_count = 0;
+    for (i = 0; i < asset_list.count; i++) {
+        if (!is_html_path(asset_list.asset_list[i])) {
+            continue;
+        }
+
+        Lexer lexer = {0};
+
+        // init lexer
+        lexer.file_path = asset_list.asset_list[i];
+        lexer.content = asset_list.asset_list_content[i];
+        lexer.line_number = 1;
+
+        String opening_tag_identifier = {0};
+        u32 line_number = 0;
+
+        while (lexer.cursor < lexer.content.length) {
+            char *c = peek(&lexer);
+            if (strncmp("<x-component-def ", c, strlen("<x-component-def ")) == 0) {
+                if (opening_tag_identifier.data) {
+                    char error[] = "x-component-def can't ever be a child tag, it must always be placed at the top level. "
+                                   "If you think you already placed x-component-def at the top level, check that you did't "
+                                   "leave open a x-component-def earlier in the file";
+                    print_tag_error(lexer.content, error, lexer.file_path, opening_tag_identifier, line_number);
+
+                    ASSERT(0); // TODO: remove
+                    return -1;
+                }
+
+                opening_tag_identifier.data = peek(&lexer) + 1;
+                opening_tag_identifier.length = strlen("x-component-def");
+                line_number = lexer.line_number;
+
+                components_count += 1;
+            }
+
+            if (strncmp("</x-component-def>", c, strlen("</x-component-def>")) == 0) {
+                memset(&opening_tag_identifier, 0, sizeof(opening_tag_identifier));
+            }
+
+            if (*c == '\n') {
+                lexer.line_number += 1;
+            }
+
+            advance_cursor(&lexer);
+        }
+    }
+
+    lookup_components.names = memory_alloc(memory, sizeof(TagName) * components_count);
+    lookup_components.placeholders = memory_alloc(memory, sizeof(LookupPlaceholders *) * components_count);
+    lookup_components.imports = memory_alloc(memory, sizeof(LookupImports *) * components_count);
+    lookup_components.slots = memory_alloc(memory, sizeof(LookupSlots *) * components_count);
+    lookup_components.file_paths = memory_alloc(memory, sizeof(String) * components_count);
+    lookup_components.contents = memory_alloc(memory, sizeof(String) * components_count);
+
+    u32 *tags_stack_sizes = memory_alloc(memory, sizeof(u32) * components_count);
+    u32 *placeholder_amounts = memory_alloc(memory, sizeof(u32) * components_count);
+
+    u32 component_index = 0;
+    boolean inside_component = false;
+
     u32 tags_stack_max = 0;
+    u32 tags_stack_count = 0;
+
     for (i = 0; i < asset_list.count; i++) {
         if (!is_html_path(asset_list.asset_list[i])) {
             continue;
@@ -851,51 +920,54 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
         while (lexer.cursor < lexer.content.length) {
             char *c = peek(&lexer);
             if (strncmp("<x-component-def ", c, strlen("<x-component-def ")) == 0) {
-                advance_cursor(&lexer);
+                inside_component = true;
+            }
 
-                components_count += 1;
+            if (strncmp("</x-component-def>", c, strlen("</x-component-def>")) == 0) {
+                component_index += 1;
+                inside_component = false;
 
-                u32 tags_stack = 0;
-                while (lexer.cursor < lexer.content.length) {
-                    c = peek(&lexer);
-
-                    if (strncmp("</x-component-def>", c, strlen("</x-component-def>")) == 0) {
-                        break;
-                    }
-
-                    if (strncmp("<x-component-def ", c, strlen("<x-component-def ")) == 0) {
-                        advance_cursor(&lexer);
-
-                        String tag_identifier = {0};
-                        tag_identifier.data = peek(&lexer);
-                        tag_identifier.length = strlen("x-component-def");
-
-                        char error[] = "x-component-def can't ever be a child tag, it must always be placed at the top level. "
-                                       "If you think you already placed x-component-def at the top level, check that you did't "
-                                       "leave open a x-component-def earlier in the file";
-                        print_tag_error(lexer.content, error, lexer.file_path, tag_identifier, lexer.line_number);
-
-                        ASSERT(0); // TODO: remove
-                        return -1;
-                    }
-
-                    if (strncmp("<x-", c, strlen("<x-")) == 0) {
-                        tags_stack += 1;
-                    }
-
-                    if (strncmp("</x-", c, strlen("</x-")) == 0) {
-                        tags_stack += 1;
-                    }
-
-                    if (*c == '\n') {
-                        lexer.line_number += 1;
-                    }
-
-                    advance_cursor(&lexer);
+                if (tags_stack_count > tags_stack_max) {
+                    tags_stack_max = tags_stack_count;
                 }
 
-                if (tags_stack > tags_stack_max) {
-                    tags_stack_max = tags_stack;
+                tags_stack_count = 0;
+            }
+
+            if (inside_component) {
+                if (*c == '%') {
+                    char *p = NULL;
+                    u32 count = 0;
+                    u32 placeholder_name_length = 0;
+
+                    p = c + 1;
+                    if (*p != '%') {
+                        while (*p != '\0') {
+                            if (isspace(*p)) {
+                                break;
+                            }
+
+                            if (*p == '%') {
+                                placeholder_name_length = count;
+
+                                ASSERT(placeholder_name_length < MAX_TAG_NAME_LENGTH);
+
+                                placeholder_amounts[component_index] += 1;
+                                break;
+                            }
+
+                            count += 1;
+                            p += 1;
+                        }
+                    }
+                }
+
+                if (strncmp("<x-", c, strlen("<x-")) == 0) {
+                    tags_stack_count += 1;
+                }
+
+                if (strncmp("</x-", c, strlen("</x-")) == 0) {
+                    tags_stack_count += 1;
                 }
             }
 
@@ -907,17 +979,18 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
         }
     }
 
-    lookup_components.names = memory_alloc(memory, sizeof(TagName) * components_count);
-    lookup_components.imports = memory_alloc(memory, sizeof(LookupImports *) * components_count);
-    lookup_components.slots = memory_alloc(memory, sizeof(LookupSlots *) * components_count);
-    lookup_components.file_paths = memory_alloc(memory, sizeof(String) * components_count);
-    lookup_components.contents = memory_alloc(memory, sizeof(String) * components_count);
+    for (i = 0; i < components_count; i++) {
+        lookup_components.placeholders[i] = memory_alloc(memory, sizeof(LookupPlaceholders));
+        lookup_components.placeholders[i]->names = memory_alloc(memory, sizeof(TagName) * placeholder_amounts[i]);
+    }
 
     TagsStack tags_stack = {0};
     tags_stack.data = memory_alloc(memory, sizeof(TagStackElement) * tags_stack_max);
 
     NodesStack nodes_stack = {0};
     nodes_stack.data = memory_alloc(memory, sizeof(ParentPointerNode *) * tags_stack_max);
+
+    component_index = 0;
 
     for (i = 0; i < asset_list.count; i++) {
         if (!is_html_path(asset_list.asset_list[i])) {
@@ -934,8 +1007,10 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
         Token token = get_next_token(&lexer);
         while (token.token_type != TOKEN_EOF) {
             if (token.token_type == TOKEN_PLACEHOLDER) {
+                u32 count = lookup_components.placeholders[component_index]->count;
+                memcpy(lookup_components.placeholders[component_index]->names[count], token.tag_identifier.data, token.tag_identifier.length);
+                lookup_components.placeholders[component_index]->count += 1;
 
-                // ASSERT(0);
                 goto proceed_to_next_token;
             }
 
@@ -1053,6 +1128,8 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
 
                             nodes_stack.count = 0;
                             memset(nodes_stack.data, 0, sizeof(ParentPointerNode *) * tags_stack_max);
+
+                            component_index += 1;
 
                             goto proceed_to_next_token;
                         }

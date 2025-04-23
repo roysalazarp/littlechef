@@ -16,22 +16,22 @@ typedef enum { TAG_OPENING, TAG_CLOSING, TAG_SELFCLOSING } TagType;
 typedef enum {
     TOKEN_EOF = 0,
 
-    TOKEN_COMPONENT_DEFINITION = 1, // x-component-def
-    TOKEN_COMPONENT_IMPORT = 2,     // x-component
-    TOKEN_SLOT = 3,                 // x-slot
-    TOKEN_INSERT = 4,               // x-insert
-    TOKEN_VAL = 5,                  // x-val
-    TOKEN_FOR = 6,                  // x-for
+    TOKEN_COMPONENT_DEFINITION = 1,
+    TOKEN_COMPONENT_IMPORT = 2,
+    TOKEN_SLOT = 3,
+    TOKEN_INSERT = 4,
+    TOKEN_VAL = 5,
+    TOKEN_FOR = 6,
 
-    TOKEN_PLACEHOLDER, // for example "%product_image%" <img src="%product_image%" /> or "%attributes%" in <button %attributes%>...</button>
+    TOKEN_PLACEHOLDER,
 
     TOKEN_INVALID
-} TokenType;
+} TokenKind;
 
 typedef struct {
-    TokenType token_type;
+    TokenKind kind;
     TagType tag_type;
-    String tag_identifier;
+    String identifier;
 } Token;
 
 typedef struct {
@@ -47,86 +47,86 @@ typedef struct {
 } Attribute;
 
 typedef struct {
-    Attribute *attribute;
+    Attribute *attributes;
     u32 count;
 } AttributeArray;
 
-typedef struct ParentPointerNode ParentPointerNode;
-struct ParentPointerNode {
-    TokenType token_type;
-    String tag_identifier;
+typedef struct Node Node;
+struct Node {
+    TokenKind kind;
+    String identifier;
     u32 line_number;
-    AttributeArray attributes;
-    ParentPointerNode *parent;
+    AttributeArray attribute_array;
+    Node *parent;
 };
 
-typedef struct ChildSiblingNode ChildSiblingNode;
-struct ChildSiblingNode {
-    TokenType token_type;
-    String tag_identifier;
+typedef struct ASTNode ASTNode;
+struct ASTNode {
+    TokenKind kind;
+    String identifier;
     u32 line_number;
     u32 name_attr_index;
-    AttributeArray attributes;
-    ChildSiblingNode *first_child;
-    ChildSiblingNode *next_sibling;
+    AttributeArray attribute_array;
+    ASTNode *first_child;
+    ASTNode *next_sibling;
 };
 
 typedef struct {
-    ParentPointerNode **data;
+    Node **data;
     u8 count;
-} NodesStack;
+} NodeArray;
 
 typedef struct {
-    ParentPointerNode *node;
-    TokenType token_type;
+    Node *node;
+    TokenKind kind;
 } TagStackElement;
 
 typedef struct {
     TagStackElement *data;
     u8 count;
-} TagsStack;
+} TagStack;
 
-#define MAX_TAG_NAME_LENGTH 32
-typedef char TagName[MAX_TAG_NAME_LENGTH]; // 2 of these fit nicely in a 64 bytes cache line
+#define MAX_NAME_LENGTH 32
+typedef char Name[MAX_NAME_LENGTH]; // 2 of these fit nicely in a 64 bytes cache line
 
 typedef struct {
-    TagName *names;
-    ChildSiblingNode **nodes;
+    Name *names;
+    ASTNode **nodes;
     u32 count;
-} LookupSlots;
+} SlotSOA;
 
 typedef struct {
-    TagName *names;
+    Name *names;
     u32 count;
-} LookupPlaceholders;
+} PlaceholderSOA;
 
 typedef struct {
-    TagName *names;
-    ChildSiblingNode **nodes;
+    Name *names;
+    ASTNode **nodes;
     u32 count;
-} LookupInserts;
+} InsertSOA;
 
 typedef struct {
-    TagName *names;
-    ChildSiblingNode **nodes;
-    LookupInserts *inserts;
+    Name *names;
+    ASTNode **nodes;
+    InsertSOA *inserts;
     u32 count;
-} LookupImports;
+} ImportSOA;
 
 typedef struct {
-    TagName *names;
-    LookupPlaceholders **placeholders;
-    LookupImports **imports;
-    LookupSlots **slots;
+    Name *names;
+    PlaceholderSOA **placeholders;
+    ImportSOA **imports;
+    SlotSOA **slots;
     String *file_paths;
     String *contents;
     u32 count;
-} LookupComponents;
+} ComponentSOA;
 
 char *peek(Lexer *lexer) { return &lexer->content.data[lexer->cursor]; }
 void advance_cursor(Lexer *lexer) { lexer->cursor += 1; }
 
-TokenType get_token_type(String str) {
+TokenKind get_token_kind(String str) {
     char COMPONENT_DEFINITION[] = "x-component-def";
     char COMPONENT_IMPORT[] = "x-component";
     char SLOT[] = "x-slot";
@@ -302,8 +302,8 @@ Token get_next_token(Lexer *lexer) {
                     p++;
                 }
 
-                token.tag_identifier = token_string;
-                token.token_type = get_token_type(token.tag_identifier);
+                token.identifier = token_string;
+                token.kind = get_token_kind(token.identifier);
 
                 lexer->cursor = (token_string.data + token_string.length) - lexer->content.data;
 
@@ -322,7 +322,7 @@ Token get_next_token(Lexer *lexer) {
                 }
 
                 token.tag_type = TAG_CLOSING;
-                token.token_type = get_token_type(token_string);
+                token.kind = get_token_kind(token_string);
 
                 lexer->cursor = (token_string.data + token_string.length) - lexer->content.data;
 
@@ -345,8 +345,8 @@ Token get_next_token(Lexer *lexer) {
                         token_string.data = c + 1;
                         token_string.length = p - token_string.data;
 
-                        token.tag_identifier = token_string;
-                        token.token_type = TOKEN_PLACEHOLDER;
+                        token.identifier = token_string;
+                        token.kind = TOKEN_PLACEHOLDER;
 
                         lexer->cursor = (token_string.data + token_string.length + 1) - lexer->content.data;
 
@@ -393,55 +393,55 @@ char *find_bol(char *p, char *text_start) {
     return text_start;
 }
 
-ParentPointerNode *create_parent_pointer_node(Memory *memory, TokenType token_type, String tag_identifier, String file_path, u32 line_number, AttributeArray attributes, ParentPointerNode *parent) {
-    ParentPointerNode *new_node = memory_alloc(memory, sizeof(ParentPointerNode));
+Node *create_node(Memory *memory, TokenKind kind, String identifier, String file_path, u32 line_number, AttributeArray attribute_array, Node *parent) {
+    Node *new_node = memory_alloc(memory, sizeof(Node));
     if (new_node == NULL) {
         printf("Memory allocation failed\n");
         return NULL;
     }
-    new_node->token_type = token_type;
-    new_node->tag_identifier = tag_identifier;
+    new_node->kind = kind;
+    new_node->identifier = identifier;
     new_node->line_number = line_number;
-    new_node->attributes = attributes;
+    new_node->attribute_array = attribute_array;
     new_node->parent = parent;
     return new_node;
 }
 
-ChildSiblingNode *create_child_sibling_node(Memory *memory, TokenType token_type, String tag_identifier, u32 line_number, AttributeArray attributes) {
-    ChildSiblingNode *new_node = memory_alloc(memory, sizeof(ChildSiblingNode));
+ASTNode *create_ast_node(Memory *memory, TokenKind kind, String identifier, u32 line_number, AttributeArray attribute_array) {
+    ASTNode *new_node = memory_alloc(memory, sizeof(ASTNode));
     if (new_node == NULL) {
         printf("Memory allocation failed\n");
         return NULL;
     }
-    new_node->token_type = token_type;
-    new_node->tag_identifier = tag_identifier;
+    new_node->kind = kind;
+    new_node->identifier = identifier;
     new_node->line_number = line_number;
-    new_node->attributes = attributes;
+    new_node->attribute_array = attribute_array;
     new_node->first_child = NULL;
     new_node->next_sibling = NULL;
     return new_node;
 }
 
-ParentPointerNode *find_parent_tree_root(ParentPointerNode *node) {
+Node *find_parent_tree_root(Node *node) {
     while (node->parent != NULL) {
         node = node->parent;
     }
     return node;
 }
 
-ChildSiblingNode *convert_to_child_sibling(Memory *memory, ParentPointerNode **nodes, u32 count) {
-    ChildSiblingNode **cs_nodes = memory_alloc(memory, count * sizeof(ChildSiblingNode *));
+ASTNode *convert_to_ast_node(Memory *memory, Node **nodes, u32 count) {
+    ASTNode **cs_nodes = memory_alloc(memory, count * sizeof(ASTNode *));
 
     u32 i;
 
     // Create corresponding ChildSiblingNodes
     for (i = 0; i < count; i++) {
-        cs_nodes[i] = create_child_sibling_node(memory, nodes[i]->token_type, nodes[i]->tag_identifier, nodes[i]->line_number, nodes[i]->attributes);
+        cs_nodes[i] = create_ast_node(memory, nodes[i]->kind, nodes[i]->identifier, nodes[i]->line_number, nodes[i]->attribute_array);
     }
 
     // Arrange first_child and next_sibling pointers
     for (i = 0; i < count; i++) {
-        ParentPointerNode *parent = nodes[i]->parent;
+        Node *parent = nodes[i]->parent;
         if (parent != NULL) {
             u32 parent_index;
             for (parent_index = 0; parent_index < count; parent_index++) {
@@ -449,13 +449,13 @@ ChildSiblingNode *convert_to_child_sibling(Memory *memory, ParentPointerNode **n
                     break;
             }
 
-            ChildSiblingNode *parent_cs = cs_nodes[parent_index];
+            ASTNode *parent_cs = cs_nodes[parent_index];
 
             // Insert node as a child of its parent
             if (parent_cs->first_child == NULL) {
                 parent_cs->first_child = cs_nodes[i];
             } else {
-                ChildSiblingNode *temp = parent_cs->first_child;
+                ASTNode *temp = parent_cs->first_child;
                 while (temp->next_sibling != NULL) {
                     temp = temp->next_sibling;
                 }
@@ -465,8 +465,8 @@ ChildSiblingNode *convert_to_child_sibling(Memory *memory, ParentPointerNode **n
     }
 
     // Find the root of the Child-Sibling tree
-    ParentPointerNode *root = find_parent_tree_root(nodes[0]); // Any node can be used to find the root
-    ChildSiblingNode *cs_root = NULL;
+    Node *root = find_parent_tree_root(nodes[0]); // Any node can be used to find the root
+    ASTNode *cs_root = NULL;
 
     for (i = 0; i < count; i++) {
         if (nodes[i] == root) {
@@ -478,8 +478,8 @@ ChildSiblingNode *convert_to_child_sibling(Memory *memory, ParentPointerNode **n
     return cs_root;
 }
 
-const char *token_to_string(TokenType token) {
-    switch (token) {
+const char *token_kind_to_string(TokenKind kind) {
+    switch (kind) {
         case TOKEN_COMPONENT_DEFINITION:
             return "COMPONENT_DEFINITION";
         case TOKEN_COMPONENT_IMPORT:
@@ -497,7 +497,7 @@ const char *token_to_string(TokenType token) {
     }
 }
 
-void print_child_sibling_tree(ChildSiblingNode *node, int depth) {
+void print_ast_tree(ASTNode *node, int depth) {
     if (node == NULL) {
         return;
     }
@@ -507,26 +507,26 @@ void print_child_sibling_tree(ChildSiblingNode *node, int depth) {
         printf("    ");
     }
 
-    printf("%s ", token_to_string(node->token_type));
+    printf("%s ", token_kind_to_string(node->kind));
     u32 i;
-    for (i = 0; i < node->attributes.count; i++) {
-        printf("%.*s=\"%.*s\" ", (int)(node->attributes.attribute[i].name.length), node->attributes.attribute[i].name.data, (int)(node->attributes.attribute[i].value.length), node->attributes.attribute[i].value.data);
+    for (i = 0; i < node->attribute_array.count; i++) {
+        printf("%.*s=\"%.*s\" ", (int)(node->attribute_array.attributes[i].name.length), node->attribute_array.attributes[i].name.data, (int)(node->attribute_array.attributes[i].value.length), node->attribute_array.attributes[i].value.data);
     }
     printf("\n");
 
     // Print first child and siblings
-    print_child_sibling_tree(node->first_child, depth + 1);
-    print_child_sibling_tree(node->next_sibling, depth);
+    print_ast_tree(node->first_child, depth + 1);
+    print_ast_tree(node->next_sibling, depth);
 }
 
-void print_tag_error(String content, char error[], String file_path, String tag_identifier, u32 line_number) {
+void print_tag_error(String content, char error[], String file_path, String identifier, u32 line_number) {
     char *content_end = content.data + content.length;
 
     printf("%s:\n", error);
     printf("    file: %.*s\n", (int)file_path.length, file_path.data);
     printf("    line: %d\n", line_number);
     printf("\n");
-    char *bol = find_bol(tag_identifier.data, content.data);
+    char *bol = find_bol(identifier.data, content.data);
     if (line_number > 1) {
         char *prev_bol = find_bol(bol - 2, content.data);
         u32 prev_line_length = (bol - 1) - prev_bol;
@@ -537,7 +537,7 @@ void print_tag_error(String content, char error[], String file_path, String tag_
     printf("    %d|  ", line_number);
     char *p = bol;
     while (p < eol) {
-        if (p >= tag_identifier.data && p < tag_identifier.data + tag_identifier.length) {
+        if (p >= identifier.data && p < identifier.data + identifier.length) {
             // ANSI escape codes for highlighting (red background)
             printf("\033[41m%c\033[0m", *p);
         } else {
@@ -558,10 +558,10 @@ void print_tag_error(String content, char error[], String file_path, String tag_
     printf("\n");
 }
 
-void print_tag_attr_error(String content, ChildSiblingNode *node, Attribute attribute) {
+void print_tag_attr_error(String content, ASTNode *node, Attribute attribute) {
     char *content_end = content.data + content.length;
 
-    char *bol = find_bol(node->tag_identifier.data, content.data);
+    char *bol = find_bol(node->identifier.data, content.data);
     if (node->line_number > 1) {
         char *prev_bol = find_bol(bol - 2, content.data);
         u32 prev_line_length = (bol - 1) - prev_bol;
@@ -592,15 +592,15 @@ void print_tag_attr_error(String content, ChildSiblingNode *node, Attribute attr
     printf("\n");
 }
 
-void tree_traverse_error_checking(String content, String file_path, ChildSiblingNode *node, u32 *import_count, u32 *slot_count, u32 *error_count) {
-    switch (node->token_type) {
+void tree_traverse_error_checking(String content, String file_path, ASTNode *node, u32 *import_count, u32 *slot_count, u32 *error_count) {
+    switch (node->kind) {
         case TOKEN_COMPONENT_DEFINITION: {
-            ChildSiblingNode *child = node->first_child;
+            ASTNode *child = node->first_child;
             while (child) {
-                if (child->token_type == TOKEN_INSERT) {
+                if (child->kind == TOKEN_INSERT) {
                     char error[] = "x-insert can not be direct child of x-component-def, it can only be direct child of x-component";
 
-                    print_tag_error(content, error, file_path, child->tag_identifier, child->line_number);
+                    print_tag_error(content, error, file_path, child->identifier, child->line_number);
                     *error_count += 1;
                 }
 
@@ -610,12 +610,12 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
             break;
         }
         case TOKEN_COMPONENT_IMPORT: {
-            ChildSiblingNode *child = node->first_child;
+            ASTNode *child = node->first_child;
             while (child) {
-                if (child->token_type != TOKEN_INSERT) {
+                if (child->kind != TOKEN_INSERT) {
                     char error[] = "x-component can only have direct child x-insert";
 
-                    print_tag_error(content, error, file_path, child->tag_identifier, child->line_number);
+                    print_tag_error(content, error, file_path, child->identifier, child->line_number);
                     *error_count += 1;
                 }
 
@@ -627,11 +627,11 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
             break;
         }
         case TOKEN_SLOT: {
-            ChildSiblingNode *child = node->first_child;
+            ASTNode *child = node->first_child;
             if (child) {
                 char error[] = "x-slot can't have any children";
 
-                print_tag_error(content, error, file_path, node->tag_identifier, node->line_number);
+                print_tag_error(content, error, file_path, node->identifier, node->line_number);
                 *error_count += 1;
             }
 
@@ -640,12 +640,12 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
             break;
         }
         case TOKEN_INSERT: {
-            ChildSiblingNode *child = node->first_child;
+            ASTNode *child = node->first_child;
             while (child) {
-                if (child->token_type == TOKEN_INSERT) {
+                if (child->kind == TOKEN_INSERT) {
                     char error[] = "x-insert can not be direct child of x-insert, it can only be direct child of x-component";
 
-                    print_tag_error(content, error, file_path, child->tag_identifier, child->line_number);
+                    print_tag_error(content, error, file_path, child->identifier, child->line_number);
                     *error_count += 1;
                 }
 
@@ -655,23 +655,23 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
             break;
         }
         case TOKEN_VAL: {
-            ChildSiblingNode *child = node->first_child;
+            ASTNode *child = node->first_child;
             if (child) {
                 char error[] = "x-val can't have any children";
 
-                print_tag_error(content, error, file_path, node->tag_identifier, node->line_number);
+                print_tag_error(content, error, file_path, node->identifier, node->line_number);
                 *error_count += 1;
             }
 
             break;
         }
         case TOKEN_FOR: {
-            ChildSiblingNode *child = node->first_child;
+            ASTNode *child = node->first_child;
             while (child) {
-                if (child->token_type == TOKEN_INSERT) {
+                if (child->kind == TOKEN_INSERT) {
                     char error[] = "x-insert can not be direct child of x-for, it can only be direct child of x-component";
 
-                    print_tag_error(content, error, file_path, child->tag_identifier, child->line_number);
+                    print_tag_error(content, error, file_path, child->identifier, child->line_number);
                     *error_count += 1;
                 }
 
@@ -695,41 +695,41 @@ void tree_traverse_error_checking(String content, String file_path, ChildSibling
     }
 }
 
-void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupComponents *lookup_components) {
-    u32 current_component_index = lookup_components->count;
+void tree_traverse_make_lookup(Memory *memory, ASTNode *node, ComponentSOA *components) {
+    u32 current_component_index = components->count;
 
-    if (node->token_type == TOKEN_SLOT) {
-        LookupSlots *slots = lookup_components->slots[current_component_index];
+    if (node->kind == TOKEN_SLOT) {
+        SlotSOA *slots = components->slots[current_component_index];
 
-        memcpy(slots->names[slots->count], node->attributes.attribute[node->name_attr_index].value.data, node->attributes.attribute[node->name_attr_index].value.length);
+        memcpy(slots->names[slots->count], node->attribute_array.attributes[node->name_attr_index].value.data, node->attribute_array.attributes[node->name_attr_index].value.length);
         slots->nodes[slots->count] = node;
 
         slots->count += 1;
     }
 
-    if (node->token_type == TOKEN_COMPONENT_IMPORT) {
-        LookupImports *imports = lookup_components->imports[current_component_index];
+    if (node->kind == TOKEN_COMPONENT_IMPORT) {
+        ImportSOA *imports = components->imports[current_component_index];
 
-        memcpy(imports->names[imports->count], node->attributes.attribute[node->name_attr_index].value.data, node->attributes.attribute[node->name_attr_index].value.length);
+        memcpy(imports->names[imports->count], node->attribute_array.attributes[node->name_attr_index].value.data, node->attribute_array.attributes[node->name_attr_index].value.length);
         imports->nodes[imports->count] = node;
 
         u32 child_count = 0;
-        ChildSiblingNode *child = node->first_child;
+        ASTNode *child = node->first_child;
         while (child) {
             child_count += 1;
             child = child->next_sibling;
         }
 
-        LookupInserts *inserts = &(imports->inserts[imports->count]);
+        InsertSOA *inserts = &(imports->inserts[imports->count]);
 
         if (child_count) {
-            inserts->names = memory_alloc(memory, sizeof(TagName) * child_count);
-            inserts->nodes = memory_alloc(memory, sizeof(ChildSiblingNode *) * child_count);
+            inserts->names = memory_alloc(memory, sizeof(Name) * child_count);
+            inserts->nodes = memory_alloc(memory, sizeof(ASTNode *) * child_count);
 
             child = node->first_child;
             while (child) {
 
-                memcpy(inserts->names[inserts->count], child->attributes.attribute[child->name_attr_index].value.data, child->attributes.attribute[child->name_attr_index].value.length);
+                memcpy(inserts->names[inserts->count], child->attribute_array.attributes[child->name_attr_index].value.data, child->attribute_array.attributes[child->name_attr_index].value.length);
                 inserts->nodes[inserts->count] = child;
                 inserts->count += 1;
 
@@ -741,19 +741,19 @@ void tree_traverse_make_lookup(Memory *memory, ChildSiblingNode *node, LookupCom
     }
 
     if (node->next_sibling) {
-        tree_traverse_make_lookup(memory, node->next_sibling, lookup_components);
+        tree_traverse_make_lookup(memory, node->next_sibling, components);
     }
 
     if (node->first_child) {
-        tree_traverse_make_lookup(memory, node->first_child, lookup_components);
+        tree_traverse_make_lookup(memory, node->first_child, components);
     }
 }
 
-void print_component_lookup(LookupComponents *lookup_components, u32 i) {
-    printf("Component %s\n", lookup_components->names[i]);
+void print_component_lookup(ComponentSOA *components, u32 i) {
+    printf("Component %s\n", components->names[i]);
 
-    if (lookup_components->slots[i]) {
-        LookupSlots *slots = lookup_components->slots[i];
+    if (components->slots[i]) {
+        SlotSOA *slots = components->slots[i];
         printf("    has %d slots: ", slots->count);
         u32 j;
         for (j = 0; j < slots->count; j++) {
@@ -766,14 +766,14 @@ void print_component_lookup(LookupComponents *lookup_components, u32 i) {
         printf("\n");
     }
 
-    if (lookup_components->imports[i]) {
-        LookupImports *imports = lookup_components->imports[i];
+    if (components->imports[i]) {
+        ImportSOA *imports = components->imports[i];
         printf("    has %d imports: ", imports->count);
         u32 j;
         for (j = 0; j < imports->count; j++) {
             printf("%s", imports->names[j]);
             if (imports->inserts[j].count) {
-                LookupInserts *inserts = &(imports->inserts[j]);
+                InsertSOA *inserts = &(imports->inserts[j]);
                 printf("(");
                 u32 k;
                 for (k = 0; k < inserts->count; k++) {
@@ -797,24 +797,24 @@ void print_component_lookup(LookupComponents *lookup_components, u32 i) {
 }
 
 AttributeArray get_attributes(Memory *memory, Lexer *lexer) {
-    AttributeArray attributes = {0};
+    AttributeArray attribute_array = {0};
 
-    Attribute *attribute = memory_alloc(memory, sizeof(Attribute)); //
-    *attribute = get_next_attribute(lexer);
-    attributes.attribute = attribute;
-    while (attribute->name.data != NULL) {
-        attributes.count += 1;
+    Attribute *attributes = memory_alloc(memory, sizeof(Attribute));
+    *attributes = get_next_attribute(lexer);
+    attribute_array.attributes = attributes;
+    while (attributes->name.data != NULL) {
+        attribute_array.count += 1;
 
-        attribute = memory_alloc(memory, sizeof(Attribute));
-        *attribute = get_next_attribute(lexer);
+        attributes = memory_alloc(memory, sizeof(Attribute));
+        *attributes = get_next_attribute(lexer);
     }
 
-    return attributes;
+    return attribute_array;
 }
 
-void print_no_attribute_allowed_error(String content, char *error, String file_path, String tag_identifier, u32 line_number, Attribute *attribute) {
+void print_no_attribute_allowed_error(String content, char *error, String file_path, String identifier, u32 line_number, Attribute *attribute) {
     char *content_end = content.data + content.length;
-    printf("Invalid attribute for %.*s tag, only x-component tag can have attributes other than the name attribute:\n", (int)tag_identifier.length, tag_identifier.data);
+    printf("Invalid attribute for %.*s tag, only x-component tag can have attributes other than the name attribute:\n", (int)identifier.length, identifier.data);
     printf("    file: %.*s\n", (int)file_path.length, file_path.data);
     printf("    line: %d\n", line_number);
     printf("\n");
@@ -835,10 +835,19 @@ void print_no_attribute_allowed_error(String content, char *error, String file_p
     // }
 }
 
+Lexer lexer_init(String file_path, String content) {
+    Lexer lexer = {0};
+    lexer.file_path = file_path;
+    lexer.content = content;
+    lexer.line_number = 1;
+
+    return lexer;
+}
+
 int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
     u32 i;
 
-    LookupComponents lookup_components = {0};
+    ComponentSOA components = {0};
 
     u32 components_count = 0;
     for (i = 0; i < asset_list.count; i++) {
@@ -846,12 +855,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
             continue;
         }
 
-        Lexer lexer = {0};
-
-        // init lexer
-        lexer.file_path = asset_list.asset_list[i];
-        lexer.content = asset_list.asset_list_content[i];
-        lexer.line_number = 1;
+        Lexer lexer = lexer_init(asset_list.asset_list[i], asset_list.asset_list_content[i]);
 
         String opening_tag_identifier = {0};
         u32 line_number = 0;
@@ -888,12 +892,12 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
         }
     }
 
-    lookup_components.names = memory_alloc(memory, sizeof(TagName) * components_count);
-    lookup_components.placeholders = memory_alloc(memory, sizeof(LookupPlaceholders *) * components_count);
-    lookup_components.imports = memory_alloc(memory, sizeof(LookupImports *) * components_count);
-    lookup_components.slots = memory_alloc(memory, sizeof(LookupSlots *) * components_count);
-    lookup_components.file_paths = memory_alloc(memory, sizeof(String) * components_count);
-    lookup_components.contents = memory_alloc(memory, sizeof(String) * components_count);
+    components.names = memory_alloc(memory, sizeof(Name) * components_count);
+    components.placeholders = memory_alloc(memory, sizeof(PlaceholderSOA *) * components_count);
+    components.imports = memory_alloc(memory, sizeof(ImportSOA *) * components_count);
+    components.slots = memory_alloc(memory, sizeof(SlotSOA *) * components_count);
+    components.file_paths = memory_alloc(memory, sizeof(String) * components_count);
+    components.contents = memory_alloc(memory, sizeof(String) * components_count);
 
     u32 *tags_stack_sizes = memory_alloc(memory, sizeof(u32) * components_count);
     u32 *placeholder_amounts = memory_alloc(memory, sizeof(u32) * components_count);
@@ -901,20 +905,15 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
     u32 component_index = 0;
     boolean inside_component = false;
 
-    u32 tags_stack_max = 0;
-    u32 tags_stack_count = 0;
+    u32 tag_stack_max = 0;
+    u32 tag_stack_count = 0;
 
     for (i = 0; i < asset_list.count; i++) {
         if (!is_html_path(asset_list.asset_list[i])) {
             continue;
         }
 
-        Lexer lexer = {0};
-
-        // init lexer
-        lexer.file_path = asset_list.asset_list[i];
-        lexer.content = asset_list.asset_list_content[i];
-        lexer.line_number = 1;
+        Lexer lexer = lexer_init(asset_list.asset_list[i], asset_list.asset_list_content[i]);
 
         while (lexer.cursor < lexer.content.length) {
             char *c = peek(&lexer);
@@ -926,11 +925,11 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                 component_index += 1;
                 inside_component = false;
 
-                if (tags_stack_count > tags_stack_max) {
-                    tags_stack_max = tags_stack_count;
+                if (tag_stack_count > tag_stack_max) {
+                    tag_stack_max = tag_stack_count;
                 }
 
-                tags_stack_count = 0;
+                tag_stack_count = 0;
             }
 
             if (inside_component) {
@@ -949,7 +948,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                             if (*p == '%') {
                                 placeholder_name_length = count;
 
-                                ASSERT(placeholder_name_length < MAX_TAG_NAME_LENGTH);
+                                ASSERT(placeholder_name_length < MAX_NAME_LENGTH);
 
                                 placeholder_amounts[component_index] += 1;
                                 break;
@@ -962,11 +961,11 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                 }
 
                 if (strncmp("<x-", c, strlen("<x-")) == 0) {
-                    tags_stack_count += 1;
+                    tag_stack_count += 1;
                 }
 
                 if (strncmp("</x-", c, strlen("</x-")) == 0) {
-                    tags_stack_count += 1;
+                    tag_stack_count += 1;
                 }
             }
 
@@ -979,15 +978,15 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
     }
 
     for (i = 0; i < components_count; i++) {
-        lookup_components.placeholders[i] = memory_alloc(memory, sizeof(LookupPlaceholders));
-        lookup_components.placeholders[i]->names = memory_alloc(memory, sizeof(TagName) * placeholder_amounts[i]);
+        components.placeholders[i] = memory_alloc(memory, sizeof(PlaceholderSOA));
+        components.placeholders[i]->names = memory_alloc(memory, sizeof(Name) * placeholder_amounts[i]);
     }
 
-    TagsStack tags_stack = {0};
-    tags_stack.data = memory_alloc(memory, sizeof(TagStackElement) * tags_stack_max);
+    TagStack tag_stack = {0};
+    tag_stack.data = memory_alloc(memory, sizeof(TagStackElement) * tag_stack_max);
 
-    NodesStack nodes_stack = {0};
-    nodes_stack.data = memory_alloc(memory, sizeof(ParentPointerNode *) * tags_stack_max);
+    NodeArray node_array = {0};
+    node_array.data = memory_alloc(memory, sizeof(Node *) * tag_stack_max);
 
     component_index = 0;
 
@@ -996,49 +995,44 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
             continue;
         }
 
-        Lexer lexer = {0};
-
-        // init lexer
-        lexer.file_path = asset_list.asset_list[i];
-        lexer.content = asset_list.asset_list_content[i];
-        lexer.line_number = 1;
+        Lexer lexer = lexer_init(asset_list.asset_list[i], asset_list.asset_list_content[i]);
 
         Token token = get_next_token(&lexer);
-        while (token.token_type != TOKEN_EOF) {
-            if (token.token_type == TOKEN_PLACEHOLDER) {
-                u32 count = lookup_components.placeholders[component_index]->count;
-                memcpy(lookup_components.placeholders[component_index]->names[count], token.tag_identifier.data, token.tag_identifier.length);
-                lookup_components.placeholders[component_index]->count += 1;
+        while (token.kind != TOKEN_EOF) {
+            if (token.kind == TOKEN_PLACEHOLDER) {
+                u32 count = components.placeholders[component_index]->count;
+                memcpy(components.placeholders[component_index]->names[count], token.identifier.data, token.identifier.length);
+                components.placeholders[component_index]->count += 1;
 
                 goto proceed_to_next_token;
             }
 
-            if (token.token_type == TOKEN_INVALID) {
+            if (token.kind == TOKEN_INVALID) {
                 // ASSERT(0);
                 goto proceed_to_next_token;
             }
 
-            AttributeArray attributes = get_attributes(memory, &lexer);
+            AttributeArray attribute_array = get_attributes(memory, &lexer);
 
             boolean has_name_attr = false;
             u32 name_attr_index = 0;
 
             size_t j;
-            for (j = 0; j < attributes.count; j++) {
-                if (strncmp("name", attributes.attribute[j].name.data, attributes.attribute[j].name.length) == 0) {
+            for (j = 0; j < attribute_array.count; j++) {
+                if (strncmp("name", attribute_array.attributes[j].name.data, attribute_array.attributes[j].name.length) == 0) {
                     has_name_attr = true;
                     name_attr_index = j;
 
-                    ASSERT(attributes.attribute[j].name.length < MAX_TAG_NAME_LENGTH);
+                    ASSERT(attribute_array.attributes[j].name.length < MAX_NAME_LENGTH);
                 }
             }
 
-            switch (token.token_type) {
+            switch (token.kind) {
                 case TOKEN_COMPONENT_DEFINITION: {
                     switch (token.tag_type) {
                         case TAG_SELFCLOSING: {
                             char error[] = "x-component-def can NOT be self-closing";
-                            print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                            print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                             ASSERT(0); // TODO: remove
                             return -1;
@@ -1046,45 +1040,45 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                         case TAG_OPENING: {
                             if (!has_name_attr) {
                                 char error[] = "All tags must contain a name attribute";
-                                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            for (j = 0; j < attributes.count; j++) {
+                            for (j = 0; j < attribute_array.count; j++) {
                                 if (j == name_attr_index)
                                     continue;
 
                                 char error[] = "Invalid attribute for x-component-def tag";
-                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number, &attributes.attribute[j]);
+                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number, &attribute_array.attributes[j]);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            ParentPointerNode *root = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, NULL);
+                            Node *root = create_node(memory, token.kind, token.identifier, lexer.file_path, lexer.line_number, attribute_array, NULL);
 
-                            tags_stack.data[tags_stack.count].token_type = token.token_type;
-                            tags_stack.data[tags_stack.count].node = root;
-                            tags_stack.count += 1;
+                            tag_stack.data[tag_stack.count].kind = token.kind;
+                            tag_stack.data[tag_stack.count].node = root;
+                            tag_stack.count += 1;
 
-                            nodes_stack.data[nodes_stack.count] = root;
-                            nodes_stack.count += 1;
+                            node_array.data[node_array.count] = root;
+                            node_array.count += 1;
 
                             goto proceed_to_next_token;
                         }
                         case TAG_CLOSING: {
-                            if (attributes.count) {
-                                print_tag_error(lexer.content, "Closing tag is not allowed to have attributes", lexer.file_path, token.tag_identifier, lexer.line_number);
+                            if (attribute_array.count) {
+                                print_tag_error(lexer.content, "Closing tag is not allowed to have attributes", lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            if (nodes_stack.count) {
-                                ChildSiblingNode *cs_root = convert_to_child_sibling(memory, nodes_stack.data, nodes_stack.count);
-                                // print_child_sibling_tree(cs_root, 0);
+                            if (node_array.count) {
+                                ASTNode *cs_root = convert_to_ast_node(memory, node_array.data, node_array.count);
+                                // print_ast_tree(cs_root, 0);
 
                                 u32 error_count = 0;
 
@@ -1100,33 +1094,33 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                                     return -1;
                                 }
 
-                                memcpy(lookup_components.names[lookup_components.count], cs_root->attributes.attribute[cs_root->name_attr_index].value.data, cs_root->attributes.attribute[cs_root->name_attr_index].value.length);
-                                lookup_components.file_paths[lookup_components.count] = lexer.file_path;
-                                lookup_components.contents[lookup_components.count] = lexer.content;
+                                memcpy(components.names[components.count], cs_root->attribute_array.attributes[cs_root->name_attr_index].value.data, cs_root->attribute_array.attributes[cs_root->name_attr_index].value.length);
+                                components.file_paths[components.count] = lexer.file_path;
+                                components.contents[components.count] = lexer.content;
 
                                 if (import_count) {
-                                    lookup_components.imports[lookup_components.count] = memory_alloc(memory, sizeof(LookupImports));
-                                    lookup_components.imports[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * import_count);
-                                    lookup_components.imports[lookup_components.count]->nodes = memory_alloc(memory, sizeof(ChildSiblingNode *) * import_count);
-                                    lookup_components.imports[lookup_components.count]->inserts = memory_alloc(memory, sizeof(LookupInserts) * import_count);
+                                    components.imports[components.count] = memory_alloc(memory, sizeof(ImportSOA));
+                                    components.imports[components.count]->names = memory_alloc(memory, sizeof(Name) * import_count);
+                                    components.imports[components.count]->nodes = memory_alloc(memory, sizeof(ASTNode *) * import_count);
+                                    components.imports[components.count]->inserts = memory_alloc(memory, sizeof(InsertSOA) * import_count);
                                 }
 
                                 if (slot_count) {
-                                    lookup_components.slots[lookup_components.count] = memory_alloc(memory, sizeof(LookupImports));
-                                    lookup_components.slots[lookup_components.count]->names = memory_alloc(memory, sizeof(TagName) * slot_count);
-                                    lookup_components.slots[lookup_components.count]->nodes = memory_alloc(memory, sizeof(ChildSiblingNode *) * slot_count);
+                                    components.slots[components.count] = memory_alloc(memory, sizeof(ImportSOA));
+                                    components.slots[components.count]->names = memory_alloc(memory, sizeof(Name) * slot_count);
+                                    components.slots[components.count]->nodes = memory_alloc(memory, sizeof(ASTNode *) * slot_count);
                                 }
 
-                                tree_traverse_make_lookup(memory, cs_root, &lookup_components);
+                                tree_traverse_make_lookup(memory, cs_root, &components);
 
-                                lookup_components.count += 1;
+                                components.count += 1;
                             }
 
-                            tags_stack.count = 0;
-                            memset(tags_stack.data, 0, sizeof(TagStackElement) * tags_stack_max);
+                            tag_stack.count = 0;
+                            memset(tag_stack.data, 0, sizeof(TagStackElement) * tag_stack_max);
 
-                            nodes_stack.count = 0;
-                            memset(nodes_stack.data, 0, sizeof(ParentPointerNode *) * tags_stack_max);
+                            node_array.count = 0;
+                            memset(node_array.data, 0, sizeof(Node *) * tag_stack_max);
 
                             component_index += 1;
 
@@ -1146,64 +1140,64 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                         case TAG_SELFCLOSING: {
                             if (!has_name_attr) {
                                 char error[] = "All tags must contain a name attribute";
-                                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            ParentPointerNode *parent = tags_stack.data[tags_stack.count - 1].node;
-                            ParentPointerNode *node = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, parent);
+                            Node *parent = tag_stack.data[tag_stack.count - 1].node;
+                            Node *node = create_node(memory, token.kind, token.identifier, lexer.file_path, lexer.line_number, attribute_array, parent);
 
-                            nodes_stack.data[nodes_stack.count] = node;
-                            nodes_stack.count += 1;
+                            node_array.data[node_array.count] = node;
+                            node_array.count += 1;
 
                             goto proceed_to_next_token;
                         }
                         case TAG_OPENING: {
                             if (!has_name_attr) {
                                 char error[] = "All tags must contain a name attribute";
-                                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            ParentPointerNode *parent = tags_stack.data[tags_stack.count - 1].node;
-                            ParentPointerNode *node = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, parent);
+                            Node *parent = tag_stack.data[tag_stack.count - 1].node;
+                            Node *node = create_node(memory, token.kind, token.identifier, lexer.file_path, lexer.line_number, attribute_array, parent);
 
-                            tags_stack.data[tags_stack.count].token_type = token.token_type;
-                            tags_stack.data[tags_stack.count].node = node;
-                            tags_stack.count += 1;
+                            tag_stack.data[tag_stack.count].kind = token.kind;
+                            tag_stack.data[tag_stack.count].node = node;
+                            tag_stack.count += 1;
 
-                            nodes_stack.data[nodes_stack.count] = node;
-                            nodes_stack.count += 1;
+                            node_array.data[node_array.count] = node;
+                            node_array.count += 1;
 
                             goto proceed_to_next_token;
                         }
                         case TAG_CLOSING: {
-                            if (attributes.count) {
-                                print_tag_error(lexer.content, "Closing tag is not allowed to have attributes", lexer.file_path, token.tag_identifier, lexer.line_number);
+                            if (attribute_array.count) {
+                                print_tag_error(lexer.content, "Closing tag is not allowed to have attributes", lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            TagStackElement last_tag_opened = tags_stack.data[tags_stack.count - 1];
-                            if (token.token_type != last_tag_opened.token_type) {
+                            TagStackElement last_tag_opened = tag_stack.data[tag_stack.count - 1];
+                            if (token.kind != last_tag_opened.kind) {
 
-                                // print something like: tag last_tag_opened.node is child of token.token_type and needs to be closed before closing the parent token.token_type
+                                // print something like: tag last_tag_opened.node is child of token.kind and needs to be closed before closing the parent token.kind
 
                                 char error[] = "NOT SURE WHAT GOES HERE";
-                                print_tag_error(lexer.content, error, lexer.file_path, last_tag_opened.node->tag_identifier, last_tag_opened.node->line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, last_tag_opened.node->identifier, last_tag_opened.node->line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            tags_stack.data[tags_stack.count - 1].token_type = 0;
-                            tags_stack.data[tags_stack.count - 1].node = NULL;
-                            tags_stack.count -= 1;
+                            tag_stack.data[tag_stack.count - 1].kind = 0;
+                            tag_stack.data[tag_stack.count - 1].node = NULL;
+                            tag_stack.count -= 1;
 
                             goto proceed_to_next_token;
                         }
@@ -1221,41 +1215,41 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                         case TAG_SELFCLOSING: {
                             if (!has_name_attr) {
                                 char error[] = "All tags must contain a name attribute";
-                                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            for (j = 0; j < attributes.count; j++) {
+                            for (j = 0; j < attribute_array.count; j++) {
                                 if (j == name_attr_index)
                                     continue;
 
                                 char error[] = "Invalid attribute for x-slot tag";
-                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number, &attributes.attribute[j]);
+                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number, &attribute_array.attributes[j]);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            ParentPointerNode *parent = tags_stack.data[tags_stack.count - 1].node;
-                            ParentPointerNode *node = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, parent);
+                            Node *parent = tag_stack.data[tag_stack.count - 1].node;
+                            Node *node = create_node(memory, token.kind, token.identifier, lexer.file_path, lexer.line_number, attribute_array, parent);
 
-                            nodes_stack.data[nodes_stack.count] = node;
-                            nodes_stack.count += 1;
+                            node_array.data[node_array.count] = node;
+                            node_array.count += 1;
 
                             goto proceed_to_next_token;
                         }
                         case TAG_OPENING: {
                             char error[] = "x-slot must be self-closing";
-                            print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                            print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                             ASSERT(0); // TODO: remove
                             return -1;
                         }
                         case TAG_CLOSING: {
                             char error[] = "x-slot must be self-closing";
-                            print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                            print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                             ASSERT(0); // TODO: remove
                             return -1;
@@ -1273,7 +1267,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                     switch (token.tag_type) {
                         case TAG_SELFCLOSING: {
                             char error[] = "x-insert can NOT be self-closing";
-                            print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                            print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                             ASSERT(0); // TODO: remove
                             return -1;
@@ -1281,56 +1275,56 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                         case TAG_OPENING: {
                             if (!has_name_attr) {
                                 char error[] = "All tags must contain a name attribute";
-                                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            for (j = 0; j < attributes.count; j++) {
+                            for (j = 0; j < attribute_array.count; j++) {
                                 if (j == name_attr_index)
                                     continue;
 
                                 char error[] = "Invalid attribute for x-insert tag";
-                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number, &attributes.attribute[j]);
+                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number, &attribute_array.attributes[j]);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            ParentPointerNode *parent = tags_stack.data[tags_stack.count - 1].node;
-                            ParentPointerNode *node = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, parent);
+                            Node *parent = tag_stack.data[tag_stack.count - 1].node;
+                            Node *node = create_node(memory, token.kind, token.identifier, lexer.file_path, lexer.line_number, attribute_array, parent);
 
-                            tags_stack.data[tags_stack.count].token_type = token.token_type;
-                            tags_stack.data[tags_stack.count].node = node;
-                            tags_stack.count += 1;
+                            tag_stack.data[tag_stack.count].kind = token.kind;
+                            tag_stack.data[tag_stack.count].node = node;
+                            tag_stack.count += 1;
 
-                            nodes_stack.data[nodes_stack.count] = node;
-                            nodes_stack.count += 1;
+                            node_array.data[node_array.count] = node;
+                            node_array.count += 1;
 
                             goto proceed_to_next_token;
                         }
                         case TAG_CLOSING: {
-                            if (attributes.count) {
-                                print_tag_error(lexer.content, "Closing tag is not allowed to have attributes", lexer.file_path, token.tag_identifier, lexer.line_number);
+                            if (attribute_array.count) {
+                                print_tag_error(lexer.content, "Closing tag is not allowed to have attributes", lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            TagStackElement last_tag_opened = tags_stack.data[tags_stack.count - 1];
-                            if (token.token_type != last_tag_opened.token_type) {
+                            TagStackElement last_tag_opened = tag_stack.data[tag_stack.count - 1];
+                            if (token.kind != last_tag_opened.kind) {
 
                                 char error[] = "NOT SURE WHAT GOES HERE";
-                                print_tag_error(lexer.content, error, lexer.file_path, last_tag_opened.node->tag_identifier, last_tag_opened.node->line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, last_tag_opened.node->identifier, last_tag_opened.node->line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            tags_stack.data[tags_stack.count - 1].token_type = 0;
-                            tags_stack.data[tags_stack.count - 1].node = NULL;
-                            tags_stack.count -= 1;
+                            tag_stack.data[tag_stack.count - 1].kind = 0;
+                            tag_stack.data[tag_stack.count - 1].node = NULL;
+                            tag_stack.count -= 1;
 
                             goto proceed_to_next_token;
                         }
@@ -1348,41 +1342,41 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                         case TAG_SELFCLOSING: {
                             if (!has_name_attr) {
                                 char error[] = "All tags must contain a name attribute";
-                                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            for (j = 0; j < attributes.count; j++) {
+                            for (j = 0; j < attribute_array.count; j++) {
                                 if (j == name_attr_index)
                                     continue;
 
                                 char error[] = "Invalid attribute for x-val tag";
-                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number, &attributes.attribute[j]);
+                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number, &attribute_array.attributes[j]);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            ParentPointerNode *parent = tags_stack.data[tags_stack.count - 1].node;
-                            ParentPointerNode *node = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, parent);
+                            Node *parent = tag_stack.data[tag_stack.count - 1].node;
+                            Node *node = create_node(memory, token.kind, token.identifier, lexer.file_path, lexer.line_number, attribute_array, parent);
 
-                            nodes_stack.data[nodes_stack.count] = node;
-                            nodes_stack.count += 1;
+                            node_array.data[node_array.count] = node;
+                            node_array.count += 1;
 
                             goto proceed_to_next_token;
                         }
                         case TAG_OPENING: {
                             char error[] = "x-val must be self-closing";
-                            print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                            print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                             ASSERT(0); // TODO: remove
                             return -1;
                         }
                         case TAG_CLOSING: {
                             char error[] = "x-val must be self-closing";
-                            print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                            print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                             ASSERT(0); // TODO: remove
                             return -1;
@@ -1400,7 +1394,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                     switch (token.tag_type) {
                         case TAG_SELFCLOSING: {
                             char error[] = "x-for can NOT be self-closing";
-                            print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                            print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                             ASSERT(0); // TODO: remove
                             return -1;
@@ -1408,56 +1402,56 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                         case TAG_OPENING: {
                             if (!has_name_attr) {
                                 char error[] = "All tags must contain a name attribute";
-                                print_tag_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            for (j = 0; j < attributes.count; j++) {
+                            for (j = 0; j < attribute_array.count; j++) {
                                 if (j == name_attr_index)
                                     continue;
 
                                 char error[] = "Invalid attribute for x-for tag";
-                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.tag_identifier, lexer.line_number, &attributes.attribute[j]);
+                                print_no_attribute_allowed_error(lexer.content, error, lexer.file_path, token.identifier, lexer.line_number, &attribute_array.attributes[j]);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            ParentPointerNode *parent = tags_stack.data[tags_stack.count - 1].node;
-                            ParentPointerNode *node = create_parent_pointer_node(memory, token.token_type, token.tag_identifier, lexer.file_path, lexer.line_number, attributes, parent);
+                            Node *parent = tag_stack.data[tag_stack.count - 1].node;
+                            Node *node = create_node(memory, token.kind, token.identifier, lexer.file_path, lexer.line_number, attribute_array, parent);
 
-                            tags_stack.data[tags_stack.count].token_type = token.token_type;
-                            tags_stack.data[tags_stack.count].node = node;
-                            tags_stack.count += 1;
+                            tag_stack.data[tag_stack.count].kind = token.kind;
+                            tag_stack.data[tag_stack.count].node = node;
+                            tag_stack.count += 1;
 
-                            nodes_stack.data[nodes_stack.count] = node;
-                            nodes_stack.count += 1;
+                            node_array.data[node_array.count] = node;
+                            node_array.count += 1;
 
                             goto proceed_to_next_token;
                         }
                         case TAG_CLOSING: {
-                            if (attributes.count) {
-                                print_tag_error(lexer.content, "Closing tag is not allowed to have attributes", lexer.file_path, token.tag_identifier, lexer.line_number);
+                            if (attribute_array.count) {
+                                print_tag_error(lexer.content, "Closing tag is not allowed to have attributes", lexer.file_path, token.identifier, lexer.line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            TagStackElement last_tag_opened = tags_stack.data[tags_stack.count - 1];
-                            if (token.token_type != last_tag_opened.token_type) {
+                            TagStackElement last_tag_opened = tag_stack.data[tag_stack.count - 1];
+                            if (token.kind != last_tag_opened.kind) {
 
                                 char error[] = "NOT SURE WHAT GOES HERE";
-                                print_tag_error(lexer.content, error, lexer.file_path, last_tag_opened.node->tag_identifier, last_tag_opened.node->line_number);
+                                print_tag_error(lexer.content, error, lexer.file_path, last_tag_opened.node->identifier, last_tag_opened.node->line_number);
 
                                 ASSERT(0); // TODO: remove
                                 return -1;
                             }
 
-                            tags_stack.data[tags_stack.count - 1].token_type = 0;
-                            tags_stack.data[tags_stack.count - 1].node = NULL;
-                            tags_stack.count -= 1;
+                            tag_stack.data[tag_stack.count - 1].kind = 0;
+                            tag_stack.data[tag_stack.count - 1].node = NULL;
+                            tag_stack.count -= 1;
 
                             goto proceed_to_next_token;
                         }
@@ -1484,29 +1478,29 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
     //  - all component import attributes must exist inside the imported component as %replasables%
     //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
 
-    for (i = 0; i < lookup_components.count; i++) {
-        print_component_lookup(&lookup_components, i);
-        char *component_name = lookup_components.names[i];
+    for (i = 0; i < components.count; i++) {
+        print_component_lookup(&components, i);
+        char *component_name = components.names[i];
 
         // remove the following
         if (strncmp(component_name, "bottom_modal", strlen("bottom_modal")) == 0) {
             printf("\n");
         }
 
-        if (lookup_components.imports[i]) {
-            u32 num_imports = lookup_components.imports[i]->count;
+        if (components.imports[i]) {
+            u32 num_imports = components.imports[i]->count;
 
             u32 j;
             for (j = 0; j < num_imports; j++) {
-                ChildSiblingNode *import_node = lookup_components.imports[i]->nodes[j];
-                char *import_name = lookup_components.imports[i]->names[j];
+                ASTNode *import_node = components.imports[i]->nodes[j];
+                char *import_name = components.imports[i]->names[j];
                 if (strncmp(component_name, import_name, strlen(import_name)) == 0) {
                     char error[] = "Recursive import. Component is importing itself";
                     printf("%s:\n", error);
-                    printf("    file: %.*s\n", (int)lookup_components.file_paths[i].length, lookup_components.file_paths[i].data);
-                    printf("    line: %d\n", lookup_components.imports[i]->nodes[j]->line_number);
+                    printf("    file: %.*s\n", (int)components.file_paths[i].length, components.file_paths[i].data);
+                    printf("    line: %d\n", components.imports[i]->nodes[j]->line_number);
                     printf("\n");
-                    print_tag_attr_error(lookup_components.contents[i], lookup_components.imports[i]->nodes[j], lookup_components.imports[i]->nodes[j]->attributes.attribute[lookup_components.imports[i]->nodes[j]->name_attr_index]);
+                    print_tag_attr_error(components.contents[i], components.imports[i]->nodes[j], components.imports[i]->nodes[j]->attribute_array.attributes[components.imports[i]->nodes[j]->name_attr_index]);
 
                     ASSERT(0);
                 }
@@ -1515,12 +1509,12 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                 u32 imported_component_index = 9999;
 
                 u32 k;
-                for (k = 0; k < lookup_components.count; k++) {
-                    if (strncmp(import_name, lookup_components.names[k], strlen(import_name)) == 0) {
+                for (k = 0; k < components.count; k++) {
+                    if (strncmp(import_name, components.names[k], strlen(import_name)) == 0) {
                         imported_component_index = k;
 
                         u32 h;
-                        for (h = 0; h < import_node->attributes.count; h++) {
+                        for (h = 0; h < import_node->attribute_array.count; h++) {
                             if (h == import_node->name_attr_index) {
                                 continue;
                             }
@@ -1528,13 +1522,13 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                             boolean found = false;
 
                             u32 f;
-                            for (f = 0; f < lookup_components.placeholders[k]->count; f++) {
-                                if (strncmp(lookup_components.placeholders[k]->names[f], import_node->attributes.attribute[h].name.data, import_node->attributes.attribute[h].name.length) == 0) {
+                            for (f = 0; f < components.placeholders[k]->count; f++) {
+                                if (strncmp(components.placeholders[k]->names[f], import_node->attribute_array.attributes[h].name.data, import_node->attribute_array.attributes[h].name.length) == 0) {
                                     found = true;
                                 }
                             }
 
-                            ASSERT(found);
+                            // ASSERT(found);
                         }
 
                         break;
@@ -1544,27 +1538,27 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                 if (imported_component_index == 9999) {
                     char error[] = "Component you are trying to import does not exist";
                     printf("%s:\n", error);
-                    printf("    file: %.*s\n", (int)lookup_components.file_paths[i].length, lookup_components.file_paths[i].data);
-                    printf("    line: %d\n", lookup_components.imports[i]->nodes[j]->line_number);
+                    printf("    file: %.*s\n", (int)components.file_paths[i].length, components.file_paths[i].data);
+                    printf("    line: %d\n", components.imports[i]->nodes[j]->line_number);
                     printf("\n");
-                    print_tag_attr_error(lookup_components.contents[i], lookup_components.imports[i]->nodes[j], lookup_components.imports[i]->nodes[j]->attributes.attribute[lookup_components.imports[i]->nodes[j]->name_attr_index]);
+                    print_tag_attr_error(components.contents[i], components.imports[i]->nodes[j], components.imports[i]->nodes[j]->attribute_array.attributes[components.imports[i]->nodes[j]->name_attr_index]);
 
                     ASSERT(0);
                 }
 
                 // check that imported components do contain inserts as slots
-                u32 insert_count = lookup_components.imports[i]->inserts[j].count;
-                LookupInserts *inserts = &lookup_components.imports[i]->inserts[j];
+                u32 insert_count = components.imports[i]->inserts[j].count;
+                InsertSOA *inserts = &components.imports[i]->inserts[j];
                 u32 h;
                 for (h = 0; h < insert_count; h++) {
                     char *insert = inserts->names[h];
 
                     u32 imported_component_slot_index = 9999;
 
-                    if (lookup_components.slots[imported_component_index]) {
+                    if (components.slots[imported_component_index]) {
                         u32 f;
-                        for (f = 0; f < lookup_components.slots[imported_component_index]->count; f++) {
-                            if (strncmp(lookup_components.slots[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
+                        for (f = 0; f < components.slots[imported_component_index]->count; f++) {
+                            if (strncmp(components.slots[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
                                 imported_component_slot_index = f;
                                 break;
                             }

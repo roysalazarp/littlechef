@@ -111,7 +111,6 @@ typedef struct {
     ChildSiblingNode **nodes;
     LookupInserts *inserts;
     u32 count;
-    // NOTE: probably here goes an array of attributes
 } LookupImports;
 
 typedef struct {
@@ -343,13 +342,13 @@ Token get_next_token(Lexer *lexer) {
 
                     if (*p == '%') {
                         String token_string = {0};
-                        token_string.data = c;
-                        token_string.length = (p + 1) - token_string.data;
+                        token_string.data = c + 1;
+                        token_string.length = p - token_string.data;
 
                         token.tag_identifier = token_string;
                         token.token_type = TOKEN_PLACEHOLDER;
 
-                        lexer->cursor = (token_string.data + token_string.length) - lexer->content.data;
+                        lexer->cursor = (token_string.data + token_string.length + 1) - lexer->content.data;
 
                         return token;
                     }
@@ -1489,13 +1488,19 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
         print_component_lookup(&lookup_components, i);
         char *component_name = lookup_components.names[i];
 
+        // remove the following
+        if (strncmp(component_name, "bottom_modal", strlen("bottom_modal")) == 0) {
+            printf("\n");
+        }
+
         if (lookup_components.imports[i]) {
             u32 num_imports = lookup_components.imports[i]->count;
 
             u32 j;
             for (j = 0; j < num_imports; j++) {
-                char *import = lookup_components.imports[i]->names[j];
-                if (strncmp(component_name, import, strlen(import)) == 0) {
+                ChildSiblingNode *import_node = lookup_components.imports[i]->nodes[j];
+                char *import_name = lookup_components.imports[i]->names[j];
+                if (strncmp(component_name, import_name, strlen(import_name)) == 0) {
                     char error[] = "Recursive import. Component is importing itself";
                     printf("%s:\n", error);
                     printf("    file: %.*s\n", (int)lookup_components.file_paths[i].length, lookup_components.file_paths[i].data);
@@ -1511,8 +1516,27 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
 
                 u32 k;
                 for (k = 0; k < lookup_components.count; k++) {
-                    if (strncmp(lookup_components.names[k], import, strlen(import)) == 0) {
+                    if (strncmp(import_name, lookup_components.names[k], strlen(import_name)) == 0) {
                         imported_component_index = k;
+
+                        u32 h;
+                        for (h = 0; h < import_node->attributes.count; h++) {
+                            if (h == import_node->name_attr_index) {
+                                continue;
+                            }
+
+                            boolean found = false;
+
+                            u32 f;
+                            for (f = 0; f < lookup_components.placeholders[k]->count; f++) {
+                                if (strncmp(lookup_components.placeholders[k]->names[f], import_node->attributes.attribute[h].name.data, import_node->attributes.attribute[h].name.length) == 0) {
+                                    found = true;
+                                }
+                            }
+
+                            ASSERT(found);
+                        }
+
                         break;
                     }
                 }

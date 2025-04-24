@@ -49,7 +49,7 @@ Memory *initialise_memory(size_t size) {
 }
 
 #define MAX_ASSET_FILES 72
-void locate_files(Memory *memory, String *asset_paths, char base_path[], u32 *count) {
+void locate_files(Memory *memory, String *filepaths, char base_path[], u32 *count) {
     DIR *dir = opendir(base_path);
     ASSERT(dir != NULL);
 
@@ -71,7 +71,7 @@ void locate_files(Memory *memory, String *asset_paths, char base_path[], u32 *co
         boolean is_dir = (boolean)(stat(path_buffer, &statbuf) == 0 && S_ISDIR(statbuf.st_mode));
 
         if (is_dir) {
-            locate_files(memory, asset_paths, path_buffer, count);
+            locate_files(memory, filepaths, path_buffer, count);
         } else {
             if (*count >= MAX_ASSET_FILES) {
                 printf("%s dir contains more than %d (MAX_ASSET_FILES)\n", ASSETS_FULLPATH, MAX_ASSET_FILES);
@@ -86,8 +86,8 @@ void locate_files(Memory *memory, String *asset_paths, char base_path[], u32 *co
             char *filepath = memory_alloc(memory, filepath_length /* +1 for null terminator */ + 1);
             memcpy(filepath, path_buffer, filepath_length);
 
-            asset_paths[*count].data = filepath;
-            asset_paths[*count].length = filepath_length;
+            filepaths[*count].data = filepath;
+            filepaths[*count].length = filepath_length;
 
             (*count)++;
         }
@@ -107,17 +107,17 @@ void initialise_web_server_resources(Memory *memory) {
     // the assets from.
     Memory *assets_memory = initialise_memory(PAGE_SIZE * 50);
 
-    String *asset_paths = memory_alloc(assets_memory, sizeof(String) * MAX_ASSET_FILES);
+    String *filepaths = memory_alloc(assets_memory, sizeof(String) * MAX_ASSET_FILES);
     u32 count = 0;
-    locate_files(assets_memory, asset_paths, ASSETS_FULLPATH, &count);
+    locate_files(assets_memory, filepaths, ASSETS_FULLPATH, &count);
 
-    String *assets_content = memory_alloc(assets_memory, sizeof(String) * count);
+    String *contents = memory_alloc(assets_memory, sizeof(String) * count);
 
     u8 i = 0;
     while (i < count) {
         long file_size = 0;
 
-        FILE *file = fopen(asset_paths[i].data, "r");
+        FILE *file = fopen(filepaths[i].data, "r");
         ASSERT(file != NULL);
         ASSERT(fseek(file, 0, SEEK_END) != -1);
         file_size = ftell(file);
@@ -129,19 +129,19 @@ void initialise_web_server_resources(Memory *memory) {
         ASSERT(read_size == (size_t)file_size);
         fclose(file);
 
-        assets_content[i].data = asset_file_content;
-        assets_content[i].length = file_size;
+        contents[i].data = asset_file_content;
+        contents[i].length = file_size;
 
         i++;
     }
 
-    AssetList asset_list = {0};
-    asset_list.asset_list = asset_paths;
-    asset_list.asset_list_content = assets_content;
-    asset_list.count = count;
+    AssetSOA assets_soa = {0};
+    assets_soa.locations = filepaths;
+    assets_soa.contents = contents;
+    assets_soa.count = count;
 
     Memory *scratch_memory = initialise_memory(PAGE_SIZE * 50);
-    setup_web_server_resources(memory, scratch_memory, asset_list);
+    setup_web_server_resources(memory, scratch_memory, assets_soa);
 
     munmap(assets_memory->start, assets_memory->size);
     munmap(scratch_memory->start, scratch_memory->size);

@@ -109,15 +109,15 @@ typedef struct {
 typedef struct {
     Name *names;
     ASTNode **nodes;
-    InsertSOA *inserts;
+    InsertSOA *inserts_soa;
     u32 count;
 } ImportSOA;
 
 typedef struct {
     Name *names;
-    PlaceholderSOA **placeholders;
-    ImportSOA **imports;
-    SlotSOA **slots;
+    PlaceholderSOA **placeholders_soa;
+    ImportSOA **imports_soa;
+    SlotSOA **slots_soa;
     String *file_paths;
     String *contents;
     u32 count;
@@ -695,23 +695,23 @@ void tree_traverse_error_checking(String content, String file_path, ASTNode *nod
     }
 }
 
-void tree_traverse_make_lookup(Memory *memory, ASTNode *node, ComponentSOA *components) {
-    u32 current_component_index = components->count;
+void tree_traverse_make_lookup(Memory *memory, ASTNode *node, ComponentSOA *components_soa) {
+    u32 current_component_index = components_soa->count;
 
     if (node->kind == TOKEN_SLOT) {
-        SlotSOA *slots = components->slots[current_component_index];
+        SlotSOA *slots_soa = components_soa->slots_soa[current_component_index];
 
-        memcpy(slots->names[slots->count], node->attribute_array.attributes[node->name_attr_index].value.data, node->attribute_array.attributes[node->name_attr_index].value.length);
-        slots->nodes[slots->count] = node;
+        memcpy(slots_soa->names[slots_soa->count], node->attribute_array.attributes[node->name_attr_index].value.data, node->attribute_array.attributes[node->name_attr_index].value.length);
+        slots_soa->nodes[slots_soa->count] = node;
 
-        slots->count += 1;
+        slots_soa->count += 1;
     }
 
     if (node->kind == TOKEN_COMPONENT_IMPORT) {
-        ImportSOA *imports = components->imports[current_component_index];
+        ImportSOA *imports_soa = components_soa->imports_soa[current_component_index];
 
-        memcpy(imports->names[imports->count], node->attribute_array.attributes[node->name_attr_index].value.data, node->attribute_array.attributes[node->name_attr_index].value.length);
-        imports->nodes[imports->count] = node;
+        memcpy(imports_soa->names[imports_soa->count], node->attribute_array.attributes[node->name_attr_index].value.data, node->attribute_array.attributes[node->name_attr_index].value.length);
+        imports_soa->nodes[imports_soa->count] = node;
 
         u32 child_count = 0;
         ASTNode *child = node->first_child;
@@ -720,73 +720,73 @@ void tree_traverse_make_lookup(Memory *memory, ASTNode *node, ComponentSOA *comp
             child = child->next_sibling;
         }
 
-        InsertSOA *inserts = &(imports->inserts[imports->count]);
+        InsertSOA *inserts_soa = &(imports_soa->inserts_soa[imports_soa->count]);
 
         if (child_count) {
-            inserts->names = memory_alloc(memory, sizeof(Name) * child_count);
-            inserts->nodes = memory_alloc(memory, sizeof(ASTNode *) * child_count);
+            inserts_soa->names = memory_alloc(memory, sizeof(Name) * child_count);
+            inserts_soa->nodes = memory_alloc(memory, sizeof(ASTNode *) * child_count);
 
             child = node->first_child;
             while (child) {
 
-                memcpy(inserts->names[inserts->count], child->attribute_array.attributes[child->name_attr_index].value.data, child->attribute_array.attributes[child->name_attr_index].value.length);
-                inserts->nodes[inserts->count] = child;
-                inserts->count += 1;
+                memcpy(inserts_soa->names[inserts_soa->count], child->attribute_array.attributes[child->name_attr_index].value.data, child->attribute_array.attributes[child->name_attr_index].value.length);
+                inserts_soa->nodes[inserts_soa->count] = child;
+                inserts_soa->count += 1;
 
                 child = child->next_sibling;
             }
         }
 
-        imports->count += 1;
+        imports_soa->count += 1;
     }
 
     if (node->next_sibling) {
-        tree_traverse_make_lookup(memory, node->next_sibling, components);
+        tree_traverse_make_lookup(memory, node->next_sibling, components_soa);
     }
 
     if (node->first_child) {
-        tree_traverse_make_lookup(memory, node->first_child, components);
+        tree_traverse_make_lookup(memory, node->first_child, components_soa);
     }
 }
 
-void print_component_lookup(ComponentSOA *components, u32 i) {
-    printf("Component %s\n", components->names[i]);
+void print_component_lookup(ComponentSOA *components_soa, u32 i) {
+    printf("Component %s\n", components_soa->names[i]);
 
-    if (components->slots[i]) {
-        SlotSOA *slots = components->slots[i];
-        printf("    has %d slots: ", slots->count);
+    if (components_soa->slots_soa[i]) {
+        SlotSOA *slots_soa = components_soa->slots_soa[i];
+        printf("    has %d slots: ", slots_soa->count);
         u32 j;
-        for (j = 0; j < slots->count; j++) {
-            printf("%s", slots->names[j]);
+        for (j = 0; j < slots_soa->count; j++) {
+            printf("%s", slots_soa->names[j]);
 
-            if ((j + 1) != slots->count) {
+            if ((j + 1) != slots_soa->count) {
                 printf(", ");
             }
         }
         printf("\n");
     }
 
-    if (components->imports[i]) {
-        ImportSOA *imports = components->imports[i];
-        printf("    has %d imports: ", imports->count);
+    if (components_soa->imports_soa[i]) {
+        ImportSOA *imports_soa = components_soa->imports_soa[i];
+        printf("    has %d imports: ", imports_soa->count);
         u32 j;
-        for (j = 0; j < imports->count; j++) {
-            printf("%s", imports->names[j]);
-            if (imports->inserts[j].count) {
-                InsertSOA *inserts = &(imports->inserts[j]);
+        for (j = 0; j < imports_soa->count; j++) {
+            printf("%s", imports_soa->names[j]);
+            if (imports_soa->inserts_soa[j].count) {
+                InsertSOA *inserts_soa = &(imports_soa->inserts_soa[j]);
                 printf("(");
                 u32 k;
-                for (k = 0; k < inserts->count; k++) {
-                    printf("%s", inserts->names[k]);
+                for (k = 0; k < inserts_soa->count; k++) {
+                    printf("%s", inserts_soa->names[k]);
 
-                    if ((k + 1) != inserts->count) {
+                    if ((k + 1) != inserts_soa->count) {
                         printf(", ");
                     }
                 }
                 printf(")");
             }
 
-            if ((j + 1) != imports->count) {
+            if ((j + 1) != imports_soa->count) {
                 printf(", ");
             }
         }
@@ -844,18 +844,18 @@ Lexer lexer_init(String file_path, String content) {
     return lexer;
 }
 
-int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asset_list) {
+int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA assets_soa) {
     u32 i;
 
-    ComponentSOA components = {0};
+    ComponentSOA components_soa = {0};
 
     u32 components_count = 0;
-    for (i = 0; i < asset_list.count; i++) {
-        if (!is_html_path(asset_list.asset_list[i])) {
+    for (i = 0; i < assets_soa.count; i++) {
+        if (!is_html_path(assets_soa.locations[i])) {
             continue;
         }
 
-        Lexer lexer = lexer_init(asset_list.asset_list[i], asset_list.asset_list_content[i]);
+        Lexer lexer = lexer_init(assets_soa.locations[i], assets_soa.contents[i]);
 
         String opening_tag_identifier = {0};
         u32 line_number = 0;
@@ -892,14 +892,13 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
         }
     }
 
-    components.names = memory_alloc(memory, sizeof(Name) * components_count);
-    components.placeholders = memory_alloc(memory, sizeof(PlaceholderSOA *) * components_count);
-    components.imports = memory_alloc(memory, sizeof(ImportSOA *) * components_count);
-    components.slots = memory_alloc(memory, sizeof(SlotSOA *) * components_count);
-    components.file_paths = memory_alloc(memory, sizeof(String) * components_count);
-    components.contents = memory_alloc(memory, sizeof(String) * components_count);
+    components_soa.names = memory_alloc(memory, sizeof(Name) * components_count);
+    components_soa.placeholders_soa = memory_alloc(memory, sizeof(PlaceholderSOA *) * components_count);
+    components_soa.imports_soa = memory_alloc(memory, sizeof(ImportSOA *) * components_count);
+    components_soa.slots_soa = memory_alloc(memory, sizeof(SlotSOA *) * components_count);
+    components_soa.file_paths = memory_alloc(memory, sizeof(String) * components_count);
+    components_soa.contents = memory_alloc(memory, sizeof(String) * components_count);
 
-    u32 *tags_stack_sizes = memory_alloc(memory, sizeof(u32) * components_count);
     u32 *placeholder_amounts = memory_alloc(memory, sizeof(u32) * components_count);
 
     u32 component_index = 0;
@@ -908,12 +907,12 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
     u32 tag_stack_max = 0;
     u32 tag_stack_count = 0;
 
-    for (i = 0; i < asset_list.count; i++) {
-        if (!is_html_path(asset_list.asset_list[i])) {
+    for (i = 0; i < assets_soa.count; i++) {
+        if (!is_html_path(assets_soa.locations[i])) {
             continue;
         }
 
-        Lexer lexer = lexer_init(asset_list.asset_list[i], asset_list.asset_list_content[i]);
+        Lexer lexer = lexer_init(assets_soa.locations[i], assets_soa.contents[i]);
 
         while (lexer.cursor < lexer.content.length) {
             char *c = peek(&lexer);
@@ -978,8 +977,8 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
     }
 
     for (i = 0; i < components_count; i++) {
-        components.placeholders[i] = memory_alloc(memory, sizeof(PlaceholderSOA));
-        components.placeholders[i]->names = memory_alloc(memory, sizeof(Name) * placeholder_amounts[i]);
+        components_soa.placeholders_soa[i] = memory_alloc(memory, sizeof(PlaceholderSOA));
+        components_soa.placeholders_soa[i]->names = memory_alloc(memory, sizeof(Name) * placeholder_amounts[i]);
     }
 
     TagStack tag_stack = {0};
@@ -990,19 +989,19 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
 
     component_index = 0;
 
-    for (i = 0; i < asset_list.count; i++) {
-        if (!is_html_path(asset_list.asset_list[i])) {
+    for (i = 0; i < assets_soa.count; i++) {
+        if (!is_html_path(assets_soa.locations[i])) {
             continue;
         }
 
-        Lexer lexer = lexer_init(asset_list.asset_list[i], asset_list.asset_list_content[i]);
+        Lexer lexer = lexer_init(assets_soa.locations[i], assets_soa.contents[i]);
 
         Token token = get_next_token(&lexer);
         while (token.kind != TOKEN_EOF) {
             if (token.kind == TOKEN_PLACEHOLDER) {
-                u32 count = components.placeholders[component_index]->count;
-                memcpy(components.placeholders[component_index]->names[count], token.identifier.data, token.identifier.length);
-                components.placeholders[component_index]->count += 1;
+                u32 count = components_soa.placeholders_soa[component_index]->count;
+                memcpy(components_soa.placeholders_soa[component_index]->names[count], token.identifier.data, token.identifier.length);
+                components_soa.placeholders_soa[component_index]->count += 1;
 
                 goto proceed_to_next_token;
             }
@@ -1094,26 +1093,26 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                                     return -1;
                                 }
 
-                                memcpy(components.names[components.count], cs_root->attribute_array.attributes[cs_root->name_attr_index].value.data, cs_root->attribute_array.attributes[cs_root->name_attr_index].value.length);
-                                components.file_paths[components.count] = lexer.file_path;
-                                components.contents[components.count] = lexer.content;
+                                memcpy(components_soa.names[components_soa.count], cs_root->attribute_array.attributes[cs_root->name_attr_index].value.data, cs_root->attribute_array.attributes[cs_root->name_attr_index].value.length);
+                                components_soa.file_paths[components_soa.count] = lexer.file_path;
+                                components_soa.contents[components_soa.count] = lexer.content;
 
                                 if (import_count) {
-                                    components.imports[components.count] = memory_alloc(memory, sizeof(ImportSOA));
-                                    components.imports[components.count]->names = memory_alloc(memory, sizeof(Name) * import_count);
-                                    components.imports[components.count]->nodes = memory_alloc(memory, sizeof(ASTNode *) * import_count);
-                                    components.imports[components.count]->inserts = memory_alloc(memory, sizeof(InsertSOA) * import_count);
+                                    components_soa.imports_soa[components_soa.count] = memory_alloc(memory, sizeof(ImportSOA));
+                                    components_soa.imports_soa[components_soa.count]->names = memory_alloc(memory, sizeof(Name) * import_count);
+                                    components_soa.imports_soa[components_soa.count]->nodes = memory_alloc(memory, sizeof(ASTNode *) * import_count);
+                                    components_soa.imports_soa[components_soa.count]->inserts_soa = memory_alloc(memory, sizeof(InsertSOA) * import_count);
                                 }
 
                                 if (slot_count) {
-                                    components.slots[components.count] = memory_alloc(memory, sizeof(ImportSOA));
-                                    components.slots[components.count]->names = memory_alloc(memory, sizeof(Name) * slot_count);
-                                    components.slots[components.count]->nodes = memory_alloc(memory, sizeof(ASTNode *) * slot_count);
+                                    components_soa.slots_soa[components_soa.count] = memory_alloc(memory, sizeof(ImportSOA));
+                                    components_soa.slots_soa[components_soa.count]->names = memory_alloc(memory, sizeof(Name) * slot_count);
+                                    components_soa.slots_soa[components_soa.count]->nodes = memory_alloc(memory, sizeof(ASTNode *) * slot_count);
                                 }
 
-                                tree_traverse_make_lookup(memory, cs_root, &components);
+                                tree_traverse_make_lookup(memory, cs_root, &components_soa);
 
-                                components.count += 1;
+                                components_soa.count += 1;
                             }
 
                             tag_stack.count = 0;
@@ -1478,39 +1477,39 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
     //  - all component import attributes must exist inside the imported component as %replasables%
     //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
 
-    for (i = 0; i < components.count; i++) {
-        print_component_lookup(&components, i);
-        char *component_name = components.names[i];
+    for (i = 0; i < components_soa.count; i++) {
+        print_component_lookup(&components_soa, i);
+        char *component_name = components_soa.names[i];
 
         // remove the following
         if (strncmp(component_name, "bottom_modal", strlen("bottom_modal")) == 0) {
             printf("\n");
         }
 
-        if (components.imports[i]) {
-            u32 num_imports = components.imports[i]->count;
+        if (components_soa.imports_soa[i]) {
+            u32 num_imports = components_soa.imports_soa[i]->count;
 
             u32 j;
             for (j = 0; j < num_imports; j++) {
-                ASTNode *import_node = components.imports[i]->nodes[j];
-                char *import_name = components.imports[i]->names[j];
+                ASTNode *import_node = components_soa.imports_soa[i]->nodes[j];
+                char *import_name = components_soa.imports_soa[i]->names[j];
                 if (strncmp(component_name, import_name, strlen(import_name)) == 0) {
                     char error[] = "Recursive import. Component is importing itself";
                     printf("%s:\n", error);
-                    printf("    file: %.*s\n", (int)components.file_paths[i].length, components.file_paths[i].data);
-                    printf("    line: %d\n", components.imports[i]->nodes[j]->line_number);
+                    printf("    file: %.*s\n", (int)components_soa.file_paths[i].length, components_soa.file_paths[i].data);
+                    printf("    line: %d\n", components_soa.imports_soa[i]->nodes[j]->line_number);
                     printf("\n");
-                    print_tag_attr_error(components.contents[i], components.imports[i]->nodes[j], components.imports[i]->nodes[j]->attribute_array.attributes[components.imports[i]->nodes[j]->name_attr_index]);
+                    print_tag_attr_error(components_soa.contents[i], components_soa.imports_soa[i]->nodes[j], components_soa.imports_soa[i]->nodes[j]->attribute_array.attributes[components_soa.imports_soa[i]->nodes[j]->name_attr_index]);
 
                     ASSERT(0);
                 }
 
-                // check that imported components actually exist
+                // check that imported components_soa actually exist
                 u32 imported_component_index = 9999;
 
                 u32 k;
-                for (k = 0; k < components.count; k++) {
-                    if (strncmp(import_name, components.names[k], strlen(import_name)) == 0) {
+                for (k = 0; k < components_soa.count; k++) {
+                    if (strncmp(import_name, components_soa.names[k], strlen(import_name)) == 0) {
                         imported_component_index = k;
 
                         u32 h;
@@ -1522,8 +1521,8 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                             boolean found = false;
 
                             u32 f;
-                            for (f = 0; f < components.placeholders[k]->count; f++) {
-                                if (strncmp(components.placeholders[k]->names[f], import_node->attribute_array.attributes[h].name.data, import_node->attribute_array.attributes[h].name.length) == 0) {
+                            for (f = 0; f < components_soa.placeholders_soa[k]->count; f++) {
+                                if (strncmp(components_soa.placeholders_soa[k]->names[f], import_node->attribute_array.attributes[h].name.data, import_node->attribute_array.attributes[h].name.length) == 0) {
                                     found = true;
                                 }
                             }
@@ -1538,27 +1537,27 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetList asse
                 if (imported_component_index == 9999) {
                     char error[] = "Component you are trying to import does not exist";
                     printf("%s:\n", error);
-                    printf("    file: %.*s\n", (int)components.file_paths[i].length, components.file_paths[i].data);
-                    printf("    line: %d\n", components.imports[i]->nodes[j]->line_number);
+                    printf("    file: %.*s\n", (int)components_soa.file_paths[i].length, components_soa.file_paths[i].data);
+                    printf("    line: %d\n", components_soa.imports_soa[i]->nodes[j]->line_number);
                     printf("\n");
-                    print_tag_attr_error(components.contents[i], components.imports[i]->nodes[j], components.imports[i]->nodes[j]->attribute_array.attributes[components.imports[i]->nodes[j]->name_attr_index]);
+                    print_tag_attr_error(components_soa.contents[i], components_soa.imports_soa[i]->nodes[j], components_soa.imports_soa[i]->nodes[j]->attribute_array.attributes[components_soa.imports_soa[i]->nodes[j]->name_attr_index]);
 
                     ASSERT(0);
                 }
 
-                // check that imported components do contain inserts as slots
-                u32 insert_count = components.imports[i]->inserts[j].count;
-                InsertSOA *inserts = &components.imports[i]->inserts[j];
+                // check that imported components_soa do contain inserts as slots
+                u32 insert_count = components_soa.imports_soa[i]->inserts_soa[j].count;
+                InsertSOA *inserts_soa = &components_soa.imports_soa[i]->inserts_soa[j];
                 u32 h;
                 for (h = 0; h < insert_count; h++) {
-                    char *insert = inserts->names[h];
+                    char *insert = inserts_soa->names[h];
 
                     u32 imported_component_slot_index = 9999;
 
-                    if (components.slots[imported_component_index]) {
+                    if (components_soa.slots_soa[imported_component_index]) {
                         u32 f;
-                        for (f = 0; f < components.slots[imported_component_index]->count; f++) {
-                            if (strncmp(components.slots[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
+                        for (f = 0; f < components_soa.slots_soa[imported_component_index]->count; f++) {
+                            if (strncmp(components_soa.slots_soa[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
                                 imported_component_slot_index = f;
                                 break;
                             }

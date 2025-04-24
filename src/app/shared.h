@@ -73,10 +73,10 @@ typedef struct {
 } Assets;
 
 typedef struct {
-    String *asset_list;
-    String *asset_list_content;
+    String *locations;
+    String *contents;
     u32 count;
-} AssetList;
+} AssetSOA;
 
 /* clang-format off */
 #ifdef DEBUG

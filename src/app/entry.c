@@ -30,28 +30,28 @@ typedef char StrNumber[10];
 
 typedef char *ValidationError;
 
-void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, AssetList asset_list) {
+void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, AssetSOA assets_soa) {
     u32 i;
     size_t j;
 
     // To access data stored in the web server persisted memory block.
     PersistingData *persisting_data = (PersistingData *)memory_alloc(persisting_memory, sizeof(PersistingData));
 
-    AssetList public_asset_list = {0};
-    for (i = 0; i < asset_list.count; i++) {
-        String filepath_reference = asset_list.asset_list[i];
+    AssetSOA public_assets_soa = {0};
+    for (i = 0; i < assets_soa.count; i++) {
+        String filepath_reference = assets_soa.locations[i];
 
         if (is_html_path(filepath_reference)) {
             continue;
         }
 
-        public_asset_list.count++;
+        public_assets_soa.count++;
     }
 
     j = 0;
-    public_asset_list.asset_list = memory_alloc(persisting_memory, sizeof(String) * public_asset_list.count);
-    for (i = 0; i < asset_list.count; i++) {
-        String filepath_reference = asset_list.asset_list[i];
+    public_assets_soa.locations = memory_alloc(persisting_memory, sizeof(String) * public_assets_soa.count);
+    for (i = 0; i < assets_soa.count; i++) {
+        String filepath_reference = assets_soa.locations[i];
 
         if (is_html_path(filepath_reference)) {
             continue;
@@ -63,20 +63,20 @@ void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memor
 
         memcpy(filepath.data, filepath_reference.data, filepath_reference.length);
 
-        public_asset_list.asset_list[j] = filepath;
+        public_assets_soa.locations[j] = filepath;
         j++;
     }
 
     j = 0;
-    public_asset_list.asset_list_content = memory_alloc(persisting_memory, sizeof(String) * public_asset_list.count);
-    for (i = 0; i < asset_list.count; i++) {
-        String filepath_reference = asset_list.asset_list[i];
+    public_assets_soa.contents = memory_alloc(persisting_memory, sizeof(String) * public_assets_soa.count);
+    for (i = 0; i < assets_soa.count; i++) {
+        String filepath_reference = assets_soa.locations[i];
 
         if (is_html_path(filepath_reference)) {
             continue;
         }
 
-        String content_reference = asset_list.asset_list_content[i];
+        String content_reference = assets_soa.contents[i];
 
         String content = {0};
         content.data = memory_alloc(persisting_memory, sizeof(char) * content_reference.length);
@@ -84,13 +84,13 @@ void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memor
 
         memcpy(content.data, content_reference.data, content_reference.length);
 
-        public_asset_list.asset_list_content[j] = content;
+        public_assets_soa.contents[j] = content;
         j++;
     }
 
-    persisting_data->public_asset_list = public_asset_list;
+    persisting_data->public_assets_soa = public_assets_soa;
 
-    int res = build_html_components(persisting_memory, scratch_memory, asset_list);
+    int res = build_html_components(persisting_memory, scratch_memory, assets_soa);
     ASSERT(res != -1);
 
     printf("\n");

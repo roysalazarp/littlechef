@@ -11,6 +11,13 @@
 #include "./template_engine.h"
 /* clang-format on */
 
+#define COMPONENT_DEFINITION_IDENTIFIER "x-component-def"
+#define COMPONENT_IMPORT_IDENTIFIER "x-component"
+#define SLOT_IDENTIFIER "x-slot"
+#define INSERT_IDENTIFIER "x-insert"
+#define VAL_IDENTIFIER "x-val"
+#define FOR_IDENTIFIER "x-for"
+
 typedef enum { TAG_OPENING, TAG_CLOSING, TAG_SELFCLOSING } TagType;
 
 typedef enum {
@@ -91,7 +98,7 @@ typedef char Name[MAX_NAME_LENGTH]; // 2 of these fit nicely in a 64 bytes cache
 
 typedef struct {
     Name *names;
-    ASTNode **nodes;
+    ASTNode **ast_nodes;
     u32 count;
 } SlotSOA;
 
@@ -102,13 +109,13 @@ typedef struct {
 
 typedef struct {
     Name *names;
-    ASTNode **nodes;
+    ASTNode **ast_nodes;
     u32 count;
 } InsertSOA;
 
 typedef struct {
     Name *names;
-    ASTNode **nodes;
+    ASTNode **ast_nodes;
     InsertSOA *inserts_soa;
     u32 count;
 } ImportSOA;
@@ -126,25 +133,18 @@ typedef struct {
 char *peek(Lexer *lexer) { return &lexer->content.data[lexer->cursor]; }
 void advance_cursor(Lexer *lexer) { lexer->cursor += 1; }
 
-TokenKind get_token_kind(String str) {
-    char COMPONENT_DEFINITION[] = "x-component-def";
-    char COMPONENT_IMPORT[] = "x-component";
-    char SLOT[] = "x-slot";
-    char INSERT[] = "x-insert";
-    char VAL[] = "x-val";
-    char FOR[] = "x-for";
-
-    if (strncmp(COMPONENT_DEFINITION, str.data, str.length) == 0 && str.length == (array_count(COMPONENT_DEFINITION) - 1)) {
+TokenKind get_token_kind(String identifier) {
+    if (strncmp(COMPONENT_DEFINITION_IDENTIFIER, identifier.data, identifier.length) == 0 && identifier.length == (array_count(COMPONENT_DEFINITION_IDENTIFIER) - 1)) {
         return TOKEN_COMPONENT_DEFINITION;
-    } else if (strncmp(COMPONENT_IMPORT, str.data, str.length) == 0 && str.length == (array_count(COMPONENT_IMPORT) - 1)) {
+    } else if (strncmp(COMPONENT_IMPORT_IDENTIFIER, identifier.data, identifier.length) == 0 && identifier.length == (array_count(COMPONENT_IMPORT_IDENTIFIER) - 1)) {
         return TOKEN_COMPONENT_IMPORT;
-    } else if (strncmp(SLOT, str.data, str.length) == 0 && str.length == (array_count(SLOT) - 1)) {
+    } else if (strncmp(SLOT_IDENTIFIER, identifier.data, identifier.length) == 0 && identifier.length == (array_count(SLOT_IDENTIFIER) - 1)) {
         return TOKEN_SLOT;
-    } else if (strncmp(INSERT, str.data, str.length) == 0 && str.length == (array_count(INSERT) - 1)) {
+    } else if (strncmp(INSERT_IDENTIFIER, identifier.data, identifier.length) == 0 && identifier.length == (array_count(INSERT_IDENTIFIER) - 1)) {
         return TOKEN_INSERT;
-    } else if (strncmp(VAL, str.data, str.length) == 0 && str.length == (array_count(VAL) - 1)) {
+    } else if (strncmp(VAL_IDENTIFIER, identifier.data, identifier.length) == 0 && identifier.length == (array_count(VAL_IDENTIFIER) - 1)) {
         return TOKEN_VAL;
-    } else if (strncmp(FOR, str.data, str.length) == 0 && str.length == (array_count(FOR) - 1)) {
+    } else if (strncmp(FOR_IDENTIFIER, identifier.data, identifier.length) == 0 && identifier.length == (array_count(FOR_IDENTIFIER) - 1)) {
         return TOKEN_FOR;
     } else {
         return TOKEN_INVALID;
@@ -277,15 +277,15 @@ Token get_next_token(Lexer *lexer) {
                 char *p = NULL;
 
                 p = c;
-                String token_string = {0};
-                token_string.data = p;
+                String identifier = {0};
+                identifier.data = p;
                 while (*p != '\0' && !isspace(*p) && *p != '>') {
-                    token_string.length += 1;
+                    identifier.length += 1;
                     p += 1;
                 }
 
                 // check if tag is self closing
-                p = token_string.data;
+                p = identifier.data;
                 while (*p != '\0') {
                     if (*p == '>') {
                         token.tag_type = TAG_OPENING;
@@ -302,10 +302,10 @@ Token get_next_token(Lexer *lexer) {
                     p++;
                 }
 
-                token.identifier = token_string;
+                token.identifier = identifier;
                 token.kind = get_token_kind(token.identifier);
 
-                lexer->cursor = (token_string.data + token_string.length) - lexer->content.data;
+                lexer->cursor = (identifier.data + identifier.length) - lexer->content.data;
 
                 return token;
             }
@@ -314,17 +314,17 @@ Token get_next_token(Lexer *lexer) {
                 char *p = NULL;
 
                 p = c;
-                String token_string = {0};
-                token_string.data = p;
+                String identifier = {0};
+                identifier.data = p;
                 while (*p != '\0' && !isspace(*p) && *p != '>') {
-                    token_string.length += 1;
+                    identifier.length += 1;
                     p += 1;
                 }
 
                 token.tag_type = TAG_CLOSING;
-                token.kind = get_token_kind(token_string);
+                token.kind = get_token_kind(identifier);
 
-                lexer->cursor = (token_string.data + token_string.length) - lexer->content.data;
+                lexer->cursor = (identifier.data + identifier.length) - lexer->content.data;
 
                 return token;
             }
@@ -341,14 +341,14 @@ Token get_next_token(Lexer *lexer) {
                     }
 
                     if (*p == '%') {
-                        String token_string = {0};
-                        token_string.data = c + 1;
-                        token_string.length = p - token_string.data;
+                        String identifier = {0};
+                        identifier.data = c + 1;
+                        identifier.length = p - identifier.data;
 
-                        token.identifier = token_string;
+                        token.identifier = identifier;
                         token.kind = TOKEN_PLACEHOLDER;
 
-                        lexer->cursor = (token_string.data + token_string.length + 1) - lexer->content.data;
+                        lexer->cursor = (identifier.data + identifier.length + 1) - lexer->content.data;
 
                         return token;
                     }
@@ -429,53 +429,53 @@ Node *find_parent_tree_root(Node *node) {
     return node;
 }
 
-ASTNode *convert_to_ast_node(Memory *memory, Node **nodes, u32 count) {
-    ASTNode **cs_nodes = memory_alloc(memory, count * sizeof(ASTNode *));
+ASTNode *convert_to_ast(Memory *memory, Node **nodes, u32 count) {
+    ASTNode **ast_nodes = memory_alloc(memory, count * sizeof(ASTNode *));
 
     u32 i;
 
     // Create corresponding ChildSiblingNodes
     for (i = 0; i < count; i++) {
-        cs_nodes[i] = create_ast_node(memory, nodes[i]->kind, nodes[i]->identifier, nodes[i]->line_number, nodes[i]->attribute_array);
+        ast_nodes[i] = create_ast_node(memory, nodes[i]->kind, nodes[i]->identifier, nodes[i]->line_number, nodes[i]->attribute_array);
     }
 
     // Arrange first_child and next_sibling pointers
     for (i = 0; i < count; i++) {
-        Node *parent = nodes[i]->parent;
-        if (parent != NULL) {
+        Node *_parent = nodes[i]->parent;
+        if (_parent != NULL) {
             u32 parent_index;
             for (parent_index = 0; parent_index < count; parent_index++) {
-                if (nodes[parent_index] == parent)
+                if (nodes[parent_index] == _parent)
                     break;
             }
 
-            ASTNode *parent_cs = cs_nodes[parent_index];
+            ASTNode *parent = ast_nodes[parent_index];
 
             // Insert node as a child of its parent
-            if (parent_cs->first_child == NULL) {
-                parent_cs->first_child = cs_nodes[i];
+            if (parent->first_child == NULL) {
+                parent->first_child = ast_nodes[i];
             } else {
-                ASTNode *temp = parent_cs->first_child;
+                ASTNode *temp = parent->first_child;
                 while (temp->next_sibling != NULL) {
                     temp = temp->next_sibling;
                 }
-                temp->next_sibling = cs_nodes[i];
+                temp->next_sibling = ast_nodes[i];
             }
         }
     }
 
     // Find the root of the Child-Sibling tree
     Node *root = find_parent_tree_root(nodes[0]); // Any node can be used to find the root
-    ASTNode *cs_root = NULL;
+    ASTNode *ast_root = NULL;
 
     for (i = 0; i < count; i++) {
         if (nodes[i] == root) {
-            cs_root = cs_nodes[i];
+            ast_root = ast_nodes[i];
             break;
         }
     }
 
-    return cs_root;
+    return ast_root;
 }
 
 const char *token_kind_to_string(TokenKind kind) {
@@ -592,7 +592,7 @@ void print_tag_attr_error(String content, ASTNode *node, Attribute attribute) {
     printf("\n");
 }
 
-void tree_traverse_error_checking(String content, String file_path, ASTNode *node, u32 *import_count, u32 *slot_count, u32 *error_count) {
+void validate_ast_tag_hierarchy(String content, String file_path, ASTNode *node, u32 *import_count, u32 *slot_count, u32 *error_count) {
     switch (node->kind) {
         case TOKEN_COMPONENT_DEFINITION: {
             ASTNode *child = node->first_child;
@@ -687,22 +687,22 @@ void tree_traverse_error_checking(String content, String file_path, ASTNode *nod
     }
 
     if (node->next_sibling) {
-        tree_traverse_error_checking(content, file_path, node->next_sibling, import_count, slot_count, error_count);
+        validate_ast_tag_hierarchy(content, file_path, node->next_sibling, import_count, slot_count, error_count);
     }
 
     if (node->first_child) {
-        tree_traverse_error_checking(content, file_path, node->first_child, import_count, slot_count, error_count);
+        validate_ast_tag_hierarchy(content, file_path, node->first_child, import_count, slot_count, error_count);
     }
 }
 
-void tree_traverse_make_lookup(Memory *memory, ASTNode *node, ComponentSOA *components_soa) {
+void ast_to_soa(Memory *memory, ASTNode *node, ComponentSOA *components_soa) {
     u32 current_component_index = components_soa->count;
 
     if (node->kind == TOKEN_SLOT) {
         SlotSOA *slots_soa = components_soa->slots_soa[current_component_index];
 
         memcpy(slots_soa->names[slots_soa->count], node->attribute_array.attributes[node->name_attr_index].value.data, node->attribute_array.attributes[node->name_attr_index].value.length);
-        slots_soa->nodes[slots_soa->count] = node;
+        slots_soa->ast_nodes[slots_soa->count] = node;
 
         slots_soa->count += 1;
     }
@@ -711,7 +711,7 @@ void tree_traverse_make_lookup(Memory *memory, ASTNode *node, ComponentSOA *comp
         ImportSOA *imports_soa = components_soa->imports_soa[current_component_index];
 
         memcpy(imports_soa->names[imports_soa->count], node->attribute_array.attributes[node->name_attr_index].value.data, node->attribute_array.attributes[node->name_attr_index].value.length);
-        imports_soa->nodes[imports_soa->count] = node;
+        imports_soa->ast_nodes[imports_soa->count] = node;
 
         u32 child_count = 0;
         ASTNode *child = node->first_child;
@@ -724,13 +724,13 @@ void tree_traverse_make_lookup(Memory *memory, ASTNode *node, ComponentSOA *comp
 
         if (child_count) {
             inserts_soa->names = memory_alloc(memory, sizeof(Name) * child_count);
-            inserts_soa->nodes = memory_alloc(memory, sizeof(ASTNode *) * child_count);
+            inserts_soa->ast_nodes = memory_alloc(memory, sizeof(ASTNode *) * child_count);
 
             child = node->first_child;
             while (child) {
 
                 memcpy(inserts_soa->names[inserts_soa->count], child->attribute_array.attributes[child->name_attr_index].value.data, child->attribute_array.attributes[child->name_attr_index].value.length);
-                inserts_soa->nodes[inserts_soa->count] = child;
+                inserts_soa->ast_nodes[inserts_soa->count] = child;
                 inserts_soa->count += 1;
 
                 child = child->next_sibling;
@@ -741,15 +741,15 @@ void tree_traverse_make_lookup(Memory *memory, ASTNode *node, ComponentSOA *comp
     }
 
     if (node->next_sibling) {
-        tree_traverse_make_lookup(memory, node->next_sibling, components_soa);
+        ast_to_soa(memory, node->next_sibling, components_soa);
     }
 
     if (node->first_child) {
-        tree_traverse_make_lookup(memory, node->first_child, components_soa);
+        ast_to_soa(memory, node->first_child, components_soa);
     }
 }
 
-void print_component_lookup(ComponentSOA *components_soa, u32 i) {
+void print_components_soa(ComponentSOA *components_soa, u32 i) {
     printf("Component %s\n", components_soa->names[i]);
 
     if (components_soa->slots_soa[i]) {
@@ -799,6 +799,8 @@ void print_component_lookup(ComponentSOA *components_soa, u32 i) {
 AttributeArray get_attributes(Memory *memory, Lexer *lexer) {
     AttributeArray attribute_array = {0};
 
+    u32 cursor = lexer->cursor;
+
     Attribute *attributes = memory_alloc(memory, sizeof(Attribute));
     *attributes = get_next_attribute(lexer);
     attribute_array.attributes = attributes;
@@ -808,6 +810,8 @@ AttributeArray get_attributes(Memory *memory, Lexer *lexer) {
         attributes = memory_alloc(memory, sizeof(Attribute));
         *attributes = get_next_attribute(lexer);
     }
+
+    lexer->cursor = cursor; // restore cursor because main parser loop needs to check for tokens
 
     return attribute_array;
 }
@@ -850,6 +854,8 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
     ComponentSOA components_soa = {0};
 
     u32 components_count = 0;
+
+    // Count amount of component: needed for allocations
     for (i = 0; i < assets_soa.count; i++) {
         if (!is_html_path(assets_soa.locations[i])) {
             continue;
@@ -857,31 +863,31 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
 
         Lexer lexer = lexer_init(assets_soa.locations[i], assets_soa.contents[i]);
 
-        String opening_tag_identifier = {0};
-        u32 line_number = 0;
+        String opening_tag = {0};
+        u32 opening_tag_line_number = 0;
 
         while (lexer.cursor < lexer.content.length) {
             char *c = peek(&lexer);
             if (strncmp("<x-component-def ", c, strlen("<x-component-def ")) == 0) {
-                if (opening_tag_identifier.data) {
+                if (opening_tag.data) {
                     char error[] = "x-component-def can't ever be a child tag, it must always be placed at the top level. "
                                    "If you think you already placed x-component-def at the top level, check that you did't "
                                    "leave open a x-component-def earlier in the file";
-                    print_tag_error(lexer.content, error, lexer.file_path, opening_tag_identifier, line_number);
+                    print_tag_error(lexer.content, error, lexer.file_path, opening_tag, opening_tag_line_number);
 
                     ASSERT(0); // TODO: remove
                     return -1;
                 }
 
-                opening_tag_identifier.data = peek(&lexer) + 1;
-                opening_tag_identifier.length = strlen("x-component-def");
-                line_number = lexer.line_number;
+                opening_tag.data = peek(&lexer) + 1;
+                opening_tag.length = strlen("x-component-def");
+                opening_tag_line_number = lexer.line_number;
 
                 components_count += 1;
             }
 
             if (strncmp("</x-component-def>", c, strlen("</x-component-def>")) == 0) {
-                memset(&opening_tag_identifier, 0, sizeof(opening_tag_identifier));
+                memset(&opening_tag, 0, sizeof(opening_tag));
             }
 
             if (*c == '\n') {
@@ -907,6 +913,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
     u32 tag_stack_max = 0;
     u32 tag_stack_count = 0;
 
+    // Count amount of placeholders per component: needed for allocations
     for (i = 0; i < assets_soa.count; i++) {
         if (!is_html_path(assets_soa.locations[i])) {
             continue;
@@ -981,10 +988,10 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
         components_soa.placeholders_soa[i]->names = memory_alloc(memory, sizeof(Name) * placeholder_amounts[i]);
     }
 
-    TagStack tag_stack = {0};
+    TagStack tag_stack = {0}; // used to keep track of open tags, ensuring proper closing order.
     tag_stack.data = memory_alloc(memory, sizeof(TagStackElement) * tag_stack_max);
 
-    NodeArray node_array = {0};
+    NodeArray node_array = {0}; // used to temporarily hold nodes that are later used to construct the component AST.
     node_array.data = memory_alloc(memory, sizeof(Node *) * tag_stack_max);
 
     component_index = 0;
@@ -998,16 +1005,16 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
 
         Token token = get_next_token(&lexer);
         while (token.kind != TOKEN_EOF) {
+            if (token.kind == TOKEN_INVALID) {
+                // ASSERT(0);
+                goto proceed_to_next_token;
+            }
+
             if (token.kind == TOKEN_PLACEHOLDER) {
                 u32 count = components_soa.placeholders_soa[component_index]->count;
                 memcpy(components_soa.placeholders_soa[component_index]->names[count], token.identifier.data, token.identifier.length);
                 components_soa.placeholders_soa[component_index]->count += 1;
 
-                goto proceed_to_next_token;
-            }
-
-            if (token.kind == TOKEN_INVALID) {
-                // ASSERT(0);
                 goto proceed_to_next_token;
             }
 
@@ -1076,15 +1083,15 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                             }
 
                             if (node_array.count) {
-                                ASTNode *cs_root = convert_to_ast_node(memory, node_array.data, node_array.count);
-                                // print_ast_tree(cs_root, 0);
+                                ASTNode *ast_root = convert_to_ast(memory, node_array.data, node_array.count);
+                                // print_ast_tree(ast_root, 0);
 
                                 u32 error_count = 0;
 
                                 u32 import_count = 0;
                                 u32 slot_count = 0;
 
-                                tree_traverse_error_checking(lexer.content, lexer.file_path, cs_root, &import_count, &slot_count, &error_count);
+                                validate_ast_tag_hierarchy(lexer.content, lexer.file_path, ast_root, &import_count, &slot_count, &error_count);
 
                                 if (error_count) {
                                     printf("%d errors.\n", error_count);
@@ -1093,24 +1100,24 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                                     return -1;
                                 }
 
-                                memcpy(components_soa.names[components_soa.count], cs_root->attribute_array.attributes[cs_root->name_attr_index].value.data, cs_root->attribute_array.attributes[cs_root->name_attr_index].value.length);
+                                memcpy(components_soa.names[components_soa.count], ast_root->attribute_array.attributes[ast_root->name_attr_index].value.data, ast_root->attribute_array.attributes[ast_root->name_attr_index].value.length);
                                 components_soa.file_paths[components_soa.count] = lexer.file_path;
                                 components_soa.contents[components_soa.count] = lexer.content;
 
                                 if (import_count) {
                                     components_soa.imports_soa[components_soa.count] = memory_alloc(memory, sizeof(ImportSOA));
                                     components_soa.imports_soa[components_soa.count]->names = memory_alloc(memory, sizeof(Name) * import_count);
-                                    components_soa.imports_soa[components_soa.count]->nodes = memory_alloc(memory, sizeof(ASTNode *) * import_count);
+                                    components_soa.imports_soa[components_soa.count]->ast_nodes = memory_alloc(memory, sizeof(ASTNode *) * import_count);
                                     components_soa.imports_soa[components_soa.count]->inserts_soa = memory_alloc(memory, sizeof(InsertSOA) * import_count);
                                 }
 
                                 if (slot_count) {
                                     components_soa.slots_soa[components_soa.count] = memory_alloc(memory, sizeof(ImportSOA));
                                     components_soa.slots_soa[components_soa.count]->names = memory_alloc(memory, sizeof(Name) * slot_count);
-                                    components_soa.slots_soa[components_soa.count]->nodes = memory_alloc(memory, sizeof(ASTNode *) * slot_count);
+                                    components_soa.slots_soa[components_soa.count]->ast_nodes = memory_alloc(memory, sizeof(ASTNode *) * slot_count);
                                 }
 
-                                tree_traverse_make_lookup(memory, cs_root, &components_soa);
+                                ast_to_soa(memory, ast_root, &components_soa);
 
                                 components_soa.count += 1;
                             }
@@ -1474,32 +1481,27 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
         }
     }
 
-    //  - all component import attributes must exist inside the imported component as %replasables%
+    //  - check that all component import attributes must exist inside the imported component as %replasables% - TODO this
     //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
 
     for (i = 0; i < components_soa.count; i++) {
-        print_component_lookup(&components_soa, i);
+        print_components_soa(&components_soa, i);
         char *component_name = components_soa.names[i];
-
-        // remove the following
-        if (strncmp(component_name, "bottom_modal", strlen("bottom_modal")) == 0) {
-            printf("\n");
-        }
 
         if (components_soa.imports_soa[i]) {
             u32 num_imports = components_soa.imports_soa[i]->count;
 
             u32 j;
             for (j = 0; j < num_imports; j++) {
-                ASTNode *import_node = components_soa.imports_soa[i]->nodes[j];
+                ASTNode *import_ast_node = components_soa.imports_soa[i]->ast_nodes[j];
                 char *import_name = components_soa.imports_soa[i]->names[j];
                 if (strncmp(component_name, import_name, strlen(import_name)) == 0) {
                     char error[] = "Recursive import. Component is importing itself";
                     printf("%s:\n", error);
                     printf("    file: %.*s\n", (int)components_soa.file_paths[i].length, components_soa.file_paths[i].data);
-                    printf("    line: %d\n", components_soa.imports_soa[i]->nodes[j]->line_number);
+                    printf("    line: %d\n", components_soa.imports_soa[i]->ast_nodes[j]->line_number);
                     printf("\n");
-                    print_tag_attr_error(components_soa.contents[i], components_soa.imports_soa[i]->nodes[j], components_soa.imports_soa[i]->nodes[j]->attribute_array.attributes[components_soa.imports_soa[i]->nodes[j]->name_attr_index]);
+                    print_tag_attr_error(components_soa.contents[i], components_soa.imports_soa[i]->ast_nodes[j], components_soa.imports_soa[i]->ast_nodes[j]->attribute_array.attributes[components_soa.imports_soa[i]->ast_nodes[j]->name_attr_index]);
 
                     ASSERT(0);
                 }
@@ -1513,21 +1515,27 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                         imported_component_index = k;
 
                         u32 h;
-                        for (h = 0; h < import_node->attribute_array.count; h++) {
-                            if (h == import_node->name_attr_index) {
+                        for (h = 0; h < import_ast_node->attribute_array.count; h++) {
+                            if (h == import_ast_node->name_attr_index) {
                                 continue;
                             }
 
                             boolean found = false;
 
+                            String import_attr_name = import_ast_node->attribute_array.attributes[h].name;
+
                             u32 f;
                             for (f = 0; f < components_soa.placeholders_soa[k]->count; f++) {
-                                if (strncmp(components_soa.placeholders_soa[k]->names[f], import_node->attribute_array.attributes[h].name.data, import_node->attribute_array.attributes[h].name.length) == 0) {
+                                // TODO: make all strncmp to also check for lengths equality like in line bellow
+                                if (strncmp(components_soa.placeholders_soa[k]->names[f], import_attr_name.data, import_attr_name.length) == 0 && strlen(components_soa.placeholders_soa[k]->names[f]) == import_attr_name.length) {
                                     found = true;
+
+                                    break;
                                 }
                             }
 
-                            // ASSERT(found);
+                            // TODO: print error
+                            ASSERT(found);
                         }
 
                         break;
@@ -1538,9 +1546,9 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                     char error[] = "Component you are trying to import does not exist";
                     printf("%s:\n", error);
                     printf("    file: %.*s\n", (int)components_soa.file_paths[i].length, components_soa.file_paths[i].data);
-                    printf("    line: %d\n", components_soa.imports_soa[i]->nodes[j]->line_number);
+                    printf("    line: %d\n", components_soa.imports_soa[i]->ast_nodes[j]->line_number);
                     printf("\n");
-                    print_tag_attr_error(components_soa.contents[i], components_soa.imports_soa[i]->nodes[j], components_soa.imports_soa[i]->nodes[j]->attribute_array.attributes[components_soa.imports_soa[i]->nodes[j]->name_attr_index]);
+                    print_tag_attr_error(components_soa.contents[i], components_soa.imports_soa[i]->ast_nodes[j], components_soa.imports_soa[i]->ast_nodes[j]->attribute_array.attributes[components_soa.imports_soa[i]->ast_nodes[j]->name_attr_index]);
 
                     ASSERT(0);
                 }

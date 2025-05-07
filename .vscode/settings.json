@@ -38,6 +38,8 @@
         "new": "cpp",
         "cstdint": "cpp",
         "profiler.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "json_processor.h": "c",
+        "json_processor": "c"
     }
 }

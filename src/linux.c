@@ -19,6 +19,7 @@
 #include "./app/memory.h"
 #include "./app/entry.h"
 #include "./app/utils.h"
+#include "./app/json_processor.h"
 /* clang-format on */
 
 #define ASSETS_FULLPATH "/workspaces/littlechef/assets"
@@ -49,7 +50,7 @@ Memory *initialise_memory(size_t size) {
 }
 
 #define MAX_ASSET_FILES 72
-void locate_files(Memory *memory, String *filepaths, char base_path[], u32 *count) {
+void locate_files(Memory *memory, String *filepaths, char base_path[], const char *root_path, u32 *count, u32 count_limit) {
     DIR *dir = opendir(base_path);
     ASSERT(dir != NULL);
 
@@ -71,10 +72,10 @@ void locate_files(Memory *memory, String *filepaths, char base_path[], u32 *coun
         boolean is_dir = (boolean)(stat(path_buffer, &statbuf) == 0 && S_ISDIR(statbuf.st_mode));
 
         if (is_dir) {
-            locate_files(memory, filepaths, path_buffer, count);
+            locate_files(memory, filepaths, path_buffer, root_path, count, count_limit);
         } else {
-            if (*count >= MAX_ASSET_FILES) {
-                printf("%s dir contains more than %d (MAX_ASSET_FILES)\n", ASSETS_FULLPATH, MAX_ASSET_FILES);
+            if (*count > count_limit) {
+                printf("%s dir contains more than %d (count_limit)\n", root_path, count_limit);
                 ASSERT(0);
             }
 
@@ -109,11 +110,11 @@ void initialise_web_server_resources(Memory *memory) {
 
     String *filepaths = memory_alloc(assets_memory, sizeof(String) * MAX_ASSET_FILES);
     u32 count = 0;
-    locate_files(assets_memory, filepaths, ASSETS_FULLPATH, &count);
+    locate_files(assets_memory, filepaths, ASSETS_FULLPATH, ASSETS_FULLPATH, &count, MAX_ASSET_FILES);
 
     String *contents = memory_alloc(assets_memory, sizeof(String) * count);
 
-    u8 i = 0;
+    u32 i = 0;
     while (i < count) {
         long file_size = 0;
 
@@ -223,7 +224,54 @@ int generate_salt(void *salt, size_t salt_size) {
     return output;
 }
 
+void test_json(char *base_path) {
+    Memory *memory = initialise_memory(PAGE_SIZE * 800);
+
+    String *filepaths = memory_alloc(memory, sizeof(String) * 350);
+    u32 count = 0;
+    locate_files(memory, filepaths, base_path, base_path, &count, 350);
+
+    String *json_tests = memory_alloc(memory, sizeof(String) * count);
+
+    u32 f = 0;
+    while (f < count) {
+        long file_size = 0;
+
+        FILE *file = fopen(filepaths[f].data, "r");
+        ASSERT(file != NULL);
+        ASSERT(fseek(file, 0, SEEK_END) != -1);
+        file_size = ftell(file);
+        ASSERT(file_size != -1);
+        rewind(file);
+
+        char *asset_file_content = memory_alloc(memory, file_size);
+        size_t read_size = fread(asset_file_content, sizeof(char), file_size, file);
+        ASSERT(read_size == (size_t)file_size);
+        fclose(file);
+
+        json_tests[f].data = asset_file_content;
+        json_tests[f].length = file_size;
+
+        f++;
+    }
+
+    AssetSOA json_assets_soa = {0};
+    json_assets_soa.locations = filepaths;
+    json_assets_soa.contents = json_tests;
+    json_assets_soa.count = count;
+
+    for (f = 0; f < json_assets_soa.count; f++) {
+        // json parser works for file test_input.json
+        // try to make the parser pass for json files in folder json_processor_complience_test_cases/
+        JSONElement *json = json_parse(memory, json_assets_soa.contents[f]);
+
+        printf("\n");
+    }
+}
+
 int main() {
+    test_json("/workspaces/littlechef/json_processor_test_cases");
+
     int i;
 
     int epoll_fd;

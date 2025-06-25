@@ -1,7 +1,7 @@
-#ifndef JSON_PROCESSOR_H
-#define JSON_PROCESSOR_H
+#ifndef JSON_PARSER_H
+#define JSON_PARSER_H
 
 typedef struct JSONElement JSONElement;
 JSONElement *json_parse(Memory *memory, String input_json);
 
-#endif /* JSON_PROCESSOR_H */
+#endif /* JSON_PARSER_H */

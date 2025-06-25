@@ -8,7 +8,7 @@
 #include "./utils.h"
 #include "./memory.h"
 #include "./minifiers.h"
-#include "./template_engine.h"
+#include "./markup_parser.h"
 /* clang-format on */
 
 #define COMPONENT_DEFINITION_IDENTIFIER "x-component-def"

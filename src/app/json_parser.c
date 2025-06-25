@@ -2,7 +2,7 @@
 
 /* clang-format off */
 #include "./memory.h"
-#include "./json_processor.h"
+#include "./json_parser.h"
 /* clang-format on */
 
 typedef enum {

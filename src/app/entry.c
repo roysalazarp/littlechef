@@ -11,7 +11,7 @@
 #include "./utils.h"
 #include "./memory.h"
 #include "./http_utils.h"
-#include "./template_engine.h"
+#include "./markup_parser.h"
 #include "./minifiers.h"
 #include "./routes_utils.h"
 #include "./entry.h"

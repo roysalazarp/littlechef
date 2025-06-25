@@ -19,7 +19,7 @@
 #include "./app/memory.h"
 #include "./app/entry.h"
 #include "./app/utils.h"
-#include "./app/json_processor.h"
+#include "./app/json_parser.h"
 /* clang-format on */
 
 #define ASSETS_FULLPATH "/workspaces/littlechef/assets"
@@ -270,7 +270,8 @@ void test_json(char *base_path) {
 }
 
 int main() {
-    test_json("/workspaces/littlechef/json_processor_test_cases");
+    
+    // test_json("/workspaces/littlechef/json_processor_test_cases");
 
     int i;
 

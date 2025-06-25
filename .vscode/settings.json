@@ -1,5 +1,5 @@
 {
-    "editor.formatOnSave": true,
+    "editor.formatOnSave": false,
     "editor.tabSize": 4,
     "explorer.compactFolders": false,
     "files.associations": {
@@ -26,7 +26,7 @@
         "initializer_list": "c",
         "utils.h": "c",
         "db.h": "c",
-        "template_engine.h": "c",
+        "markup_parser.h": "c",
         "signal.h": "c",
         "stdio.h": "c",
         "http_utils.h": "c",
@@ -40,6 +40,8 @@
         "profiler.h": "c",
         "string.h": "c",
         "json_processor.h": "c",
-        "json_processor": "c"
+        "json_processor": "c",
+        "json_parser.h": "c",
+        "minifiers.h": "c"
     }
 }

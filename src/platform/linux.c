@@ -13,16 +13,17 @@
 #include <unistd.h>
 
 /* clang-format off */
-#include "./app/profiler.h"
-#include "./app/shared.h"
-#include "./db.h"
-#include "./app/memory.h"
-#include "./app/entry.h"
-#include "./app/utils.h"
-#include "./app/json_parser.h"
+#include "../lib/profiler/profiler.h"
+#include "../app/shared.h"
+#include "../db/db.h"
+#include "../lib/memory/memory.h"
+#include "../app/entry.h"
+#include "../lib/utils/utils.h"
+#include "../lib/json/json_parser.h"
+#include "../lib/http/http.h"
 /* clang-format on */
 
-#define ASSETS_FULLPATH "/workspaces/littlechef/assets"
+#define ASSETS_FULLPATH "/home/roy/repositories/littlechef/assets"
 #define PORT 8080
 #define DB_NAME "littlechef-dev.db"
 
@@ -160,7 +161,7 @@ void dump_dict(Dict dict, char dir_name[]) {
     memset(cwd, 0, KB(1));
     ASSERT(getcwd(cwd, sizeof(cwd)) != NULL);
 
-    char memory_dir[] = "/memory";
+    char memory_dir[] = "/__memory__";
 
     ASSERT((strlen(cwd) + strlen(memory_dir)) < KB(1));
 
@@ -270,8 +271,17 @@ void test_json(char *base_path) {
 }
 
 int main() {
-    
-    // test_json("/workspaces/littlechef/json_processor_test_cases");
+    // test_json("/home/roy/repositories/littlechef/json_processor_test_cases");
+
+    struct HttpMessage msg;
+    char buf[1000] = "GET / HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nConnection: keep-alive\r\nCache-Control: max-age=0\r\nsec-ch-ua: \"Google Chrome\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"\r\nsec-ch-ua-mobile: ?0\r\nsec-ch-ua-platform: \"macOS\"\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\nSec-Fetch-Site: none\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nAccept-Encoding: gzip, deflate, br, zstd\r\nAccept-Language: en-GB,en-US;q=0.9,en;q=0.8\r\n\r\n";
+
+    String raw_http_msg = {0};
+    raw_http_msg.data = buf;
+    raw_http_msg.length = strlen(buf);
+
+    init_http_message(&msg, HttpRequest);
+    parse_http_message(&msg, raw_http_msg, sizeof(buf));
 
     int i;
 

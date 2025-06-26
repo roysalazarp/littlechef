@@ -42,6 +42,12 @@
         "json_processor.h": "c",
         "json_processor": "c",
         "json_parser.h": "c",
-        "minifiers.h": "c"
-    }
+        "minifiers.h": "c",
+        "*.inc": "c",
+        "http.h": "c",
+        "optional": "c",
+        "istream": "c",
+        "system_error": "c"
+    },
+    "C_Cpp.errorSquiggles": "enabled"
 }

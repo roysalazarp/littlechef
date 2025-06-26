@@ -1,8 +1,8 @@
 #ifndef ENTRY_H
 #define ENTRY_H
 
-#include "../db.h"
-#include "memory.h"
+#include "../db/db.h"
+#include "../lib/memory/memory.h"
 
 typedef struct {
     Memory *persisting_memory;

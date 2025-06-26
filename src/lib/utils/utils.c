@@ -4,7 +4,7 @@
 
 /* clang-format off */
 #include "./utils.h"
-#include "./shared.h"
+#include "../../app/shared.h"
 /* clang-format on */
 
 u8 get_string_array_length(StringArray array) {

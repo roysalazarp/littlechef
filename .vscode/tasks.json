@@ -4,7 +4,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "${workspaceFolder}/build.sh dev",
+            "command": "/home/roy/repositories/littlechef/build.sh dev",
             "group": "build"
         }
     ]

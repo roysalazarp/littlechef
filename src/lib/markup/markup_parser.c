@@ -5,10 +5,10 @@
 #include <string.h>
 
 /* clang-format off */
-#include "./utils.h"
-#include "./memory.h"
-#include "./minifiers.h"
-#include "./markup_parser.h"
+#include "../utils/utils.h"
+#include "../memory/memory.h"
+#include "../minifiers/minifiers.h"
+#include "../markup/markup_parser.h"
 /* clang-format on */
 
 #define COMPONENT_DEFINITION_IDENTIFIER "x-component-def"
@@ -869,7 +869,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
 
     u32 components_count = 0;
 
-    // Count amount of component: needed for allocations
+    // Count amount of component across all html files: needed for allocations
     for (i = 0; i < assets_soa.count; i++) {
         if (!is_html_path(assets_soa.locations[i])) {
             continue;

@@ -1,7 +1,7 @@
 #ifndef PROFILER_H
 #define PROFILER_H
 
-#include "./shared.h"
+#include "../../app/shared.h"
 
 /** IMPORTANT: The profiler does NOT support nested blocks yet */
 

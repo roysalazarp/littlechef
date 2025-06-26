@@ -1,8 +1,8 @@
 #include <string.h>
 
 /* clang-format off */
-#include "shared.h"
-#include "memory.h"
+#include "../../app/shared.h"
+#include "../memory/memory.h"
 /* clang-format on */
 
 Memory *memory_setup(void *raw_memory, size_t size) {

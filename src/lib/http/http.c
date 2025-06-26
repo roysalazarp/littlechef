@@ -1,9 +1,15 @@
 #include <stdlib.h>
+#include <stdio.h>
 
-#include "../shared.h"
+#include "../../app/shared.h"
 #include "./http.h"
+#include "./gethttpheader.inc"
 
 #define SHRT_MAX 0x7fff
+
+int is_digit(int c) {
+  return '0' <= c && c <= '9';
+}
 
 /**
  * Set of standard comma-separate HTTP headers that may span lines.
@@ -141,34 +147,38 @@ const uint8_t to_upper[256] = {
     252, 253, 254, 255,
 };
 
-struct http_header_slot { char *name; char code; };
+void bzero(void *p, size_t n) {
+  memset(p, 0, n);
+}
 
-static inline const struct http_header_slot *lookup_http_header(register const char *str, register size_t len) {
-    return 0;
+void init_http_message(struct HttpMessage *r, int type) {
+  ASSERT(type == HttpRequest || type == HttpResponse);
+  bzero(r, sizeof(*r));
+  r->type = type;
 }
 
 /**
  * Returns small number for HTTP header, or -1 if not found.
  */
 int get_http_header(const char *str, size_t len) {
-  const struct http_header_slot *slot;
+  const struct HttpHeaderSlot *slot;
   if ((slot = lookup_http_header(str, len))) {
     return slot->code;
-  } else {
-    return -1;
   }
+  
+  return -1;
 }
 
 int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t processed_bytes) {
     size_t i;
     int http_header, character;
-    if (processed_bytes > raw_http_msg.length) {
+    if (raw_http_msg.length > processed_bytes) {
         ASSERT(0);
         return -1;
     }
-    processed_bytes = processed_bytes > SHRT_MAX ? SHRT_MAX : processed_bytes;
     raw_http_msg.length = raw_http_msg.length > SHRT_MAX ? SHRT_MAX : raw_http_msg.length;
-    for (; http_msg->cursor < processed_bytes; ++http_msg->cursor) {
+    processed_bytes = processed_bytes > SHRT_MAX ? SHRT_MAX : processed_bytes;
+    for (; http_msg->cursor < raw_http_msg.length; ++http_msg->cursor) {
         character = raw_http_msg.data[http_msg->cursor] & 255;
         switch (http_msg->token) {
             case HttpStateStart: {
@@ -202,7 +212,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
                     character = to_upper[character];
                     http_msg->method |= (uint64_t)character << http_msg->a;
                     http_msg->a += 8;
-                    if (++http_msg->cursor == processed_bytes) {
+                    if (++http_msg->cursor == raw_http_msg.length) {
                         break;
                     }
                     character = raw_http_msg.data[http_msg->cursor] & 255;
@@ -231,7 +241,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
                         ASSERT(0);
                         return -1;
                     }
-                    if (++http_msg->cursor == processed_bytes) {
+                    if (++http_msg->cursor == raw_http_msg.length) {
                         break;
                     }
                     character = raw_http_msg.data[http_msg->cursor] & 255;
@@ -240,7 +250,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
             }
             case HttpStateVersion: {
                 if (character == ' ' || character == '\r' || character == '\n') {
-                    if (http_msg->cursor - http_msg->a == 8 && (READ64BE(raw_http_msg.data + http_msg->a) & 0xFFFFFFFFFF00FF00) == 0x485454502F002E00 && isdigit(raw_http_msg.data[http_msg->a + 5]) && isdigit(raw_http_msg.data[http_msg->a + 7])) {
+                    if (http_msg->cursor - http_msg->a == 8 && (READ64BE(raw_http_msg.data + http_msg->a) & 0xFFFFFFFFFF00FF00) == 0x485454502F002E00 && is_digit(raw_http_msg.data[http_msg->a + 5]) && is_digit(raw_http_msg.data[http_msg->a + 7])) {
                         http_msg->version = (raw_http_msg.data[http_msg->a + 5] - '0') * 10 + (raw_http_msg.data[http_msg->a + 7] - '0');
                         if (http_msg->type == HttpRequest) {
                             http_msg->token = character == '\r' ? HttpStateCr : HttpStateLf1;
@@ -279,7 +289,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
                         ASSERT(0);
                         return -1;
                     }
-                    if (++http_msg->cursor == processed_bytes) {
+                    if (++http_msg->cursor == raw_http_msg.length) {
                         break;
                     }
                     character = raw_http_msg.data[http_msg->cursor] & 255;
@@ -297,7 +307,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
                         ASSERT(0);
                         return -1;
                     }
-                    if (++http_msg->cursor == processed_bytes) {
+                    if (++http_msg->cursor == raw_http_msg.length) {
                         break;
                     }
                     character = raw_http_msg.data[http_msg->cursor] & 255;
@@ -338,7 +348,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
                         ASSERT(0);
                         return -1;
                     }
-                    if (++http_msg->cursor == processed_bytes) {
+                    if (++http_msg->cursor == raw_http_msg.length) {
                         break;
                     }
                     character = raw_http_msg.data[http_msg->cursor] & 255;
@@ -393,7 +403,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
                         ASSERT(0);
                         return -1;
                     }
-                    if (++http_msg->cursor == processed_bytes)
+                    if (++http_msg->cursor == raw_http_msg.length)
                         break;
                     character = raw_http_msg.data[http_msg->cursor] & 255;
                 }
@@ -411,7 +421,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
             }
         }
     }
-    if (http_msg->cursor < raw_http_msg.length) {
+    if (http_msg->cursor < processed_bytes) {
         return 0;
     }
     ASSERT(0);

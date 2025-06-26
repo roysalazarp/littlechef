@@ -1,7 +1,7 @@
 #include <string.h>
 
 /* clang-format off */
-#include "./memory.h"
+#include "../memory/memory.h"
 #include "./json_parser.h"
 /* clang-format on */
 

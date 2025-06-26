@@ -1,8 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "./memory.h"
-#include "./shared.h"
+#include "../memory/memory.h"
+#include "../../app/shared.h"
 
 u8 get_string_array_length(StringArray array);
 char *add_string(char *buffer, String str);

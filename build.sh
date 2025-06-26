@@ -2,11 +2,11 @@
 
 BUILD_ENV=$1
 
-APP_FILES=$(find ./src/app -name "*.c")
-SRC_FILES="$APP_FILES ./src/linux.c ./src/db.c"
+APP_FILES=$(find ./src -name "*.c")
+SRC_FILES="$APP_FILES"
 
 if [ "$BUILD_ENV" == "dev" ]; then
-    CFLAGS="-g -DDEBUG=1 -Wall -Wextra -Werror -pedantic -Wno-declaration-after-statement -Wno-unused-variable -Wno-unused-parameter -Wno-long-long -Wno-unused-but-set-variable" 
+    CFLAGS="-g -DDEBUG=1 -Wall -Wextra -Werror -pedantic -Wno-declaration-after-statement -Wno-unused-variable -Wno-unused-parameter -Wno-long-long -Wno-unused-but-set-variable -Wno-missing-field-initializers" 
 
     gcc $CFLAGS \
         $SRC_FILES \

@@ -2,7 +2,7 @@
 #ifndef MINIFIERS_H
 #define MINIFIERS_H
 
-#include "./shared.h"
+#include "../../app/shared.h"
 
 void js_minify(char *content);
 void html_minify(char *content);

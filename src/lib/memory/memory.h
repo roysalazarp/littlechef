@@ -1,7 +1,7 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
-#include "shared.h"
+#include "../../app/shared.h"
 
 typedef struct {
     size_t size;

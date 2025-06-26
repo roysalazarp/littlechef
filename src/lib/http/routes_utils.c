@@ -2,8 +2,8 @@
 #include <string.h>
 
 /* clang-format off */
-#include "./shared.h"
-#include "./memory.h"
+#include "../../app/shared.h"
+#include "../memory/memory.h"
 /* clang-format on */
 
 /**

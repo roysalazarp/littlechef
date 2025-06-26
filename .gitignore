@@ -1,7 +1,7 @@
 .DS_Store
 build-prod
 *.pem
-memory
+__memory__
 littlechef-dev
 build
 littlechef-dev.db*

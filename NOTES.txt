@@ -1,0 +1,2 @@
+- Finish markup parser
+- Clean up folders and files from all project

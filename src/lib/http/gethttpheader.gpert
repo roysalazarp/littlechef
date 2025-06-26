@@ -1,0 +1,105 @@
+%{
+#include <string.h>
+#include "./http.h"
+%}
+%compare-strncmp
+%ignore-case
+%language=ANSI-C
+%readonly-tables
+%struct-type
+%define lookup-function-name lookup_http_header
+struct __attribute__((__packed__)) HttpHeaderSlot { char *name; char code; };
+%%
+Host,                             HttpHost
+Cache-Control,                    HttpCacheControl
+Connection,                       HttpConnection
+Accept,                           HttpAccept
+Accept-Language,                  HttpAcceptLanguage
+Accept-Encoding,                  HttpAcceptEncoding
+User-Agent,                       HttpUserAgent
+Referer,                          HttpReferer
+X-Forwarded-For,                  HttpXForwardedFor
+Origin,                           HttpOrigin
+Upgrade-Insecure-Requests,        HttpUpgradeInsecureRequests
+Pragma,                           HttpPragma
+Cookie,                           HttpCookie
+DNT,                              HttpDnt
+Sec-GPC,                          HttpSecGpc
+From,                             HttpFrom
+If-Modified-Since,                HttpIfModifiedSince
+X-Requested-With,                 HttpXRequestedWith
+X-Forwarded-Host,                 HttpXForwardedHost
+X-Forwarded-Proto,                HttpXForwardedProto
+X-CSRF-Token,                     HttpXCsrfToken
+Save-Data,                        HttpSaveData
+Range,                            HttpRange
+Content-Length,                   HttpContentLength
+Content-Type,                     HttpContentType
+Vary,                             HttpVary
+Date,                             HttpDate
+Server,                           HttpServer
+Expires,                          HttpExpires
+Content-Encoding,                 HttpContentEncoding
+Last-Modified,                    HttpLastModified
+ETag,                             HttpEtag
+Allow,                            HttpAllow
+Content-Range,                    HttpContentRange
+Accept-Charset,                   HttpAcceptCharset
+Access-Control-Allow-Credentials, HttpAccessControlAllowCredentials
+Access-Control-Allow-Headers,     HttpAccessControlAllowHeaders
+Access-Control-Allow-Methods,     HttpAccessControlAllowMethods
+Access-Control-Allow-Origin,      HttpAccessControlAllowOrigin
+Access-Control-MaxAge,            HttpAccessControlMaxAge
+Access-Control-Method,            HttpAccessControlMethod
+Access-Control-RequestHeaders,    HttpAccessControlRequestHeaders
+Access-Control-Request-Method,    HttpAccessControlRequestMethod
+Access-Control-Request-Methods,   HttpAccessControlRequestMethods
+Age,                              HttpAge
+Authorization,                    HttpAuthorization
+Content-Base,                     HttpContentBase
+Content-Description,              HttpContentDescription
+Content-Disposition,              HttpContentDisposition
+Content-Language,                 HttpContentLanguage
+Content-Location,                 HttpContentLocation
+Content-MD5,                      HttpContentMd5
+Expect,                           HttpExpect
+If-Match,                         HttpIfMatch
+If-None-Match,                    HttpIfNoneMatch
+If-Range,                         HttpIfRange
+If-Unmodified-Since,              HttpIfUnmodifiedSince
+Keep-Alive,                       HttpKeepAlive
+Link,                             HttpLink
+Location,                         HttpLocation
+Max-Forwards,                     HttpMaxForwards
+Proxy-Authenticate,               HttpProxyAuthenticate
+Proxy-Authorization,              HttpProxyAuthorization
+Proxy-Connection,                 HttpProxyConnection
+Public,                           HttpPublic
+Retry-After,                      HttpRetryAfter
+TE,                               HttpTe
+Trailer,                          HttpTrailer
+Transfer-Encoding,                HttpTransferEncoding
+Upgrade,                          HttpUpgrade
+Warning,                          HttpWarning
+WWW-Authenticate,                 HttpWwwAuthenticate
+Via,                              HttpVia
+Strict-Transport-Security,        HttpStrictTransportSecurity
+X-Frame-Options,                  HttpXFrameOptions
+X-Content-Type-Options,           HttpXContentTypeOptions
+Alt-Svc,                          HttpAltSvc
+Referrer-Policy,                  HttpReferrerPolicy
+X-XSS-Protection,                 HttpXXssProtection
+Accept-Ranges,                    HttpAcceptRanges
+Set-Cookie,                       HttpSetCookie
+Sec-CH-UA,                        HttpSecChUa
+Sec-CH-UA-Mobile,                 HttpSecChUaMobile
+Sec-CH-UA-Platform,               HttpSecChUaPlatform
+Sec-Fetch-Site,                   HttpSecFetchSite
+Sec-Fetch-Mode,                   HttpSecFetchMode
+Sec-Fetch-User,                   HttpSecFetchUser
+Sec-Fetch-Dest,                   HttpSecFetchDest
+CF-RAY,                           HttpCfRay
+CF-Visitor,                       HttpCfVisitor
+CF-Connecting-IP,                 HttpCfConnectingIp
+CF-IPCountry,                     HttpCfIpcountry
+CDN-Loop,                         HttpCdnLoop

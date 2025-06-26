@@ -2,8 +2,8 @@
 #include <string.h>
 
 /* clang-format off */
-#include "./utils.h"
-#include "./shared.h"
+#include "../utils/utils.h"
+#include "../../app/shared.h"
 /* clang-format on */
 
 void js_minify(char *content) {

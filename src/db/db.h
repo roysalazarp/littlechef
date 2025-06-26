@@ -3,7 +3,7 @@
 
 #include <sqlite3.h>
 
-#include "./app/memory.h"
+#include "../lib/memory/memory.h"
 
 /* clang-format off */
 typedef enum {

@@ -5,16 +5,16 @@
             "name": "Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/littlechef-dev",
+            "program": "/home/roy/repositories/littlechef/littlechef-dev",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [
-                {
-                    "name": "LD_LIBRARY_PATH",
-                    "value": "/workspaces/sqlite-amalgamation-3480000"
-                }
-            ],
+            "cwd": "/home/roy/repositories/littlechef",
+            // "environment": [
+            //     {
+            //         "name": "LD_LIBRARY_PATH",
+            //         "value": "/workspaces/sqlite-amalgamation-3480000"
+            //     }
+            // ],
             "externalConsole": false,
             "miDebuggerPath": "/usr/bin/gdb",
             "MIMode": "gdb",

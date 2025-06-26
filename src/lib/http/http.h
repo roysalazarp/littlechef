@@ -6,27 +6,27 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "../shared.h"
+#include "../../app/shared.h"
  
 #define READ32LE(P)                    \
   (__extension__({                     \
     uint32_t __x;                      \
     memcpy(&__x, P, 32 / 8);           \
-    __x;                               \
+    __builtin_bswap32(__x);            \
   }))
 
 #define READ64LE(P)                    \
   (__extension__({                     \
     uint64_t __x;                      \
     memcpy(&__x, P, 64 / 8);           \
-    __x;                               \
+    __builtin_bswap32(__x);            \
   }))
 
 #define READ64BE(P)                    \
   (__extension__({                     \
     uint64_t __x;                      \
     memcpy(&__x, P, 64 / 8);           \
-    __x;                               \
+    __builtin_bswap64(__x);            \
   }))
 
 
@@ -210,7 +210,7 @@ int parse_http_message(struct HttpMessage *http_msg, String raw_http_msg, size_t
 // const char *GetHttpReason(int);
 // const char *GetHttpHeaderName(int);
 // int GetHttpHeader(const char *, size_t);
-// void InitHttpMessage(struct HttpMessage *, int);
+void init_http_message(struct HttpMessage *, int); 
 // void DestroyHttpMessage(struct HttpMessage *);
 // void ResetHttpMessage(struct HttpMessage *, int);
 // boolean HeaderHas(struct HttpMessage *, const char *, int, const char *,

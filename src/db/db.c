@@ -5,10 +5,10 @@
 #include <string.h>
 
 /* clang-format off */
-#include "./app/shared.h"
-#include "./app/utils.h"
-#include "./app/memory.h"
-#include "./db.h"
+#include "../app/shared.h"
+#include "../lib/utils/utils.h"
+#include "../lib/memory/memory.h"
+#include "../db/db.h"
 /* clang-format on */
 
 enum DayOfWeek { MONDAY = 1, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY };

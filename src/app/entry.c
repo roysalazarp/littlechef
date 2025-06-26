@@ -6,16 +6,16 @@
 #include <unistd.h>
 
 /* clang-format off */
-#include "./profiler.h"
-#include "./shared.h"
-#include "./utils.h"
-#include "./memory.h"
-#include "./http_utils.h"
-#include "./markup_parser.h"
-#include "./minifiers.h"
-#include "./routes_utils.h"
-#include "./entry.h"
-#include "../db.h"
+#include "../lib/profiler/profiler.h"
+#include "../app/shared.h"
+#include "../lib/utils/utils.h"
+#include "../memory.h"
+#include "../lib/http/http_utils.h"
+#include "../lib/markup/markup_parser.h"
+#include "../lib/minifiers/minifiers.h"
+#include "../lib/http/routes_utils.h"
+#include "../app/entry.h"
+#include "../db/db.h"
 /* clang-format on */
 
 int generate_salt(void *salt, size_t salt_size);

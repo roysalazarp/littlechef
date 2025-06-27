@@ -94,7 +94,7 @@ typedef struct {
     u8 count;
 } TagStack;
 
-#define MAX_NAME_LENGTH 32
+#define MAX_NAME_LENGTH 32 // NOTE: This could also be defined by the framework user
 typedef char Name[MAX_NAME_LENGTH]; // 2 of these fit nicely in a 64 bytes cache line
 
 typedef struct {
@@ -870,6 +870,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
     u32 components_count = 0;
 
     // Count amount of component across all html files: needed for allocations
+    // NOTE: This can probably benefit greatly from SIMD.
     for (i = 0; i < assets_soa.count; i++) {
         if (!is_html_path(assets_soa.locations[i])) {
             continue;
@@ -929,6 +930,8 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
     u32 tag_stack_count = 0;
 
     // Count amount of placeholders per component: needed for allocations
+    // Count amount of xtags: opening (<x-), closing (</x-), and self-closing (<x-) needed to determine tag_stack_max.
+    // NOTE: This can probably benefit greatly from SIMD.
     for (i = 0; i < assets_soa.count; i++) {
         if (!is_html_path(assets_soa.locations[i])) {
             continue;
@@ -954,38 +957,36 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
             }
 
             if (inside_component) {
-                if (*c == '%') {
-                    char *p = NULL;
-                    u32 count = 0;
+                // Check that we are not immediately closing the placeholder with no name, like '%%',
+                // in which case it wouldn't be considered a valid placeholder. A placeholder can be
+                // placed anywhere within the component definition.
+                if (*c == '%' && *(c + 1) != '%') {
                     u32 placeholder_name_length = 0;
 
-                    p = c + 1;
-                    if (*p != '%') {
-                        while (*p != '\0') {
-                            if (isspace(*p)) {
-                                break;
-                            }
-
-                            if (*p == '%') {
-                                placeholder_name_length = count;
-
-                                ASSERT(placeholder_name_length < MAX_NAME_LENGTH);
-
-                                placeholder_amounts[component_index] += 1;
-                                break;
-                            }
-
-                            count += 1;
-                            p += 1;
+                    char *p = c + 1;
+                    while (*p != '\0') { // NOTE: This check is wrong! I should check that I am not going over 
+                                         // lexer->content.length not the end of a null terminated string
+                        if (isspace(*p)) {
+                            // It wasn't a placeholder after all, because the placeholder format 
+                            // should be '%some_name%' without any whitespace in between.
+                            break;
                         }
+
+                        if (*p == '%') {
+                            ASSERT(placeholder_name_length < MAX_NAME_LENGTH); // TODO: Print a usefull error for the user
+
+                            placeholder_amounts[component_index] += 1;
+                            break;
+                        }
+
+                        placeholder_name_length += 1;
+                        p += 1;
                     }
                 }
 
-                if (strncmp("<x-", c, strlen("<x-")) == 0) {
-                    tag_stack_count += 1;
-                }
-
-                if (strncmp("</x-", c, strlen("</x-")) == 0) {
+                // This simple check could give false positives, but it doesn't matter much,
+                // as it would only result in a slightly larger tag_stack_max that won't be fully used.
+                if (strncmp("<x-", c, strlen("<x-")) == 0 || strncmp("</x-", c, strlen("</x-")) == 0) {
                     tag_stack_count += 1;
                 }
             }
@@ -998,18 +999,18 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
         }
     }
 
+    // LEFT OFF HERE
+
     for (i = 0; i < components_count; i++) {
         components_soa.placeholders_soa[i] = memory_alloc(memory, sizeof(PlaceholderSOA));
         components_soa.placeholders_soa[i]->names = memory_alloc(memory, sizeof(Name) * placeholder_amounts[i]);
     }
 
-    TagStack tag_stack = {0}; // used to keep track of open tags, ensuring proper closing order.
+    TagStack tag_stack = {0}; // used to keep track of open xtags, ensuring proper closing order.
     tag_stack.data = memory_alloc(memory, sizeof(TagStackElement) * tag_stack_max);
 
-    NodeArray node_array = {0}; // used to temporarily hold nodes that are later used to construct the component AST.
+    NodeArray node_array = {0}; // used to temporarily hold nodes while parsing component template and later used to construct the component AST.
     node_array.data = memory_alloc(memory, sizeof(Node *) * tag_stack_max);
-
-    component_index = 0;
 
     for (i = 0; i < assets_soa.count; i++) {
         if (!is_html_path(assets_soa.locations[i])) {
@@ -1021,14 +1022,15 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
         Token token = get_next_token(&lexer);
         while (token.kind != TOKEN_EOF) {
             if (token.kind == TOKEN_INVALID) {
+                // TODO: What do we do in this case?
                 // ASSERT(0);
                 goto proceed_to_next_token;
             }
 
             if (token.kind == TOKEN_PLACEHOLDER) {
-                u32 count = components_soa.placeholders_soa[component_index]->count;
-                memcpy(components_soa.placeholders_soa[component_index]->names[count], token.identifier.data, token.identifier.length);
-                components_soa.placeholders_soa[component_index]->count += 1;
+                u32 count = components_soa.placeholders_soa[components_soa.count]->count;
+                memcpy(components_soa.placeholders_soa[components_soa.count]->names[count], token.identifier.data, token.identifier.length);
+                components_soa.placeholders_soa[components_soa.count]->count += 1;
 
                 goto proceed_to_next_token;
             }
@@ -1038,7 +1040,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
             boolean has_name_attr = false;
             u32 name_attr_index = 0;
 
-            size_t j;
+            u32 j;
             for (j = 0; j < attribute_array.count; j++) {
                 if (strncmp("name", attribute_array.attributes[j].name.data, attribute_array.attributes[j].name.length) == 0) {
                     has_name_attr = true;
@@ -1078,7 +1080,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                                 return -1;
                             }
 
-                            // components_soa.components[components_soa.count].data = token.tag.data + token.tag.length;
+                            components_soa.components[components_soa.count].data = token.tag.markup.data + token.tag.markup.length;
 
                             Node *root = create_node(memory, token, lexer.file_path, lexer.line_number, attribute_array, NULL);
 
@@ -1099,7 +1101,7 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                                 return -1;
                             }
 
-                            // components_soa.components[components_soa.count].length = token.tag.data - components_soa.components[components_soa.count].data;
+                            components_soa.components[components_soa.count].length = token.tag.markup.data - components_soa.components[components_soa.count].data;
 
                             ASTNode *ast_root = convert_to_ast(memory, node_array.data, node_array.count);
                             // print_ast_tree(ast_root, 0);
@@ -1144,8 +1146,6 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
 
                             node_array.count = 0;
                             memset(node_array.data, 0, sizeof(Node *) * tag_stack_max);
-
-                            component_index += 1;
 
                             goto proceed_to_next_token;
                         }
@@ -1498,19 +1498,18 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
         }
     }
 
-    //  - check that all component import attributes must exist inside the imported component as %replasables% - TODO this
-    //  - warn user if it's using a component import with self-closing tag but component definition for the imported component does contain slots. Same for attribues.
+    // TODO: (Maybe) Warn the user if they are using a component import as a self-closing tag, but the corresponding 
+    //       component definition contains slots. Same idea for component import attributes and placeholders.
 
     for (i = 0; i < components_soa.count; i++) {
         print_components_soa(&components_soa, i);
         char *component_name = components_soa.names[i];
 
-        if (components_soa.imports_soa[i]) {
+        if (components_soa.imports_soa[i]) { // Does the component have any imports? If the component at index `i` in the SOA has no imports, this should be NULL because memory was never allocated.
             u32 num_imports = components_soa.imports_soa[i]->count;
 
             u32 j;
             for (j = 0; j < num_imports; j++) {
-                ASTNode *import_ast_node = components_soa.imports_soa[i]->ast_nodes[j];
                 char *import_name = components_soa.imports_soa[i]->names[j];
                 if (strncmp(component_name, import_name, strlen(import_name)) == 0) {
                     char error[] = "Recursive import. Component is importing itself";
@@ -1523,14 +1522,57 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                     ASSERT(0);
                 }
 
-                // check that imported components_soa actually exist
-                u32 imported_component_index = 9999;
+                // Check that imported components actually exist
+                boolean component_exists = false;
+                u32 imported_component_index = 0;
+
+                ASTNode *import_ast_node = components_soa.imports_soa[i]->ast_nodes[j]; // Component AST starting at the currently iterated component import.
+                                                                                        // Bellow example for Component `foo` and currently iterated component import `bar`:
+                                                                                        // 
+                                                                                        //  <x-component-def name="foo">
+                                                                                        //      <div>
+                                                                                        //          <div>
+                                                                                        //             ↓ FROM HERE
+                                                                                        //              <x-component name="bar">
+                                                                                        //                  <x-insert name="default">
+                                                                                        //                      ...
+                                                                                        //                  </x-insert>
+                                                                                        //              </x-component> 
+                                                                                        //                            ↑ TO HERE
+                                                                                        //          </div>
+                                                                                        //          <div>
+                                                                                        //              <x-component name="baz">
+                                                                                        //                  <x-insert name="default">
+                                                                                        //                      ...
+                                                                                        //                  </x-insert>
+                                                                                        //              </x-component>
+                                                                                        //          </div>
+                                                                                        //      </div>
+                                                                                        //  </x-component-def>
 
                 u32 k;
                 for (k = 0; k < components_soa.count; k++) {
                     if (strncmp(import_name, components_soa.names[k], strlen(import_name)) == 0) {
                         imported_component_index = k;
+                        component_exists = true;
 
+                        // Check that all attributes in the component import statement (except the 'name' attribute) 
+                        // exist as placeholders in the imported component. 
+                        // NOTE: Placeholders may appear anywhere within the component definition.
+                        // 
+                        // component import:
+                        //      ...
+                        //         <x-component name="bar" fistname="John" input_style="class='text-[22px]/[28px] font-semibold'">
+                        //            ...                  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        //         </x-component>
+                        //      ...
+                        //
+                        // imported component:
+                        //      <x-component-def name="bar">
+                        //          ...
+                        //          <input value="%fistname%" %input_style% />
+                        //      </x-component-def>
+                        //
                         u32 h;
                         for (h = 0; h < import_ast_node->attribute_array.count; h++) {
                             if (h == import_ast_node->attribute_array.name_attr_index) {
@@ -1551,15 +1593,69 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                                 }
                             }
 
-                            // TODO: print error
-                            ASSERT(found);
+                            if (!found) {
+                                // TODO: print error
+                                ASSERT(0);
+                            }
                         }
 
                         break;
                     }
                 }
 
-                if (imported_component_index == 9999) {
+                if (component_exists) {
+                    // Check that the component import inserts match the slots in the corresponding component.
+                    // 
+                    // component import:
+                    //      ...
+                    //         <x-component name="bar">
+                    //             <x-insert name="fistname">
+                    //                  John
+                    //             </x-insert>
+                    //             <x-insert name="lastname">
+                    //                  Doe
+                    //             </x-insert>
+                    //         </x-component>
+                    //      ...
+                    //
+                    // imported component:
+                    //      <x-component-def name="bar">
+                    //          ... 
+                    //          <p>
+                    //              <x-slot name="fistname" />
+                    //          </p>
+                    //          <p>
+                    //              <x-slot name="lastname" />
+                    //          </p>
+                    //          ...
+                    //      </x-component-def>
+                    //
+                    u32 insert_count = components_soa.imports_soa[i]->inserts_soa[j].count;
+                    InsertSOA *inserts_soa = &components_soa.imports_soa[i]->inserts_soa[j];
+                    u32 h;
+                    for (h = 0; h < insert_count; h++) {
+                        char *insert = inserts_soa->names[h];
+
+                        boolean slot_exists = false;
+                        u32 imported_component_slot_index = 0;
+
+                        if (components_soa.slots_soa[imported_component_index]) {
+                            u32 f;
+                            for (f = 0; f < components_soa.slots_soa[imported_component_index]->count; f++) {
+                                if (strncmp(components_soa.slots_soa[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
+                                    slot_exists = true;
+                                    imported_component_slot_index = f;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!slot_exists) {
+                            // TODO: print error
+                            ASSERT(0);
+                        }
+                    }
+                } else {
                     char error[] = "Component you are trying to import does not exist";
                     printf("%s:\n", error);
                     printf("    file: %.*s\n", (int)components_soa.file_paths[i].length, components_soa.file_paths[i].data);
@@ -1568,30 +1664,6 @@ int build_html_components(Memory *memory, Memory *scratch_memory, AssetSOA asset
                     print_tag_attr_error(components_soa.contents[i], components_soa.imports_soa[i]->ast_nodes[j], components_soa.imports_soa[i]->ast_nodes[j]->attribute_array.attributes[components_soa.imports_soa[i]->ast_nodes[j]->attribute_array.name_attr_index]);
 
                     ASSERT(0);
-                }
-
-                // check that imported components_soa do contain inserts as slots
-                u32 insert_count = components_soa.imports_soa[i]->inserts_soa[j].count;
-                InsertSOA *inserts_soa = &components_soa.imports_soa[i]->inserts_soa[j];
-                u32 h;
-                for (h = 0; h < insert_count; h++) {
-                    char *insert = inserts_soa->names[h];
-
-                    u32 imported_component_slot_index = 9999;
-
-                    if (components_soa.slots_soa[imported_component_index]) {
-                        u32 f;
-                        for (f = 0; f < components_soa.slots_soa[imported_component_index]->count; f++) {
-                            if (strncmp(components_soa.slots_soa[imported_component_index]->names[f], insert, strlen(insert)) == 0) {
-                                imported_component_slot_index = f;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (imported_component_slot_index == 9999) {
-                        ASSERT(0);
-                    }
                 }
             }
         }

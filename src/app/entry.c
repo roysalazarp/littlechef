@@ -30,62 +30,54 @@ typedef char StrNumber[10];
 
 typedef char *ValidationError;
 
+// This function is implemented by the framework user to set up web server resources.
 void setup_web_server_resources(Memory *persisting_memory, Memory *scratch_memory, AssetSOA assets_soa) {
     u32 i;
-    size_t j;
+    u32 j; // NOTE: This was previously of type size_t — there may have been a reason for that.
 
-    // To access data stored in the web server persisted memory block.
+    // Data structure defined by the framework user to access data stored in the web server persisted memory block.
     PersistingData *persisting_data = (PersistingData *)memory_alloc(persisting_memory, sizeof(PersistingData));
 
     AssetSOA public_assets_soa = {0};
+
     for (i = 0; i < assets_soa.count; i++) {
-        String filepath_reference = assets_soa.locations[i];
-
-        if (is_html_path(filepath_reference)) {
-            continue;
+        if (!is_html_path(assets_soa.locations[i])) {
+            public_assets_soa.count++;
         }
-
-        public_assets_soa.count++;
     }
 
     j = 0;
     public_assets_soa.locations = memory_alloc(persisting_memory, sizeof(String) * public_assets_soa.count);
     for (i = 0; i < assets_soa.count; i++) {
-        String filepath_reference = assets_soa.locations[i];
+        String filepath = assets_soa.locations[i];
 
-        if (is_html_path(filepath_reference)) {
-            continue;
+        if (!is_html_path(filepath)) {
+            String filepath_copy = {0};
+            filepath_copy.data = memory_alloc(persisting_memory, sizeof(char) * filepath.length);
+            filepath_copy.length = filepath.length;
+
+            memcpy(filepath_copy.data, filepath.data, filepath.length);
+
+            public_assets_soa.locations[j] = filepath_copy;
+            j++;
         }
-
-        String filepath = {0};
-        filepath.data = memory_alloc(persisting_memory, sizeof(char) * filepath_reference.length);
-        filepath.length = filepath_reference.length;
-
-        memcpy(filepath.data, filepath_reference.data, filepath_reference.length);
-
-        public_assets_soa.locations[j] = filepath;
-        j++;
     }
 
     j = 0;
     public_assets_soa.contents = memory_alloc(persisting_memory, sizeof(String) * public_assets_soa.count);
     for (i = 0; i < assets_soa.count; i++) {
-        String filepath_reference = assets_soa.locations[i];
+        if (!is_html_path(assets_soa.locations[i])) {
+            String content = assets_soa.contents[i];
 
-        if (is_html_path(filepath_reference)) {
-            continue;
+            String content_copy = {0};
+            content_copy.data = memory_alloc(persisting_memory, sizeof(char) * content.length);
+            content_copy.length = content.length;
+
+            memcpy(content_copy.data, content.data, content.length);
+
+            public_assets_soa.contents[j] = content_copy;
+            j++;
         }
-
-        String content_reference = assets_soa.contents[i];
-
-        String content = {0};
-        content.data = memory_alloc(persisting_memory, sizeof(char) * content_reference.length);
-        content.length = content_reference.length;
-
-        memcpy(content.data, content_reference.data, content_reference.length);
-
-        public_assets_soa.contents[j] = content;
-        j++;
     }
 
     persisting_data->public_assets_soa = public_assets_soa;

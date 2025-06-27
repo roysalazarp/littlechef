@@ -47,7 +47,8 @@
         "http.h": "c",
         "optional": "c",
         "istream": "c",
-        "system_error": "c"
+        "system_error": "c",
+        "algorithm": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

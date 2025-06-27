@@ -98,17 +98,19 @@ void locate_files(Memory *memory, String *filepaths, char base_path[], const cha
     closedir(dir);
 }
 
-void initialise_web_server_resources(Memory *memory) {
+void initialise_web_server_resources(Memory *persisting_memory) {
     // All asset files (e.g., HTML, JS, etc.) located at ASSETS_FULLPATH
     // are provided in a temporary buffer to the application through
-    // the setup_web_server_resources function. This function typicall,
+    // the setup_web_server_resources function. This function typically,
     // processes these files into a global memory block that persists
     // throughout the web server's lifetime.
 
-    // Temporary memory buffer from which the application will retrieve
-    // the assets from.
+    // Temporary memory buffer from which the application retrieves
+    // assets. This buffer is cleared once the setup_web_server_resources 
+    // function returns.
     Memory *assets_memory = initialise_memory(PAGE_SIZE * 50);
 
+    // MAX_ASSET_FILES must be defined by the framework user.
     String *filepaths = memory_alloc(assets_memory, sizeof(String) * MAX_ASSET_FILES);
     u32 count = 0;
     locate_files(assets_memory, filepaths, ASSETS_FULLPATH, ASSETS_FULLPATH, &count, MAX_ASSET_FILES);
@@ -142,8 +144,11 @@ void initialise_web_server_resources(Memory *memory) {
     assets_soa.contents = contents;
     assets_soa.count = count;
 
+    // Temporary memory buffer used by the application during web server setup.
+    // This buffer is cleared once the setup_web_server_resources function returns.
     Memory *scratch_memory = initialise_memory(PAGE_SIZE * 50);
-    setup_web_server_resources(memory, scratch_memory, assets_soa);
+    
+    setup_web_server_resources(persisting_memory, scratch_memory, assets_soa);
 
     munmap(assets_memory->start, assets_memory->size);
     munmap(scratch_memory->start, scratch_memory->size);
@@ -296,6 +301,8 @@ int main() {
         ASSERT(0);
     }
 
+    // This memory block is typically used to store data (e.g., HTML templates) during web server setup
+    // and is probably used as read-only afterward when handling client requests.
     Memory *persisting_memory = initialise_memory(PAGE_SIZE * 200);
 
     initialise_web_server_resources(persisting_memory);

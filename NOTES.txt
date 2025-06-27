@@ -1,2 +1,4 @@
 - Finish markup parser
 - Clean up folders and files from all project
+
+Should erros from build_html_components return an string so it can be verified when unit testing
